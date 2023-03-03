@@ -56,6 +56,13 @@ PlotPointData(Tracking, points = c("nose"))
 total_time <- 10 * 60
 IsInZoneLeft <- GetDistances(Tracking, "socl", "nose") < 6
 IsInZoneRight <- GetDistances(Tracking, "socr", "nose") < 6
+nose_last_non_na <- zoo::na.locf(Tracking$nose, na.rm = FALSE)
+IsInZoneLeft <- ifelse(is.na(Tracking$nose), 
+                       GetDistances(Tracking, "socl", "center") < 6,
+                       GetDistances(Tracking, "socl", "nose") < 6)
+IsInZoneRight <- ifelse(is.na(Tracking$nose), 
+                        GetDistances(Tracking, "socr", "center") < 6,
+                        GetDistances(Tracking, "socr", "nose") < 6)
 IsInZoneLeft[is.na(IsInZoneLeft)] <- TRUE
 IsInZoneRight[is.na(IsInZoneRight)] <- TRUE
 time_Left <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
