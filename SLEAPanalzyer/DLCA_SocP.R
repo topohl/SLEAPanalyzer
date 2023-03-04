@@ -1,81 +1,80 @@
-# -------------------------------------------------------------------
-## install tensor flow and prepare for libraries and add new environment r-reticulate
-
+# install tensor flow and prepare for libraries and add new environment r-reticulate
 install.packages("tensorflow")
-
 library(reticulate)
 path_to_python <- install_python()
 virtualenv_create("r-reticulate", python = path_to_python)
-
 library(tensorflow)
 install_tensorflow(envname = "r-reticulate")
-
 install.packages("keras")
 library(keras)
 install_keras(envname = "r-reticulate")
-
 library(tensorflow)
 tf$constant("Hello Tensorflow!")
 
-
-# -------------------------------------------------------------------
-## load dependencies
-
-library(sp)         #tested with v1.3-2
-library(imputeTS)   #tested with v3.0
-library(ggplot2)    #tested with v3.1.0
-library(ggmap)      #tested with v3.0.0
-library(data.table) #tested with v1.12.8
-library(cowplot)    #tested with v0.9.4
-library(corrplot)   #tested with v0.84
-library(keras)      #REQUIRES TENSORFLOW INSTALL. tested with v2.2.5.0
-
-
-# -------------------------------------------------------------------
-## for single file analysis of SocP time in zones data
+# Load required libraries
+library(sp)
+library(imputeTS)
+library(ggplot2)
+library(ggmap)
+library(data.table)
+library(cowplot)
+library(corrplot)
+library(keras)
+library(tensorflow)
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
-# Read in tracking data and get names of variables in the data frame
-input_file <- "C:/Users/topohl/Documents/GitHub/sleap/docs/notebooks/SocP_F9L3_GX0788_S2_locs.csv"
-Tracking <- ReadDLCDataFromCSV(file = input_file, fps = 30)
+# Set input and output directories
+input_dir <- "C:/Users/topohl/Documents/GitHub/sleap/docs/notebooks"
+output_dir <- "C:/Users/topohl/Documents/GitHub/sleap/docs/notebooks/output"
 
-# Extract the input file name without the extension
-input_file_name <- sub(".csv$", "", basename(input_file))
+# Get a list of CSV files in the input directory
+file_list <- list.files(path = input_dir, pattern = "*.csv")
 
-Tracking <- CalibrateTrackingData(Tracking, method = "area",in.metric = 44*24, points = c("tl","tr","br","bl"))
+# Loop through each file in the input directory
+for (file in file_list) {
+  
+  # Read in tracking data and get names of variables in the data frame
+  input_file <- file.path(input_dir, file)
+  Tracking <- ReadDLCDataFromCSV(file = input_file, fps = 30)
 
-Tracking <- AddOFTZones(Tracking, scale_center = 0.5,scale_periphery  = 0.8 ,scale_corners = 0.4, points = c("tl","tr","br","bl"))
-PlotZones(Tracking)
+  # Extract the input file name without the extension
+  input_file_name <- sub(".csv$", "", basename(input_file))
 
-PlotPointData(Tracking, points = c("nose"))
+  # Calibrate the tracking data, add zones, and plot the zones
+  Tracking <- CalibrateTrackingData(Tracking, method = "area",in.metric = 44*24, points = c("tl","tr","br","bl"))
+  Tracking <- AddOFTZones(Tracking, scale_center = 0.5,scale_periphery  = 0.8 ,scale_corners = 0.4, points = c("tl","tr","br","bl"))
+  PlotZones(Tracking)
+  PlotPointData(Tracking, points = c("nose"))
 
-# Calculate time_Left and time_Right
-total_time <- 10 * 60
-IsInZoneLeft <- GetDistances(Tracking, "socl", "nose") < 6
-IsInZoneRight <- GetDistances(Tracking, "socr", "nose") < 6
-nose_last_non_na <- zoo::na.locf(Tracking$nose, na.rm = FALSE)
-IsInZoneLeft <- ifelse(is.na(Tracking$nose), 
-                       GetDistances(Tracking, "socl", "center") < 6,
-                       GetDistances(Tracking, "socl", "nose") < 6)
-IsInZoneRight <- ifelse(is.na(Tracking$nose), 
-                        GetDistances(Tracking, "socr", "center") < 6,
-                        GetDistances(Tracking, "socr", "nose") < 6)
-IsInZoneLeft[is.na(IsInZoneLeft)] <- TRUE
-IsInZoneRight[is.na(IsInZoneRight)] <- TRUE
-time_Left <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
-time_Right <- sum(IsInZoneRight) * total_time / length(IsInZoneRight)
+  # Calculate time_Left and time_Right direct
+  total_time <- 10 * 60
+  IsInZoneLeft <- GetDistances(Tracking, "socl", "nose") < 6
+  IsInZoneRight <- GetDistances(Tracking, "socr", "nose") < 6
+  nose_last_non_na <- zoo::na.locf(Tracking$nose, na.rm = FALSE)
+  IsInZoneLeft[is.na(IsInZoneLeft)] <- TRUE
+  IsInZoneRight[is.na(IsInZoneRight)] <- TRUE
+  ContactLeft <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
+  ContactRight <- sum(IsInZoneRight) * total_time / length(IsInZoneRight)
+  
+  # Calculate time with nose between 6-10 cm of either socl or socr
+  IsInProxLeft <- GetDistances(Tracking, "socl", "nose") >= 6 & GetDistances(Tracking, "socl", "nose") <= 10
+  IsInProxRight <- GetDistances(Tracking, "socr", "nose") >= 6 & GetDistances(Tracking, "socr", "nose") <= 10
+  ProxLeft <- sum(IsInProxLeft) * total_time / length(IsInProxLeft)
+  ProxRight <- sum(IsInProxRight) * total_time / length(IsInProxRight)
 
-# Create a data frame with the time_Left and time_Right values
-df <- data.frame(time_Left = time_Left, time_Right = time_Right)
+  # Create a data frame with the time_Left, time_Right, time_nose_Left, and time_nose_Right values
+  df <- data.frame(ContactLeft = ContactLeft, ContactRight = ContactRight, 
+                 ProxLeft = ProxLeft, ProxRight = ProxRight)
 
-# Construct the output file name
-output_file <- paste0(input_file_name, "_output.csv")
+  # Construct the output file name
+  output_file <- paste0(input_file_name, "_output.csv")
 
-# Write the data frame to a csv file with the constructed file name
-write.csv(df, output_file, row.names = FALSE)
+  # Write the data frame to a csv file with the constructed file name
+  write.csv(df, output_file, row.names = FALSE)
+}
 
 
 
