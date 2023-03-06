@@ -21,6 +21,7 @@ library(cowplot)
 library(corrplot)
 library(keras)
 library(tensorflow)
+library(zoo)
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
@@ -43,6 +44,10 @@ for (file in file_list) {
   # Extract the input file name without the extension
   input_file_name <- sub(".csv$", "", basename(input_file))
 
+  # Replace NAs in the x and y columns of the nose data frame with the last known values
+  Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose$x)
+  Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose$y)
+  
   # Calibrate the tracking data, add zones, and plot the zones
   Tracking <- CalibrateTrackingData(Tracking, method = "area",in.metric = 44*24, points = c("tl","tr","br","bl"))
   Tracking <- AddOFTZones(Tracking, scale_center = 0.5,scale_periphery  = 0.8 ,scale_corners = 0.4, points = c("tl","tr","br","bl"))
@@ -53,9 +58,6 @@ for (file in file_list) {
   total_time <- 10 * 60
   IsInZoneLeft <- GetDistances(Tracking, "socl", "nose") < 6
   IsInZoneRight <- GetDistances(Tracking, "socr", "nose") < 6
-  nose_last_non_na <- zoo::na.locf(Tracking$nose, na.rm = FALSE)
-  IsInZoneLeft[is.na(IsInZoneLeft)] <- TRUE
-  IsInZoneRight[is.na(IsInZoneRight)] <- TRUE
   ContactLeft <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
   ContactRight <- sum(IsInZoneRight) * total_time / length(IsInZoneRight)
   
