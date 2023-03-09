@@ -1,12 +1,12 @@
-# **SLEAP/DLC Tracking Data Analysis with Modified DLCanalyzer**
+# **SLEAP/DLC Tracking Data Analysis with Modified DLCAnalyzer**
 
-This project provides a modified version of the DLCanalyzer R package that supports the analysis of SLEAP/DLC tracking data. Additionally, this project adds functionality to DLCAnalyzer that is not provided out of the box.
+This project provides a modified version of the DLCAnalyzer R package that supports the analysis of SLEAP/DLC tracking data. Additionally, this project adds functionality to DLCAnalyzer that is not provided out of the box.
 
 ## Overview
 
-[DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer) is a powerful tool for analyzing and visualizing tracking data from various animal behavioral tests, written in R. However, it only supports analyzing data acquired using DeepLabCut. This project extends the functionality of DLCanalyzer to support analyzing tracking data acquired using [SLEAP](https://sleap.ai).
+[DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer) is a great tool for analyzing and visualizing tracking data from various animal behavioral tests, written in R. However, it only supports analyzing data acquired using DeepLabCut. This project extends the functionality of DLCanalyzer to support analyzing tracking data acquired using [SLEAP](https://sleap.ai).
 
-In addition to SLEAP support, this project adds custom analyses to DLCanalyzer that are not provided out of the box. This allows researchers to perform custom analyses using the DLCanalyzer framework.
+In addition to SLEAP support, this project adds custom analyses to DLCAnalyzer that are not provided out of the box. This allows researchers to perform custom analyses using the DLCAnalyzer framework.
 
 ### Features
 
