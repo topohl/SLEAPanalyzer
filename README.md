@@ -17,7 +17,7 @@ In addition to SLEAP support, this project adds custom analyses to DLCanalyzer t
 ## Installation
 
 Installation processes for SLEAP and DLCanalyzer can be found here:
-* [SLEAP](https://sleap.ai)
-* [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer)
+* [SLEAP](https://sleap.ai/installation.html)
+* [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer#getting-started)
 
 To install the modified DLCanalyzer package and the required packages, run the following command in R:
