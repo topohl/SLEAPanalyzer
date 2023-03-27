@@ -9,7 +9,6 @@ install.packages("keras")
 library(keras)
 install_keras(envname = "r-reticulate")
 library(tensorflow)
-tf$constant("Hello Tensorflow!")
 
 # Load required libraries
 library(sp)
@@ -76,7 +75,22 @@ for (file in file_list) {
 
   # Write the data frame to a csv file with the constructed file name
   write.csv(df, output_file, row.names = FALSE)
+
+  # Add the current data frame to the list
+  df_list[[length(df_list) + 1]] <- df
+
+  # Print progress message
+  cat(sprintf("Processed file %s\n", file))
 }
+
+# Combine all data frames into a single data frame
+df_combined <- do.call(rbind, df_list)
+
+# Write the combined data frame to a csv file
+write.csv(df_combined, file.path(output_dir, "combined_output.csv"), row.names = FALSE)
+
+# Print "done" message
+cat("done\n")
 
 
 
