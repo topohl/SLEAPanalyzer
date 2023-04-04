@@ -33,6 +33,9 @@ output_dir <- "C:/Users/topohl/Documents/GitHub/sleap/docs/notebooks/output"
 # Get a list of CSV files in the input directory
 file_list <- list.files(path = input_dir, pattern = "*.csv")
 
+# create new list df_list
+df_list <- list()
+
 # Loop through each file in the input directory
 for (file in file_list) {
   
