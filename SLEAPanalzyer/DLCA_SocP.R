@@ -70,7 +70,7 @@ for (file in file_list) {
   ProxRight <- sum(IsInProxRight) * total_time / length(IsInProxRight)
 
   # Create a data frame with the time_Left, time_Right, time_nose_Left, and time_nose_Right values
-  df <- data.frame(ContactLeft = ContactLeft, ContactRight = ContactRight, 
+  df <- data.frame(file = input_file_name, ContactLeft = ContactLeft, ContactRight = ContactRight, 
                  ProxLeft = ProxLeft, ProxRight = ProxRight)
 
   # Construct the output file name
