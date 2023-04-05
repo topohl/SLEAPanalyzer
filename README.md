@@ -21,3 +21,9 @@ Installation processes for SLEAP and DLCanalyzer can be found here:
 * [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer#getting-started)
 
 To install the modified DLCanalyzer package and the required packages, run the following command in R:
+
+## Usage
+
+After prediction of animal and geometric (arena) coordinates, extract the coordinates from respective .h5 files using the respective python notebook provided in SLEAPcoords.
+Afterwards, merge and format the created coords files (animal and geom) using the DLCA_Dataform notebook.
+The resulting file can be analyzed using the provided code within the SLEAPanalyzer directory which relies on basic functionality of DLCAnalyzer.
