@@ -58,14 +58,14 @@ for (file in file_list) {
   
   # Calculate time_Left and time_Right direct
   total_time <- 10 * 60
-  IsInZoneLeft <- GetDistances(Tracking, "objL", "nose") < 6
-  IsInZoneRight <- GetDistances(Tracking, "objR", "nose") < 6
+  IsInZoneLeft <- GetDistances(Tracking, "objL", "nose") < 4
+  IsInZoneRight <- GetDistances(Tracking, "objR", "nose") < 4
   ContactLeft <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
   ContactRight <- sum(IsInZoneRight) * total_time / length(IsInZoneRight)
   
   # Calculate time with nose between 6-10 cm of either objL or objR
-  IsInProxLeft <- GetDistances(Tracking, "objL", "nose") >= 6 & GetDistances(Tracking, "objL", "nose") <= 10
-  IsInProxRight <- GetDistances(Tracking, "objR", "nose") >= 6 & GetDistances(Tracking, "objR", "nose") <= 10
+  IsInProxLeft <- GetDistances(Tracking, "objL", "nose") >= 4 & GetDistances(Tracking, "objL", "nose") <= 8
+  IsInProxRight <- GetDistances(Tracking, "objR", "nose") >= 4 & GetDistances(Tracking, "objR", "nose") <= 8
   ProxLeft <- sum(IsInProxLeft) * total_time / length(IsInProxLeft)
   ProxRight <- sum(IsInProxRight) * total_time / length(IsInProxRight)
   
