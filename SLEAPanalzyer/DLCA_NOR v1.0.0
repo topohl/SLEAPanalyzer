@@ -56,22 +56,30 @@ for (file in file_list) {
   PlotZones(Tracking)
   PlotPointData(Tracking, points = c("nose"))
   
+  Tracking <- OFTAnalysis(Tracking, points = "center" ,movement_cutoff = 5, integration_period = 5)
+  
   # Calculate time_Left and time_Right direct
   total_time <- 10 * 60
-  IsInZoneLeft <- GetDistances(Tracking, "objL", "nose") < 4
-  IsInZoneRight <- GetDistances(Tracking, "objR", "nose") < 4
+  IsInZoneLeft <- GetDistances(Tracking, "objL", "nose") <= 4 & GetDistances(Tracking, "objL", "center") > 1
+  IsInZoneRight <- GetDistances(Tracking, "objR", "nose") <= 4 & GetDistances(Tracking, "objR", "center") > 1
   ContactLeft <- sum(IsInZoneLeft) * total_time / length(IsInZoneLeft)
   ContactRight <- sum(IsInZoneRight) * total_time / length(IsInZoneRight)
   
   # Calculate time with nose between 6-10 cm of either objL or objR
-  IsInProxLeft <- GetDistances(Tracking, "objL", "nose") >= 4 & GetDistances(Tracking, "objL", "nose") <= 8
-  IsInProxRight <- GetDistances(Tracking, "objR", "nose") >= 4 & GetDistances(Tracking, "objR", "nose") <= 8
+  IsInProxLeft <- GetDistances(Tracking, "objL", "nose") > 4 & GetDistances(Tracking, "objL", "nose") <= 8
+  IsInProxRight <- GetDistances(Tracking, "objR", "nose") > 4 & GetDistances(Tracking, "objR", "nose") <= 8
   ProxLeft <- sum(IsInProxLeft) * total_time / length(IsInProxLeft)
   ProxRight <- sum(IsInProxRight) * total_time / length(IsInProxRight)
   
+  # Calculate frequency of zone visits for objL and nose
+  IsInZoneVisitL <- cumsum(GetDistances(Tracking, "objL", "nose") <= 4) > 0 & c(0, diff(GetDistances(Tracking, "objL", "nose") <= 4)) == 1
+  FrequencyL <- sum(IsInZoneVisitL)
+  IsInZoneVisitR <- cumsum(GetDistances(Tracking, "objR", "nose") <= 4) > 0 & c(0, diff(GetDistances(Tracking, "objR", "nose") <= 4)) == 1
+  FrequencyR <- sum(IsInZoneVisitR)
+  
   # Create a data frame with the time_Left, time_Right, time_nose_Left, and time_nose_Right values
-  df <- data.frame(file = input_file_name, ContactLeft = ContactLeft, ContactRight = ContactRight, 
-                   ProxLeft = ProxLeft, ProxRight = ProxRight)
+  df <- data.frame(file = input_file_name, ContactLeft = ContactLeft, ContactRight = ContactRight,
+                   ProxLeft = ProxLeft, ProxRight = ProxRight, FrequencyL = FrequencyL, FrequencyR = FrequencyR, distance = Tracking$Report$center.raw.distance, stationary = Tracking$Report$center.time.stationary, speed_moving = Tracking$Report$center.speed.moving, speed_raw = Tracking$Report$center.raw.speed)
   
   # Construct the output file name
   output_file <- paste0(input_file_name, "_output.csv")
