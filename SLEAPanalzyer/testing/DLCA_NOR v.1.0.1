@@ -69,10 +69,17 @@ for (file in file_list) {
   FrequencyL <- sum(IsInZoneVisitL)
   IsInZoneVisitR <- cumsum(GetDistances(Tracking, "objR", "nose") <= 4) > 0 & c(0, diff(GetDistances(Tracking, "objR", "nose") <= 4)) == 1
   FrequencyR <- sum(IsInZoneVisitR)
+
+  # Calculate frequency of rearings
+  FreqRear <- cumsum(GetDistances(Tracking, "spine1", "bodycentre") <= 1) > 0 &
+    cumsum(GetDistances(Tracking, "bodycentre", "spine2") <= 1) > 0 &
+    c(0, diff(GetDistances(Tracking, "spine1", "bodycentre") <= 1)) == 1 &
+    c(0, diff(GetDistances(Tracking, "bodycentre", "spine2") <= 1)) == 1
+  FrequencyRear <- sum(FreqRear)
   
   # Create a data frame with the time_Left, time_Right, time_nose_Left, and time_nose_Right values
   df <- data.frame(file = input_file_name, ContactLeft = ContactLeft, ContactRight = ContactRight,
-                   ProxLeft = ProxLeft, ProxRight = ProxRight, FrequencyL = FrequencyL, FrequencyR = FrequencyR, distance = Tracking$Report$bodycentre.raw.distance, stationary = Tracking$Report$bodycentre.time.stationary, speed_moving = Tracking$Report$bodycentre.speed.moving, speed_raw = Tracking$Report$bodycentre.raw.speed)
+                   ProxLeft = ProxLeft, ProxRight = ProxRight, FrequencyL = FrequencyL, FrequencyR = FrequencyR, distance = Tracking$Report$bodycentre.raw.distance, stationary = Tracking$Report$bodycentre.time.stationary, speed_moving = Tracking$Report$bodycentre.speed.moving, speed_raw = Tracking$Report$bodycentre.raw.speed, FrquencyRear = FrequencyRear)
   
   # Construct the output file name
   output_file <- paste0(input_file_name, "_output.csv")
