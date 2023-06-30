@@ -1,0 +1,92 @@
+import os
+import pandas as pd
+
+# Define the directory containing the CSV files
+directory = r"S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior\B3\EPM\SLEAP"
+geom_folder = os.path.join(directory, "geom")
+animal_folder = os.path.join(directory, "animal")
+output_folder = os.path.join(directory, "formatted")
+
+# Create the 'formatted' folder if it doesn't exist
+os.makedirs(output_folder, exist_ok=True)
+
+# Get list of all CSV files in the geom folder
+geom_files = [f for f in os.listdir(geom_folder) if f.endswith('.csv')]
+
+# Loop through CSV files and merge with matching animal file
+for geom_file in geom_files:
+    animal_file = geom_file.replace("geom", "animal")
+    animal_path = os.path.join(animal_folder, animal_file)
+    if os.path.exists(animal_path):
+        geom_path = os.path.join(geom_folder, geom_file)
+        geom_df = pd.read_csv(geom_path)
+        animal_df = pd.read_csv(animal_path)
+        merged_df = pd.concat([geom_df, animal_df], axis=1)
+        merged_path = os.path.join(directory, geom_file.replace("analysis", "merged"))
+        merged_df.to_csv(merged_path, index=False)
+
+        # Format the merged dataframe
+        file_name = os.path.splitext(geom_file)[0]  # Get file name without extension
+
+        # Create the MultiIndex for the columns
+        columns = pd.MultiIndex.from_tuples([(c.split("_")[0], c.split("_")[1]) for c in merged_df.columns])
+
+        # Create the new dataframe with the split header
+        new_df = pd.DataFrame(columns=columns)
+
+        # Iterate over each original column and split the header
+        for col in merged_df.columns:
+            prefix, suffix = col.split("_")
+            new_df[prefix, suffix] = [prefix, suffix] + list(merged_df[col].values)
+
+        # Set the first row as the column headers
+        new_df.columns = new_df.iloc[0]
+
+        # Insert an empty column in front of the first existing column
+        new_df.insert(loc=0, column="", value="")
+
+        # Insert a new column at the beginning with "bodyparts" and "coords"
+        new_df.iloc[0, 0] = "bodyparts"
+        new_df.iloc[1, 0] = "coords"
+
+        # Shift "bodyparts" and "coords" up by one cell
+        new_df.iloc[1, 0] = new_df.iloc[1, 0]
+        new_df.iloc[2, 0] = ""
+
+        # Insert an empty row at the top of the dataframe
+        empty_row = pd.DataFrame([[""] * len(new_df.columns)], columns=new_df.columns)
+        new_df = pd.concat([empty_row, new_df], ignore_index=True)
+
+        # Reset the column labels
+        new_df.columns = new_df.iloc[0]
+        new_df = new_df.drop(new_df.index[0])
+
+        # Reset headers to standard format
+        new_header_names = ["column_" + str(i) for i in range(1, len(new_df.columns) + 1)]
+        new_df.columns = new_header_names
+
+        # Assign range of values to the first column below "coords"
+        new_df.iloc[2:, 0] = range(len(new_df) - 2)
+
+        # Insert new columns and set their values
+        for i in range(2, len(new_df.columns) + 26, 3):
+            new_col_name = new_df.columns[i] + "_new"
+            new_df.insert(i + 1, new_col_name, "")
+            new_df.iloc[0, i + 1] = new_df.iloc[0, i]
+            new_df.iloc[1, i + 1] = "likelihood"
+            new_df.iloc[2:, i + 1] = 1
+
+        # Extract the experiment info and code info from the file name
+        parts = file_name.split("_")
+        experiment_info = "_".join(parts[:4]).split("-")[0]
+        code_info = "_".join(parts[6:-1]).split(".")[0]
+
+        # Generate the output file name
+        output_file_name = f"{experiment_info}_{code_info}_formatted.csv"
+
+        # Save the formatted dataframe as a new CSV file
+        output_file_path = os.path.join(output_folder, output_file_name)
+        new_df.to_csv(output_file_path, index=False)
+
+        # Print a message after each file is processed
+        print(f"File {geom_file} formatted and saved as {output_file_name}")
