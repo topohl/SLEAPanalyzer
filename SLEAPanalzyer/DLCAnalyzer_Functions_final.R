@@ -382,10 +382,10 @@ EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips =
   
   #THIS IS A VERA ARBITRARY SECTION FOR THIS TYPE OF ANALYSIS. IT WILL ONLY WORK WITH THE CORRECT POINTS AND ZONES
   if(nosedips){
-    if((length(setdiff(c("headcentre","bodycentre","neck"),names(t$data))) != 0) | (length(setdiff(c("closed.top","closed.bottom","arena"),names(t$zones))) != 0)){
-      warning("Not all points or zones needed for nosedip analysis. Requires points : headcentre,bodycentre,neck and zones closed.top, closed.bottom, arena")
+    if((length(setdiff(c("headcentre","bodycentre","neck"),names(t$data))) != 0) | (length(setdiff(c("closed.left","closed.right","arena"),names(t$zones))) != 0)){
+      warning("Not all points or zones needed for nosedip analysis. Requires points : headcentre,bodycentre,neck and zones closed.left, closed.right, arena")
     }else{
-      t$labels$automatic.nosedip <- avgbool(!IsInZone(t,"headcentre","arena") & IsInZone(t,"bodycentre","arena") &!IsInZone(t,"neck",c("closed.top","closed.bottom")),integration_period)
+      t$labels$automatic.nosedip <- avgbool(!IsInZone(t,"headcentre","arena") & IsInZone(t,"bodycentre","arena") &!IsInZone(t,"neck",c("closed.left","closed.right")),integration_period)
       t$Report[["nose.dip"]] <- CalculateTransitions(t$labels$automatic.nosedip,integration_period) / 2
       t$labels$automatic.nosedip <- ifelse(t$labels$automatic.nosedip == 1,"Nosedip","None")
     }
@@ -403,12 +403,12 @@ EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips =
     t$Report[[paste(k, "percentage.moving", sep = ".")]] <- t$Report[[paste(k, "time.moving", sep = ".")]] / t$Report[[paste(k, "total.time", sep = ".")]] * 100
     
     t$Report <- append(t$Report, ZoneReport(t,k,"center", zone.name = paste(k,"center", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,c("open.right","open.left"), zone.name = paste(k,"open", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,c("closed.top","closed.bottom"), zone.name = paste(k,"closed", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,"closed.top",  zone.name = paste(k,"closed.top", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,"closed.bottom",  zone.name = paste(k,"closed.bottom", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,"open.left", zone.name = paste(k,"open.left", sep = ".")))
-    t$Report <- append(t$Report, ZoneReport(t,k,"open.right", zone.name = paste(k,"open.right", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,c("open.top","open.bottom"), zone.name = paste(k,"open", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,c("closed.left","closed.right"), zone.name = paste(k,"closed", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,"closed.left",  zone.name = paste(k,"closed.left", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,"closed.right",  zone.name = paste(k,"closed.right", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,"open.top", zone.name = paste(k,"open.top", sep = ".")))
+    t$Report <- append(t$Report, ZoneReport(t,k,"open.bottom", zone.name = paste(k,"open.bottom", sep = ".")))
   }
   return(t)
 }
@@ -854,30 +854,43 @@ ZscoreNormalizeFeatures <- function(t, omit = NULL, include = NULL, type = "mean
   return(t)
 }
 
-PlotDensityPaths <- function(t,points,SDcutoff = 4, Title = "density path"){
-  if(!IsTrackingData(t)){
+PlotDensityPaths <- function(t, points, SDcutoff = 4, Title = "density path") {
+  if (!IsTrackingData(t)) {
     stop("Object is not of type TrackingData")
   }
   out <- NULL
   
-  SDPlot <- function(x,nSD){
+  SDPlot <- function(x, nSD) {
     ifelse((mean(x) - x) / sd(x) > -nSD, x, mean(x) + nSD * sd(x))
   }
   
-  for(i in points){
-    
+  # Define custom Fire color scheme
+  fire_colors <- c("#000050", "#00008C", "#1800A3", "#300092", "#480081", "#600070", "#78005F", "#90004E", "#A8003D", "#C0002C", "#FF1500", "#FF3A00", "#FF8400", "#FFAA00", "#FFD200", "#FFFF80", "#FFFFB3", "#FFFFE6", "#FFFFFF")
+  speed_colors <- c("#000000", "#FFFFFF")
+  
+  for (i in points) {
     data_plot <- t$data[[i]]
     xbreaks <- seq(floor(min(data_plot$x)), ceiling(max(data_plot$x)), by = 0.1)
     ybreaks <- seq(floor(min(data_plot$y)), ceiling(max(data_plot$y)), by = 0.1)
-    data_plot$latbin <- xbreaks[cut(data_plot$x, breaks = xbreaks, labels=F)]
-    data_plot$longbin <- ybreaks[cut(data_plot$y, breaks = ybreaks, labels=F)]
-    out[[i]] <- ggplot(data = data_plot, aes(x,y)) + 
-      stat_density_2d(data = data_plot, aes(latbin,longbin, fill=..density..), geom = "raster", contour = FALSE) + 
-      scale_fill_gradient(name = "Time Density", low = "blue", high = "yellow") +
-      geom_path(data = data_plot, aes(x,y, color = SDPlot((speed * t$fps),SDcutoff))) + 
-      theme_bw() + 
-      ggtitle(paste(i,Title, sep = " ")) + 
-      scale_color_gradient2(name = paste("speed (",t$distance.units,"/s)",sep = ""), high = "white", low="black", mid = "black")
+    data_plot$latbin <- xbreaks[cut(data_plot$x, breaks = xbreaks, labels = FALSE)]
+    data_plot$longbin <- ybreaks[cut(data_plot$y, breaks = ybreaks, labels = FALSE)]
+    out[[i]] <- ggplot(data = data_plot, aes(x, y)) +
+      stat_density_2d(
+        data = data_plot,
+        aes(latbin, longbin, fill = ..density..),
+        geom = "raster",
+        contour = FALSE,
+        interpolate = TRUE
+      ) +
+      scale_fill_gradientn(name = "Time Density", colours = fire_colors) +
+      geom_path(
+        data = data_plot,
+        aes(x, y, color = SDPlot((speed * t$fps), SDcutoff)),
+        size = 0.5
+      ) +
+      theme_bw() +
+      ggtitle(paste(i, Title, sep = " ")) +
+      scale_color_gradientn(name = paste("speed (", t$distance.units, "/s)", sep = ""), colours = speed_colors)
   }
   return(out)
 }
