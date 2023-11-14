@@ -25,8 +25,8 @@ processFile <- function(file, input_dir, output_dir, plot_dir) {
   Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose$y)
   
   # Calibrate the tracking data, add zones
-  Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 50*50, points = c("tl","tr","br","bl"))
-  Tracking <- AddOFTZones(Tracking, scale_center = 0.6, scale_periphery = 0.6, scale_corners = 0.4, points = c("tl","tr","br","bl"))
+  Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 49*49, points = c("tl","tr","br","bl"))
+  Tracking <- AddOFTZones(Tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.2, points = c("tl","tr","br","bl"))
   Tracking$px.to.cm
   Tracking <- OFTAnalysis(Tracking, points = "bodycentre", movement_cutoff = 1, integration_period = 5)
   
@@ -86,8 +86,8 @@ setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
 # Set input and output directories
-input_dir <- "C:/Users/topohl/Documents/SLEAP/Projects/PTEN/OFT/predictions/formatted"
-output_dir <- "C:/Users/topohl/Documents/SLEAP/Projects/PTEN/OFT/predictions/output"
+input_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/OFT/SLEAP/formatted"
+output_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/OFT/SLEAP/output"
 
 # Create subdirectories within the output directory
 plot_dir <- file.path(output_dir, "DensityPlot")
