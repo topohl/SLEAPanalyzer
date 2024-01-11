@@ -1,26 +1,12 @@
-# install tensor flow and prepare for libraries and add new environment r-reticulate
-install.packages("tensorflow")
-library(reticulate)
-path_to_python <- install_python()
-virtualenv_create("r-reticulate", python = path_to_python)
-library(tensorflow)
-install_tensorflow(envname = "r-reticulate")
-install.packages("keras")
-library(keras)
-install_keras(envname = "r-reticulate")
-library(tensorflow)
+# Check if packages are installed, install them if needed, and load them
+required_packages <- c("tensorflow", "reticulate", "keras", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "zoo")
 
-# Load required libraries
-library(sp)
-library(imputeTS)
-library(ggplot2)
-library(ggmap)
-library(data.table)
-library(cowplot)
-library(corrplot)
-library(keras)
-library(tensorflow)
-library(zoo)
+for (package in required_packages) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+  library(package, character.only = TRUE)
+}
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
