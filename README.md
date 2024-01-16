@@ -11,7 +11,26 @@ In addition to SLEAP support, this project adds custom analyses to DLCAnalyzer t
 ### Features
 
 * Modified version of DLCanalyzer that supports analyzing SLEAP/DLC tracking data.
-* Custom analyses added to DLCanalyzer that are not provided out of the box.
+* Custom analyses added to DLCanalyzer that are not provided out of the box. Made for batch-processing
+  - Novel object recognition test (NOR)
+    - import experiment metadata
+    - calculate head angle between nose, bodycentre, and objects
+    - define interaction angle
+    - define shape and size of objects
+    - automatic application of object shapes based on metadata
+    - calculation of contact time based on head angle towards object and shape of object
+    - time in proximity of objects
+    - time in proximity and oriented towards objects
+    - latency until first contact with objects
+    - distance
+    - speed
+    - ...
+      
+  - Social preference test (SocP)
+    - add interaction zones
+    - add proximity zones
+    - calculate time of interaction
+  
 * Pipeline to extract x and y coordinates and format SLEAP data using Python Jupyter Notebook.
 
 ## Installation
