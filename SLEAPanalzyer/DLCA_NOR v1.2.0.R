@@ -13,15 +13,18 @@ setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
 # Set input and output directories
-inputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/formatted"
-outputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/output_angle"
-novelLocDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR"
+inputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/NOR/SLEAP/formatted"
+outputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/NOR/SLEAP/output_new"
+novelLocDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/NOR"
 # Create a new folder for saving the plots
 plotDir <- file.path(outputDir, "plots")
 dir.create(plotDir, showWarnings = FALSE)
 
 # Get a list of CSV files in the input directory
 fileList <- list.files(path = inputDir, pattern = "*.csv")
+
+# only use files with "NOV" in filename
+# fileList <- fileList[str_detect(fileList, "NOV")]
 
 # create a new list dfList
 dfList <- list()
@@ -101,9 +104,13 @@ for (file in fileList) {
     if (novelLoc[novelLoc$Code == code, "NovelLoc"] == "R") {
       isInZoneLeft <- point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objLSquare$x, objLSquare$y) & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 70 & abs(angleDegObjL) <= 290
       isInZoneRight <- GetDistances(Tracking, "objR", "nose") <= 4 & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290
+          contactNov <- sum(isInZoneLeft) * totalTime / length(isInZoneLeft)
+          contactFam <- sum(isInZoneRight) * totalTime / length(isInZoneRight)
     } else {
       isInZoneLeft <- GetDistances(Tracking, "objL", "nose") <= 4 & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 70 & abs(angleDegObjL) <= 290
       isInZoneRight <- point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objRSquare$x, objRSquare$y) & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290
+          contactFam <- sum(isInZoneLeft) * totalTime / length(isInZoneLeft)
+          contactNov <- sum(isInZoneRight) * totalTime / length(isInZoneRight)
     }
     contactLeft <- sum(isInZoneLeft) * totalTime / length(isInZoneLeft)
     contactRight <- sum(isInZoneRight) * totalTime / length(isInZoneRight)
@@ -167,6 +174,8 @@ for (file in fileList) {
     file = inputFileName,
     contactLeft = contactLeft,
     contactRight = contactRight,
+    contactNov = contactNov,
+    contactFam = contactFam,
     proxLeft = proxLeft,
     proxRight = proxRight,
     proxLeftAngle = proxLeftAngle,
@@ -204,7 +213,7 @@ for (file in fileList) {
 dfCombined <- do.call(rbind, dfList)
 
 # Write combined data frame to csv file
-write.csv(dfCombined, file.path(outputDir, "combined_output_test.csv"), row.names = FALSE)
+write.csv(dfCombined, file.path(outputDir, "combined_output.csv"), row.names = FALSE)
 
 # Print "done" message
 cat("done\n")
