@@ -30,6 +30,8 @@ In addition to SLEAP support, this project adds custom analyses to DLCAnalyzer t
     - add interaction zones
     - add proximity zones
     - calculate time of interaction
+
+  - Social interaction test (SocInt)
   
 * Pipeline to extract x and y coordinates and format SLEAP data using Python Jupyter Notebook.
 
