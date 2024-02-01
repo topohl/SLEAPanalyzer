@@ -9,7 +9,7 @@ for (package in required_packages) {
 }
 
 # Define length of video in minutes and translation to seconds
-videoLength <- 10
+videoLength <- 2
 totalTime <- videoLength * 60
 
 # Set working directory and load R script
@@ -18,11 +18,10 @@ source('R/DLCAnalyzer_Functions_final.R')
 
 # Set input and output directories
 inputDir <- "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC"
-#outputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/output_angle"
-#novelLocDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR"
+outputDir <- "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/output"
 # Create a new folder for saving the plots
-#plotDir <- file.path(outputDir, "plots")
-#dir.create(plotDir, showWarnings = FALSE)
+plotDir <- file.path(outputDir, "plots")
+dir.create(plotDir, showWarnings = FALSE)
 
 # Get a list of CSV files in the input directory
 fileList <- list.files(path = inputDir, pattern = "*.csv")
@@ -48,12 +47,11 @@ for (file in fileList) {
   seconds_length <- length / 30
   minutes_length <- seconds_length / 60
 
-  #read in 017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv from inpitDir
+  # read in 017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv from inpitDir
   Tracking <- ReadDLCDataFromCSV(file = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv", fps = 30)
 
   inputFileName <- sub(".csv$", "", basename(inputFile))
   
-
   # Interpolate missing values in x coordinate of nose
   for (bodypart in bodyparts) {
     Tracking$data[[bodypart]]$x <- na.approx(Tracking$data[[bodypart]]$x, method = "linear", na.rm = FALSE)
@@ -188,7 +186,7 @@ for (bodypart in bodyparts2) {
     sideBySideContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "nose_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "tailBase_1") <= 80) == 1
     sideBySideReverseContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "tailBase_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "nose_1") <= 80) == 1
     isInProxAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8
-    
+
 
   # Check latencyLeft and latencyRight and compare both to note first contact, save latency into data frame
   if (is.na(latencyLeft) & is.na(latencyRight)) {
@@ -222,17 +220,23 @@ for (bodypart in bodyparts2) {
   # Create data frame with results
   df <- data.frame(
     file = inputFileName,
-    contactLeft = contactLeft,
-    contactRight = contactRight,
-    proxLeft = proxLeft,
-    proxRight = proxRight,
-    proxLeftAngle = proxLeftAngle,
-    proxRightAngle = proxRightAngle,
-    latency = latency,
-    latencyLeft = latencyLeft,
-    latencyRight = latencyRight,
-    frequencyL = frequencyL,
-    frequencyR = frequencyR,
+    contactNose1toNose2 = contactNose1toNose2,
+    contactNose1toBodycentre2 = contactNose1toBodycentre2,
+    contactNose1toTailBase2 = contactNose1toTailBase2,
+    contactSideBySideAnimal1 = contactSideBySideAnimal1,
+    contactSideBySideReverseAnimal1 = contactSideBySideReverseAnimal1,
+    latencyNose1toNose2 = latencyNose1toNose2,
+    latencyNose1toBodycentre2 = latencyNose1toBodycentre2,
+    latencyNose1toTailBase2 = latencyNose1toTailBase2,
+    latencySideBySideAnimal1 = latencySideBySideAnimal1,
+    latencySideBySideReverseAnimal1 = latencySideBySideReverseAnimal1,
+    frequencyNose1toNose2 = frequencyNose1toNose2,
+    frequencyNose1toBodycentre2 = frequencyNose1toBodycentre2,
+    frequencyNose1toTailBase2 = frequencyNose1toTailBase2,
+    frequencySideBySideAnimal1 = frequencySideBySideAnimal1,
+    frequencySideBySideReverseAnimal1 = frequencySideBySideReverseAnimal1,
+    proxAnimal1 = proxAnimal1,
+    proxAnimal1Angle = proxAnimal1Angle,
     distance = Tracking$Report$bodycentre.raw.distance,
     stationary = Tracking$Report$bodycentre.time.stationary,
     speedMoving = Tracking$Report$bodycentre.speed.moving,
