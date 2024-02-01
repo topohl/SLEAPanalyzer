@@ -17,12 +17,12 @@ setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
 # Set input and output directories
-inputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/formatted"
-outputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/output_angle"
-novelLocDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR"
+inputDir <- "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC"
+#outputDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/SLEAP/output_angle"
+#novelLocDir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR"
 # Create a new folder for saving the plots
-plotDir <- file.path(outputDir, "plots")
-dir.create(plotDir, showWarnings = FALSE)
+#plotDir <- file.path(outputDir, "plots")
+#dir.create(plotDir, showWarnings = FALSE)
 
 # Get a list of CSV files in the input directory
 fileList <- list.files(path = inputDir, pattern = "*.csv")
@@ -38,195 +38,158 @@ calcAngle <- function(vec1, vec2) {
   return(angleRad * 180 / pi)
 }
 
-# Read novelLoc file
-novelLoc <- read.table(file.path(novelLocDir, "novelLoc.txt"), header = TRUE, sep = "\t")
-
 # Loop through each file in the input directory
 for (file in fileList) {
   # Read tracking data
   inputFile <- file.path(inputDir, file)
   Tracking <- ReadDLCDataFromCSV(file = inputFile, fps = 30)
+  # extract length of Tracking$data$nose_1$x
+  length <- length(Tracking$data$nose_1$x)
+  seconds_length <- length / 30
+  minutes_length <- seconds_length / 60
+
+  #read in 017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv from inpitDir
+  Tracking <- ReadDLCDataFromCSV(file = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv", fps = 30)
+
   inputFileName <- sub(".csv$", "", basename(inputFile))
   
-  # Replace NAs in nose and bodycentre columns with last known values
-  Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose$x)
-  Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose$y)
-  Tracking$data$bodycentre$x <- zoo::na.locf(Tracking$data$bodycentre$x)
-  Tracking$data$bodycentre$y <- zoo::na.locf(Tracking$data$bodycentre$y)
+
+  # Interpolate missing values in x coordinate of nose
+  for (bodypart in bodyparts) {
+    Tracking$data[[bodypart]]$x <- na.approx(Tracking$data[[bodypart]]$x, method = "linear", na.rm = FALSE)
+    Tracking$data[[bodypart]]$y <- na.approx(Tracking$data[[bodypart]]$y, method = "linear", na.rm = FALSE)
+  }
   
+  # Replace NAs in nose and bodycentre columns with last known values
+  #Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose1$x)
+  #Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose1$y)
+  #Tracking$data$bodycentre$x <- zoo::na.locf(Tracking$data$bodycentre1$x)
+  #Tracking$data$bodycentre$y <- zoo::na.locf(Tracking$data$bodycentre1$y)
+
   # Calibrate tracking data, add zones, and plot
-  Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 49 * 49, points = c("tl", "tr", "br", "bl"))
-  Tracking <- AddOFTZones(Tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.4, points = c("tl", "tr", "br", "bl"))
-  PlotZones(Tracking)
-  PlotPointData(Tracking, points = c("nose"))
+  #Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 49 * 49, points = c("tl", "tr", "br", "bl"))
+  #Tracking <- AddOFTZones(Tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.4, points = c("tl", "tr", "br", "bl"))
+  #PlotZones(Tracking)
+  #PlotPointData(Tracking, points = c("nose"))
   
   # Perform OFT analysis
   Tracking <- OFTAnalysis(Tracking, points = "bodycentre", movement_cutoff = 5, integration_period = 5)
   
+
+bodyparts <- c("nose_1", "leftEar_1", "rightEar_1", "bodycentre_1", "leftSide_1", "rightSide_1", "tailBase_1", "tailEnd_1", "nose_2", "leftEar_2", "rightEar_2", "bodycentre_2", "leftSide_2", "rightSide_2", "tailBase_2", "tailEnd_2")
+# assign bodyparts based on number behind separator "_"
+bodyparts1 <- bodyparts[1:8]
+bodyparts2 <- bodyparts[9:16]
+
+# Initialize a list to store distance values
+distances <- list()
+
   # Create data frame for calculating angles
   dfTracking <- data.frame(
-    vecNose1Bodycentre1 = cbind((Tracking$data$nose1$x - Tracking$data$bodycentre1$x), (Tracking$data$nose1$y - Tracking$data$bodycentre1$y)),
-    vecNose1Nose2 = cbind((Tracking$data$nose1$x - Tracking$data$nose2$x), (Tracking$data$nose1$y - Tracking$data$nose2$y)),
-    vecNose2Bodycentre2 = cbind((Tracking$data$nose2$x - Tracking$data$bodycentre2$x), (Tracking$data$nose2$y - Tracking$data$bodycentre2$y)),
-    vecNose2Nose1 = cbind((Tracking$data$nose2$x - Tracking$data$nose1$x), (Tracking$data$nose2$y - Tracking$data$nose1$y)),
+    vecNose1Bodycentre1 = cbind((Tracking$data$nose_1$x - Tracking$data$bodycentre_1$x), (Tracking$data$nose_1$y - Tracking$data$bodycentre_1$y)),
+    vecNose2Bodycentre2 = cbind((Tracking$data$nose_2$x - Tracking$data$bodycentre_2$x), (Tracking$data$nose_2$y - Tracking$data$bodycentre_2$y))
   )
-  
-    # Calculate angles for each row in dfTracking
-    for (i in 1:nrow(dfTracking)) {
-        vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
-        vecNose1Nose2 <- c(dfTracking$vecNose1Nose2.1[i], dfTracking$vecNose1Nose2.2[i])
-        vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
-        vecNose2Nose1 <- c(dfTracking$vecNose2Nose1.1[i], dfTracking$vecNose2Nose1.2[i])
-        
-        angleDegNose1 <- calcAngle(vecNose1Bodycentre1, vecNose1Nose2)
-        angleDegNose2 <- calcAngle(vecNose2Bodycentre2, vecNose2Nose1)
-        }
 
-    # Initialize vectors to store angles
-    angleDegNose1 <- numeric(length = nrow(dfTracking))
-    angleDegNose2 <- numeric(length = nrow(dfTracking))
-
-    # Loop through each row of dfTracking
-    for (i in 1:nrow(dfTracking)) {
-        vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
-        vecNose1Nose2 <- c(dfTracking$vecNose1Nose2.1[i], dfTracking$vecNose1Nose2.2[i])
-        vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
-        vecNose2Nose1 <- c(dfTracking$vecNose2Nose1.1[i], dfTracking$vecNose2Nose1.2[i])
-
-        angleDegNose1[i] <- calcAngle(vecNose1Bodycentre1, vecNose1Nose2)
-        angleDegNose2[i] <- calcAngle(vecNose2Bodycentre2, vecNose2Nose1)
-    }
-
-  # calculate interaction of animal 1 with animal 2 nose
-    isInNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose1", "nose2") <= 2 & abs(angleDegNose1) >= 90 & abs(angleDegNose1) <= 270
-    contactNose1 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-    isInNoseToNoseContactanimal2 <- GetDistances(Tracking, "nose2", "nose1") <= 2 & abs(angleDegNose2) >= 90 & abs(angleDegNose2) <= 270
-    contactNose2 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-
-    # Read in bodyparts from names of Tracking$data names also, animal 1 has a 1 after the bodypart name, animal 2 a 2
-# Calculate angle of vecNose1Bodycentre1 and every other body part
-for (bodypart in bodyparts) {
-    # Create new variables in the data frame to store the angle values
-    dfTracking[[paste0("angleDegNose1", bodypart)]] <- numeric(length = nrow(dfTracking))
-    dfTracking[[paste0("angleDegNose2", bodypart)]] <- numeric(length = nrow(dfTracking))
+# Loop through each body part combination
+for (i in 1:length(bodyparts1)) {
+  for (j in 1:length(bodyparts2)) {
+    bodypart1 <- bodyparts1[i]
+    bodypart2 <- bodyparts2[j]
     
-    # Loop through each row of dfTracking
-    for (i in 1:nrow(dfTracking)) {
-        # Extract vectors a and c from vectorNoseObjL and vector matrices
-        vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
-        vecNose1Bodypart <- c(dfTracking[[paste0("vecNose1", bodypart)]][i, 1], dfTracking[[paste0("vecNose1", bodypart)]][i, 2])
-        vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
-        vecNose2Bodypart <- c(dfTracking[[paste0("vecNose2", bodypart)]][i, 1], dfTracking[[paste0("vecNose2", bodypart)]][i, 2])
-        
-        # Calculate angles and store in the vectors
-        dfTracking[[paste0("angleDegNose1", bodypart)]][i] <- calcAngle(vecNose1Bodycentre1, vecNose1Bodypart)
-        dfTracking[[paste0("angleDegNose2", bodypart)]][i] <- calcAngle(vecNose2Bodycentre2, vecNose2Bodypart)
+    # Extract the animal numbers
+    animal1 <- substr(bodypart1, nchar(bodypart1) - 1, nchar(bodypart1))
+    animal2 <- substr(bodypart2, nchar(bodypart2) - 1, nchar(bodypart2))
+    
+    # Check if body parts belong to different animals
+    if (animal1 != animal2) {
+      # Calculate distance between body parts
+      # Calculate vectors between nose of animal 1 and body parts of animal 2
+      for (bodypart in bodyparts2) {
+        dfTracking[[paste0("vecNose1", bodypart)]] <- cbind((Tracking$data$nose_1$x - Tracking$data[[bodypart]]$x), (Tracking$data$nose_1$y - Tracking$data[[bodypart]]$y))
+      }
+
+      # Calculate vectors between nose of animal 2 and body parts of animal 1
+      for (bodypart in bodyparts1) {
+        dfTracking[[paste0("vecNose2", bodypart)]] <- cbind((Tracking$data$nose_2$x - Tracking$data[[bodypart]]$x), (Tracking$data$nose_2$y - Tracking$data[[bodypart]]$y))
+      }
+      
     }
+  }
+}
+
+# calculate angles between vecNose1BodyCentre1 and bodyparts of animal 2, also calculate angles between vecNose2BodyCentre2 and bodyparts of animal 1
+for (bodypart in bodyparts2) {
+  dfTracking[[paste0("angleDegNose1", bodypart)]] <- numeric(length = nrow(dfTracking))
+  dfTracking[[paste0("angleDegNose2", bodypart)]] <- numeric(length = nrow(dfTracking))
+  for (i in 1:nrow(dfTracking)) {
+    vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
+    vecNose1Bodypart <- c(dfTracking[[paste0("vecNose1", bodypart)]][i, 1], dfTracking[[paste0("vecNose1", bodypart)]][i, 2])
+    vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
+    vecNose2Bodypart <- c(dfTracking[[paste0("vecNose2", bodypart)]][i, 1], dfTracking[[paste0("vecNose2", bodypart)]][i, 2])
+    
+    dfTracking[[paste0("angleDegNose1", bodypart)]][i] <- calcAngle(vecNose1Bodycentre1, vecNose1Bodypart)
+    dfTracking[[paste0("angleDegNose2", bodypart)]][i] <- calcAngle(vecNose2Bodycentre2, vecNose2Bodypart)
+  }
 }
 
 
-    bodyparts <- names(Tracking$data)
-    # exclude bodyparts with the names tl, tr, br, bl
-    bodyparts <- bodyparts[!bodyparts %in% c("tl", "tr", "br", "bl")]
-
-    # calculate angle of vecNose1Bodycentre1 and every other bodypart
-    for (bodypart in bodyparts) {
-        # Create new variables in the data frame to store the angle values
-        assign(paste0("angleDegNose1", bodypart), numeric(length = nrow(dfTracking)))
-        assign(paste0("angleDegNose2", bodypart), numeric(length = nrow(dfTracking)))
-        # Loop through each row of dfTracking
-        for (i in 1:nrow(dfTracking)) {
-            # Extract vectors a and c from vectorNoseObjL and vector matrices
-            vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
-            vecNose1Bodypart <- c(dfTracking$vecNose1Bodypart.1[i], dfTracking$vecNose1Bodypart.2[i])
-            vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
-            vecNose2Bodypart <- c(dfTracking$vecNose2Bodypart.1[i], dfTracking$vecNose2Bodypart.2[i])
-
-            # Calculate angles and store in the vectors
-            assign(paste0("angleDegNose1", bodypart), calcAngle(vecNose1Bodycentre1, vecNose1Bodypart))
-            assign(paste0("angleDegNose2", bodypart), calcAngle(vecNose2Bodycentre2, vecNose2Bodypart))
-        }
-    }
-
-    # calculate distances of each bodypart of animal 1 to each bodypart of animal2 bodyparts hve the same names for both animals, only differentiated by either a 1 or a 2 after the bodypart eg nose1 and nose2
-    for (bodypart in bodyparts) {
-        # Create new variables in the data frame to store the distance values
-        assign(paste0("distance", bodypart), numeric(length = nrow(dfTracking)))
-        # Loop through each row of dfTracking
-        for (i in 1:nrow(dfTracking)) {
-            # Extract distances between bodyparts
-            bodypart[i]
-
-            # Calculate angles and store in the vectors
-            assign(paste0("distance", bodypart), sqrt(sum((vecNose1Bodypart - vecNose2Bodypart)^2)))
-        }
-    }
-
-
-  
-  # calculate unisided interaction with noses between animal 1 and 2
-    BP1toBP2Contact <- GetDistances(Tracking, "bp1", "bp2") <= 2 & abs(angleDegbp1) >= 90 & abs(angleDegbp1)
-    onesidedContactBP1toBP2 <- sum(BP1toBP2Contact) * totalTime / length(BP1toBP2Contact)
-
-
-    onesidedContactNose1 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-    isInNoseToNoseContactanimal2 <- GetDistances(Tracking, "nose2", "nose1") <= 2 & abs(angleDegNose2) >= 90 & abs(angleDegNose2) <= 270 & abs(angleDegNose1) <= 90 & abs(angleDegNose1) >= 270
-    onesidedContactNose2 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-
-
-  # calculate unisided interaction with noses between animal 1 and 2
-    isInNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose1", "nose2") <= 2 & abs(angleDegNose1) >= 90 & abs(angleDegNose1) <= 270 & abs(angleDegNose2) <= 90 & abs(angleDegNose2) >= 270
-    onesidedContactNose1 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-    isInNoseToNoseContactanimal2 <- GetDistances(Tracking, "nose2", "nose1") <= 2 & abs(angleDegNose2) >= 90 & abs(angleDegNose2) <= 270 & abs(angleDegNose1) <= 90 & abs(angleDegNose1) >= 270
-    onesidedContactNose2 <- sum(isInNoseToNoseContact) * totalTime / length(isInNoseToNoseContact)
-
-  # calculate reciprocal interaction between noses netween animal 1 and 2
-    isInReciprocalNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose1", "nose2") <= 2 & abs(angleDegNose1) >= 90 & abs(angleDegNose1) <= 270 & abs(angleDegNose2) >= 90 & abs(angleDegNose2) <= 270
-    reciprocalContactNose1 <- sum(isInReciprocalNoseToNoseContact) * totalTime / length(isInReciprocalNoseToNoseContact)
+  # calculate interaction of animal 1 with animal 2 nose
+    isInNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
+    contactNose1toNose2 <- sum(isInNoseToNoseContactanimal1) * seconds_length / length(isInNoseToNoseContactanimal1)
     
-  
-  # Check if code exists in novelLoc file
-  if (code %in% novelLoc$Code) {
-    totalTime <- 10 * 60
-    if (novelLoc[novelLoc$Code == code, "NovelLoc"] == "R") {
-      isInZoneLeft <- point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objLSquare$x, objLSquare$y) & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 70 & abs(angleDegObjL) <= 290
-      isInZoneRight <- GetDistances(Tracking, "objR", "nose") <= 4 & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290
-    } else {
-      isInZoneLeft <- GetDistances(Tracking, "objL", "nose") <= 4 & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 70 & abs(angleDegObjL) <= 290
-      isInZoneRight <- point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objRSquare$x, objRSquare$y) & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290
-    }
-    contactLeft <- sum(isInZoneLeft) * totalTime / length(isInZoneLeft)
-    contactRight <- sum(isInZoneRight) * totalTime / length(isInZoneRight)
-  } else {
-    contactLeft <- 0
-    contactRight <- 0
-  }
+    isInNoseToBodycentreContactanimal1 <- GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270
+    contactNose1toBodycentre2 <- sum(isInNoseToBodycentreContactanimal1) * seconds_length / length(isInNoseToBodycentreContactanimal1)
 
-  # calculate interaction time of nose to nose contact between two mice
-  isInNoseToNoseContact <- GetDistances(Tracking, "nose1", "nose2") <= 2 
+    isInNoseToTailBaseContactanimal1 <- GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270
+    contactNose1toTailBase2 <- sum(isInNoseToTailBaseContactanimal1) * seconds_length / length(isInNoseToTailBaseContactanimal1)
 
+    sideBySideContactAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80 
+    contactSideBySideAnimal1 <- sum(sideBySideContactAnimal1) * seconds_length / length(sideBySideContactAnimal1)
+
+    sideBySideReverseContactAnimal1 <- GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80
+    contactSideBySideReverseAnimal1 <- sum(sideBySideReverseContactAnimal1) * seconds_length / length(sideBySideReverseContactAnimal1)
+
+  # calculate latency until first contact between nose_1 and any bodypart of animal 2 in seconds
+    latencyNose1toNose2 <- min(which(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270)) * 1/30
+    latencyNose1toBodycentre2 <- min(which(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270)) * 1/30
+    latencyNose1toTailBase2 <- min(which(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270)) * 1/30
+    latencySideBySideAnimal1 <- min(which(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80)) * 1/30
+    latencySideBySideReverseAnimal1 <- min(which(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80)) * 1/30
+
+  # calculate frequency of contact between nose_1 and any bodypart of animal 2
+    isInNoseToNoseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270) == 1
+    isInNoseToBodycentreContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270) == 1
+    isInNoseToTailBaseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270) == 1
+    sideBySideContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80) == 1
+    sideBySideReverseContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80) == 1
+    frequencyNose1toNose2 <- sum(isInNoseToNoseContactanimal1)
+    frequencyNose1toBodycentre2 <- sum(isInNoseToBodycentreContactanimal1)
+    frequencyNose1toTailBase2 <- sum(isInNoseToTailBaseContactanimal1)
+    frequencySideBySideAnimal1 <- sum(sideBySideContactAnimal1)
+    frequencySideBySideReverseAnimal1 <- sum(sideBySideReverseContactAnimal1)
+
+    # calculate proximity of animal 1 to animal 2
+    isInProxAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8
+    proxAnimal1 <- sum(isInProxAnimal1) * seconds_length / length(isInProxAnimal1)
+
+  # calculate proximity with orientation towards other animal (angle)
+    isInProxAnimal1Angle <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
+    proxAnimal1Angle <- sum(isInProxAnimal1Angle) * seconds_length / length(isInProxAnimal1Angle)
   
-  # Calculate time with nose between 6-10 cm of objL or objR
-  isInProxLeft <- GetDistances(Tracking, "objL", "nose") > 4 & GetDistances(Tracking, "objL", "nose") <= 8
-  isInProxRight <- GetDistances(Tracking, "objR", "nose") > 4 & GetDistances(Tracking, "objR", "nose") <= 8
-  proxLeft <- sum(isInProxLeft) * totalTime / length(isInProxLeft)
-  proxRight <- sum(isInProxRight) * totalTime / length(isInProxRight)
-  
-  # Calculate time with nose between 6-10 cm of objL or objR with consideration of head angle
-  isInProxLeftAngle <- GetDistances(Tracking, "objL", "nose") > 4 & GetDistances(Tracking, "objL", "nose") <= 8 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270
-  isInProxRightAngle <- GetDistances(Tracking, "objR", "nose") > 4 & GetDistances(Tracking, "objR", "nose") <= 8 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270
-  proxLeftAngle <- sum(isInProxLeftAngle) * totalTime / length(isInProxLeftAngle)
-  proxRightAngle <- sum(isInProxRightAngle) * totalTime / length(isInProxRightAngle)
-  
-  # Calculate latency until first contact with objL or objR in seconds
-  if (novelLoc[novelLoc$Code == code, "NovelLoc"] == "R") {
-    latencyLeft <- min(which(point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objLSquare$x, objLSquare$y) & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270)) * 1/30
-    latencyRight <- min(which(GetDistances(Tracking, "objR", "nose") <= 4 & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290)) * 1/30
-  } else {
-    latencyLeft <- min(which(GetDistances(Tracking, "objL", "nose") <= 4 & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 70 & abs(angleDegObjL) <= 290)) * 1/30
-    latencyRight <- min(which(point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objRSquare$x, objRSquare$y) & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 90 & abs(angleDegObjR) <= 270)) * 1/30
-  }
-  
+  # check which animal initiated first contact between nose and bodypart
+    isInNoseToNoseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270) == 1
+    isInNoseToBodycentreContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270) == 1
+    isInNoseToTailBaseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270) == 1
+    sideBySideContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80) == 1
+    sideBySideReverseContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80) == 1
+    isInNoseToNoseContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "nose_1") <= 30 & abs(dfTracking$angleDegNose2nose_1) >= 90 & abs(dfTracking$angleDegNose2nose_1) <= 270) == 1
+    isInNoseToBodycentreContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "bodycentre_1") <= 30 & abs(dfTracking$angleDegNose2bodycentre_1) >= 90 & abs(dfTracking$angleDegNose2bodycentre_1) <= 270) == 1
+    isInNoseToTailBaseContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "tailBase_1") <= 30 & abs(dfTracking$angleDegNose2tailBase_1) >= 90 & abs(dfTracking$angleDegNose2tailBase_1) <= 270) == 1
+    sideBySideContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "nose_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "tailBase_1") <= 80) == 1
+    sideBySideReverseContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "tailBase_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "nose_1") <= 80) == 1
+    isInProxAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8
+    
+
   # Check latencyLeft and latencyRight and compare both to note first contact, save latency into data frame
   if (is.na(latencyLeft) & is.na(latencyRight)) {
     latency <- NA
