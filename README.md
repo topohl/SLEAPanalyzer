@@ -48,8 +48,9 @@ In addition to SLEAP support, this project adds custom analyses of behavioral te
   - Latencies and frequencies of each interaction.
 
 * **Pipeline for SLEAP Data:**
-  - Extracts x and y coordinates.
-  - Formats SLEAP data using Python Jupyter Notebook.
+  - Extract x and y coordinates.
+  - Impute missing data
+  - Format and merge SLEAP data using Python Jupyter Notebook.
 
 ## Installation
 
