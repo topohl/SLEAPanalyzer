@@ -12,9 +12,9 @@ for (package in required_packages) {
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
-inputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/EPM/SLEAP/formatted/"
-outputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/EPM/SLEAP/output/"
-overviewplot_folder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/EPM/SLEAP/OverviewPlot/"
+inputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/formatted/"
+outputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/output/"
+overviewplot_folder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/OverviewPlot/"
 
 # Create the output folder if it doesn't exist
 if (!file.exists(outputFolder))
@@ -51,5 +51,5 @@ for (file in files) {
   
   Tracking <- pipeline(input_file)
   plot <- OverviewPlot(Tracking, "bodycentre")
-  ggsave(filename = output_file, plot = plot, device = "tiff")
+  ggsave(filename = output_file, plot = plot, device = "tiff", width = 8, height = 10)
 }
