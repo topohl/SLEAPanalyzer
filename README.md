@@ -1,39 +1,56 @@
 # **SLEAP/DLC Tracking Data Analysis with Modified DLCAnalyzer**
 
-This project provides a modified version of the DLCAnalyzer R package that supports the analysis of SLEAP/DLC tracking data. Additionally, this project adds functionality to DLCAnalyzer that is not provided out of the box.
+This project provides a modified version of the DLCAnalyzer R package that supports the analysis of SLEAP/DLC tracking data. Additionally, this project adds functionality to DLCAnalyzer that is not provided out of the box and extends the analysis to other behavioral tests, such as the NOR, Social PReference, Social Interactions between freely moving animals.
 
 ## Overview
 
-[DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer) is a great tool for analyzing and visualizing tracking data from various animal behavioral tests, written in R. However, it only supports analyzing data acquired using DeepLabCut. This project extends the functionality of DLCanalyzer to support analyzing tracking data acquired using [SLEAP](https://sleap.ai).
+[DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer) is a great tool for analyzing and visualizing tracking data from the Open Field Test, Elevated Plus Maze, and the Forced Swim Test, written in R. However, it only supports analyzing data acquired using DeepLabCut. This project extends the functionality of DLCanalyzer to support analyzing tracking data acquired using [SLEAP](https://sleap.ai).
 
-In addition to SLEAP support, this project adds custom analyses to DLCAnalyzer that are not provided out of the box. This allows researchers to perform custom analyses using the DLCAnalyzer framework.
+In addition to SLEAP support, this project adds custom analyses of behavioral tests to DLCAnalyzer that are not provided out of the box. Those include latencies, frequencies, time spent in different zones when the individual is oriented towards specifc markers. This allows researchers to perform more elaborate and custom analyses using the DLCAnalyzer framework.
 
 ### Features
 
-* Modified version of DLCanalyzer that supports analyzing SLEAP/DLC tracking data.
-* Custom analyses added to DLCanalyzer that are not provided out of the box. Made for batch-processing
-  - Novel object recognition test (NOR)
-    - import experiment metadata
-    - calculate head angle between nose, bodycentre, and objects
-    - define interaction angle
-    - define shape and size of objects
-    - automatic application of object shapes based on metadata
-    - calculation of contact time based on head angle towards object and shape of object
-    - time in proximity of objects
-    - time in proximity and oriented towards objects
-    - latency until first contact with objects
-    - distance
-    - speed
-    - ...
-      
-  - Social preference test (SocP)
-    - add interaction zones
-    - add proximity zones
-    - calculate time of interaction
+* **Modified DLCanalyzer:**
+  - Supports analyzing SLEAP/DLC tracking data.
+  - Includes custom analyses for batch-processing.
 
-  - Social interaction test (SocInt)
-  
-* Pipeline to extract x and y coordinates and format SLEAP data using Python Jupyter Notebook.
+  #### Novel Object Recognition Test (NOR)
+  - Import experiment metadata.
+  - Define shape and size of objects.
+  - Automatic application of object shapes based on metadata.
+  - Define interaction angle.
+  - Calculate head angle between nose, body center, and objects.
+  - Calculation of contact time based on head angle towards object and shape of object.
+  - Time in proximity of objects.
+  - Time in proximity and oriented towards objects.
+  - Latency until first contact with objects.
+  - Distance.
+  - Speed.
+  - Automatic formatting and output of time spent with novel/familiar object.
+
+  #### Social Preference Test (SocP)
+  - Import experiment metadata.
+  - Add interaction zones.
+  - Add proximity zones.
+  - Time in contact with familiar/novel stimulus.
+  - Time in proximity with familiar/novel stimulus.
+  - Latency until first contact with stimulus.
+  - Distance.
+  - Speed.
+  - Automatic formatting and output of time spent with novel/familiar individual.
+
+  #### Social Interaction Test (SocInt) - under construction
+  - Define threshold for interaction.
+  - Define interaction angle.
+  - Bidirectional readout of interactions.
+  - Nose-nose, nose-body, nose-tail investigation.
+  - Side-by-side / side-by-side reverse.
+  - Latencies and frequencies of each interaction.
+
+* **Pipeline for SLEAP Data:**
+  - Extract x and y coordinates.
+  - Impute missing data
+  - Format and merge SLEAP data using Python Jupyter Notebook.
 
 ## Installation
 
@@ -41,10 +58,27 @@ Installation processes for SLEAP and DLCanalyzer can be found here:
 * [SLEAP](https://sleap.ai/installation.html)
 * [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer#getting-started)
 
-To install the modified DLCanalyzer package and the required packages, run the following command in R:
+To use the modified DLCAnalyzer package and the required packages, follow the installation guide by DLCAnalyzer.
+For our purposes, you will also need to replace the original DLCAnalyzer package with the one provided here.
 
 ## Usage
 
-After prediction of animal and geometric (arena) coordinates, extract the coordinates from respective .h5 files using the respective python notebook provided in SLEAPcoords.
-Afterwards, merge and format the created coords files (animal and geom) using the DLCA_Dataform notebook.
-The resulting file can be analyzed using the provided code within the SLEAPanalyzer directory which relies on basic functionality of DLCAnalyzer.
+1. **Prediction of Animal and Arena Coordinates**
+   
+   - Start by predicting animal and geometric (arena) coordinates.
+   - Utilize the respective Python notebook provided in the `SLEAPcoords` directory to extract the coordinates from the corresponding .h5 files.
+
+2. **Merge and Format Coordinates Files**
+   
+   - After extracting coordinates, proceed to merge and format the created coords files (animal and geom).
+   - Use the `DLCA_Dataform` notebook for this purpose.
+
+3. **Analysis of Merged Data**
+   
+   - Analyze the resulting merged file using the provided code within the `SLEAPanalyzer` directory.
+   - This code relies on basic functionality of DLCAnalyzer.
+   - Update the respective analysis code with the path of your merged dataframes and adjust the output directories to your preferred locations.
+
+4. **Customization**
+   
+   - Modify parameters to match experimental settings or provide user-defined definitions of angles or distances as needed.
