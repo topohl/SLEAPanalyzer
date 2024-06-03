@@ -86,8 +86,13 @@ setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
 # Set input and output directories
-input_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/OFT/SLEAP/formatted"
-output_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B4/OFT/SLEAP/output"
+input_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/OFT/SLEAP/formatted"
+output_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/OFT/SLEAP/output"
+
+# if output_dir dosnt exist, create
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
 
 # Create subdirectories within the output directory
 plot_dir <- file.path(output_dir, "DensityPlot")
@@ -112,4 +117,3 @@ write.csv(df_combined, file.path(output_dir, "combined_output.csv"), row.names =
 
 # Print "done" message
 cat("done\n")
-
