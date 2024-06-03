@@ -1,5 +1,5 @@
 # Install required packages
-requiredPackages <- c("data.table", "stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
+requiredPackages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
 
 # Check if packages are installed, if not install and load them
 for (package in requiredPackages) {
