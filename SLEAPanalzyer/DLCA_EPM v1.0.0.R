@@ -1,7 +1,7 @@
 # Check if packages are installed, install them if needed, and load them
-required_packages <- c("tensorflow", "reticulate", "keras", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "zoo")
+requiredPackages <- c("tensorflow", "reticulate", "keras", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "zoo")
 
-for (package in required_packages) {
+for (package in requiredPackages) {
   if (!requireNamespace(package, quietly = TRUE)) {
     install.packages(package)
   }
@@ -12,44 +12,54 @@ for (package in required_packages) {
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
-inputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/formatted/"
-outputFolder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/output/"
-overviewplot_folder <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/EPM/SLEAP/OverviewPlot/"
+batches <- c("B1", "B2", "B3", "B4", "B5", "B6")
 
-# Create the output folder if it doesn't exist
-if (!file.exists(outputFolder))
-  dir.create(outputFolder)
+for (batch in batches) {
+  inputFolder <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/", batch, "/EPM/SLEAP/formatted/")
+  outputFolder <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/", batch, "/EPM/SLEAP/output/")
+  overviewPlotFolder <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/", batch, "/EPM/SLEAP/OverviewPlot/")
 
-# Create the overviewplot folder if it doesn't exist
-if (!file.exists(overviewplot_folder))
-  dir.create(overviewplot_folder)
+  # Create the output folder if it doesn't exist
+  if (!file.exists(outputFolder))
+    dir.create(outputFolder)
 
-files <- list.files(inputFolder)
+  # Create the overview plot folder if it doesn't exist
+  if (!file.exists(overviewPlotFolder))
+    dir.create(overviewPlotFolder)
 
-pipeline <- function(path){
-  Tracking <- ReadDLCDataFromCSV(file = path, fps = 30)
-  Tracking <- CalibrateTrackingData(Tracking, method = "distance", in.metric = 60, points = c("tl", "br"))
-  zoneinfo <- read.table("S:/Lab_Member/Tobi/Experiments/DLCAnalyzer/ArenaConfig/EPM_zoneinfo.csv", sep = ";", header = TRUE)
-  Tracking <- AddZones(Tracking, zoneinfo)
-  Tracking <- EPMAnalysis(Tracking, movement_cutoff = 5, integration_period = 5, points = "bodycentre", nosedips = TRUE)
-  return(Tracking)
-}
+  files <- list.files(inputFolder)
 
-TrackingAll <- RunPipeline(files, inputFolder, FUN = pipeline)
+  pipeline <- function(path){
+    tracking <- ReadDLCDataFromCSV(file = path, fps = 30)
+    tracking <- CalibrateTrackingData(tracking, method = "distance", in.metric = 60, points = c("tl", "br"))
+    zoneInfo <- read.table("S:/Lab_Member/Tobi/Experiments/DLCAnalyzer/ArenaConfig/EPM_zoneinfo.csv", sep = ";", header = TRUE)
+    tracking <- AddZones(tracking, zoneInfo)
+    tracking <- EPMAnalysis(tracking, movementCutoff = 5, integrationPeriod = 5, points = "bodycentre", noseDips = TRUE)
+    return(tracking)
+  }
 
-Report <- MultiFileReport(TrackingAll)
+  trackingAll <- RunPipeline(files, inputFolder, FUN = pipeline)
 
-# Save Report as a .csv file
-report_file <- paste0(outputFolder, "Report.csv")
-write.csv(Report, file = report_file, row.names = FALSE)
+  report <- MultiFileReport(trackingAll)
 
-# Save OverviewPlots as .tiff files
-library(ggplot2)
-for (file in files) {
-  input_file <- paste0(inputFolder, file)
-  output_file <- paste0(overviewplot_folder, gsub(".csv", ".tiff", file))
+  # Save report as a .csv file
+  reportFile <- paste0(outputFolder, "Report.csv")
+  write.csv(report, file = reportFile, row.names = FALSE)
   
-  Tracking <- pipeline(input_file)
-  plot <- OverviewPlot(Tracking, "bodycentre")
-  ggsave(filename = output_file, plot = plot, device = "tiff", width = 8, height = 10)
+  # Notify completion
+  cat("Batch", batch, "processing completed.\n")
+
+  # Save overview plots as .tiff files
+  library(ggplot2)
+  for (file in files) {
+    inputFile <- paste0(inputFolder, file)
+    outputFile <- paste0(overviewPlotFolder, gsub(".csv", ".tiff", file))
+
+    tracking <- pipeline(inputFile)
+    plot <- OverviewPlot(tracking, "bodycentre")
+    ggsave(filename = outputFile, plot = plot, device = "tiff", width = 8, height = 10)
+    
+    # Notify completion
+    cat("Overview plot for", file, "generated.\n")
+  }
 }
