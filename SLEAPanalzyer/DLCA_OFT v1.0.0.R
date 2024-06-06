@@ -1,119 +1,120 @@
-# Load required libraries
-library(sp)
-library(imputeTS)
-library(ggplot2)
-library(ggmap)
-library(data.table)
-library(cowplot)
-library(corrplot)
-library(keras)
-library(tensorflow)
-library(zoo)
-library(data.table)
+# Install required packages
+requiredPackages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
 
-# Function to process each file and generate plots
-processFile <- function(file, input_dir, output_dir, plot_dir) {
-  # Read in tracking data and get names of variables in the data frame
-  input_file <- file.path(input_dir, file)
-  Tracking <- ReadDLCDataFromCSV(file = input_file, fps = 30)
-  
-  # Extract the input file name without the extension
-  input_file_name <- sub(".csv$", "", basename(input_file))
-  
-  # Replace NAs in the x and y columns of the nose data frame with the last known values
-  Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose$x)
-  Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose$y)
-  
-  # Calibrate the tracking data, add zones
-  Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 49*49, points = c("tl","tr","br","bl"))
-  Tracking <- AddOFTZones(Tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.2, points = c("tl","tr","br","bl"))
-  Tracking$px.to.cm
-  Tracking <- OFTAnalysis(Tracking, points = "bodycentre", movement_cutoff = 1, integration_period = 5)
-  
-  # Calculate frequency of zone visits for objL and nose
-  FreqRear <- cumsum(GetDistances(Tracking, "spine1", "bodycentre") <= 1) > 0 &
-    cumsum(GetDistances(Tracking, "bodycentre", "spine2") <= 1) > 0 &
-    c(0, diff(GetDistances(Tracking, "spine1", "bodycentre") <= 1)) == 1 &
-    c(0, diff(GetDistances(Tracking, "bodycentre", "spine2") <= 1)) == 1
-  FrequencyRear <- sum(FreqRear)
-  
-  # Create a data frame with the time_Left, time_Right, time_nose_Left, and time_nose_Right values
-  df <- data.frame(
-    file = input_file_name,
-    center_time = Tracking$Report$bodycentre.center.total.time,
-    center_distance = Tracking$Report$bodycentre.center.raw.distance,
-    periphery_distance = Tracking$Report$bodycentre.periphery.raw.distance,
-    center_transitions = Tracking$Report$bodycentre.center.transitions,
-    raw_speed = Tracking$Report$bodycentre.raw.speed,
-    raw_speed_center = Tracking$Report$bodycentre.center.raw.speed,
-    raw_speed_periphery = Tracking$Report$bodycentre.periphery.raw.speed,
-    stationary = Tracking$Report$bodycentre.time.stationary,
-    center_stationary = Tracking$Report$bodycentre.center.time.stationary,
-    periphery_stationary = Tracking$Report$bodycentre.periphery.time.stationary,
-    FrequencyRear = FrequencyRear
-  )
-  
-  # Construct the output file name
-  output_file <- paste0(input_file_name, "_output.csv")
-  
-  # Write the data frame to a csv file with the constructed file name
-  write.csv(df, file.path(output_dir, output_file), row.names = FALSE)
-  
-  # Plot the density paths for bodycentre, nose, and tailbase
-  plots <- PlotDensityPaths(Tracking, points = c("bodycentre"))
-  
-  # Set the file name for the plot image
-  plot_file <- file.path(plot_dir, paste0(input_file_name, "_plot.png"))
-  
-  # Save the plot image with the file name
-  ggsave(plot_file, plot = plots$bodycentre, width = 7, height = 6)
-  
-  # Plot the zone visits for bodycentre
-  zone_visits_plot <- PlotZoneVisits(Tracking, point = c("bodycentre"), zones = c("center", "periphery"))
-  
-  # Set the file name for the zone visits plot image
-  zone_visits_file <- file.path(plot_dir, paste0(input_file_name, "_zone_visits.png"))
-  
-  # Save the zone visits plot image with the file name
-  ggsave(zone_visits_file, plot = zone_visits_plot, width = 7, height = 2)
-  
-  # Return the data frame and plots
-  return(list(df = df, plots = plots, zone_visits_plot = zone_visits_plot))
+# Check if packages are installed, if not install and load them
+for (package in requiredPackages) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+  library(package, character.only = TRUE)
 }
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
-# Set input and output directories
-input_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/OFT/SLEAP/formatted"
-output_dir <- "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B5/OFT/SLEAP/output"
+# Define batches
+batches <- c("B1", "B2", "B3", "B4", "B5", "B6")
 
-# if output_dir dosnt exist, create
-if (!dir.exists(output_dir)) {
-  dir.create(output_dir, recursive = TRUE)
+# Loop through each batch
+for (batch in batches) {
+  # Set input and output directories depending on the batch
+  inputDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/", batch, "/OFT/SLEAP/formatted/")
+  outputDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/", batch, "/OFT/SLEAP/output/")
+  
+  # Create output directory if it doesn't exist
+  if (!dir.exists(outputDir)) {
+    dir.create(outputDir)
+  }
+  
+  # Read in animal ID and Code list from .txt file
+  animalIDCode <- read.table("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt", header = TRUE)
+  
+  # Create a new folder for saving the plots
+  plotDir <- file.path(outputDir, "plots")
+  dir.create(plotDir, showWarnings = FALSE)
+  
+  # Get a list of CSV files in the input directory
+  fileList <- list.files(path = inputDir, pattern = "*.csv")
+  
+  # Create new list dfList
+  dfList <- list()
+  
+  # Loop through each file in the input directory
+  for (file in fileList) {
+    # Read in tracking data and get names of variables in the data frame
+    inputFile <- file.path(inputDir, file)
+    tracking <- ReadDLCDataFromCSV(file = inputFile, fps = 30)
+    
+    # Extract the input file name without the extension
+    inputFileName <- sub(".csv$", "", basename(inputFile))
+    
+    # Calibrate the tracking data, add zones, and plot the zones
+    tracking <- CalibrateTrackingData(tracking, method = "area", in.metric = 49 * 49, points = c("tl", "tr", "br", "bl"))
+    tracking <- AddOFTZones(tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.4, points = c("tl", "tr", "br", "bl"))
+    PlotZones(tracking)
+    PlotPointData(tracking, points = c("nose"))
+    
+    tracking <- OFTAnalysis(tracking, points = "bodycentre", movement_cutoff = 5, integration_period = 5)
+    
+    # Extract code from filename
+    code <- str_extract(inputFileName, "[A-Za-z0-9]{4}")
+    
+    # Calculate frequency of rearings
+    freqRear <- cumsum(GetDistances(tracking, "spine1", "bodycentre") <= 1) > 0 &
+      cumsum(GetDistances(tracking, "bodycentre", "spine2") <= 1) > 0 &
+      c(0, diff(GetDistances(tracking, "spine1", "bodycentre") <= 1)) == 1 &
+      c(0, diff(GetDistances(tracking, "bodycentre", "spine2") <= 1)) == 1
+    frequencyRear <- sum(freqRear)
+    
+    # Create a data frame with the extracted data
+    df <- data.frame(
+      file = inputFileName,
+      ID = animalIDCode[animalIDCode$Code == code, "ID"],
+      Batch = batch,
+      Code = code,
+      centerTime = tracking$Report$bodycentre.center.total.time,
+      centerDistance = tracking$Report$bodycentre.center.raw.distance,
+      peripheryDistance = tracking$Report$bodycentre.periphery.raw.distance,
+      centerTransitions = tracking$Report$bodycentre.center.transitions,
+      rawSpeed = tracking$Report$bodycentre.raw.speed,
+      rawSpeedCenter = tracking$Report$bodycentre.center.raw.speed,
+      rawSpeedPeriphery = tracking$Report$bodycentre.periphery.raw.speed,
+      stationary = tracking$Report$bodycentre.time.stationary,
+      centerStationary = tracking$Report$bodycentre.center.time.stationary,
+      peripheryStationary = tracking$Report$bodycentre.periphery.time.stationary,
+      frequencyRear = frequencyRear,
+      rawDistance = tracking$Report$bodycentre.raw.distance
+    )
+    
+    # Construct the output file name
+    outputFile <- paste0(inputFileName, "_output.csv")
+    
+    # Write the data frame to a csv file with the constructed file name
+    write.csv(df, outputFile, row.names = FALSE)
+    
+    # Add the current data frame to the list
+    dfList[[length(dfList) + 1]] <- df
+    
+    # Plot the density paths for bodycentre
+    plots <- PlotDensityPaths(tracking, points = c("bodycentre"))
+    
+    # Set the file name for the plot image
+    plotFile <- file.path(plotDir, paste0(inputFileName, "_DensityPath.png"))
+    
+    # Save the plot image with the file name
+    ggsave(plotFile, plot = plots$bodycentre, width = 7, height = 4)
+    
+    # Print progress message
+    cat(sprintf("Processed file %s\n", file))
+  }
+  
+  # Combine all data frames into a single data frame
+  dfCombined <- do.call(rbind, dfList)
+  
+  # Write the combined data frame to a csv file
+  write.csv(dfCombined, file.path(outputDir, "combined_output.csv"), row.names = FALSE)
+  
+  # Print "done" message
+  cat("Processing complete for batch", batch, "\n")
 }
-
-# Create subdirectories within the output directory
-plot_dir <- file.path(output_dir, "DensityPlot")
-dir.create(plot_dir, showWarnings = FALSE)
-
-# Get a list of CSV files in the input directory
-file_list <- list.files(path = input_dir, pattern = "*.csv")
-
-# Process each file and generate plots using lapply for efficiency
-results_list <- lapply(file_list, processFile, input_dir = input_dir, output_dir = output_dir, plot_dir = plot_dir)
-
-# Extract data frames and plots from the results list
-df_list <- lapply(results_list, function(result) result$df)
-plots_list <- lapply(results_list, function(result) result$plots)
-zone_visits_list <- lapply(results_list, function(result) result$zone_visits_plot)
-
-# Combine all data frames into a single data frame
-df_combined <- do.call(rbind, df_list)
-
-# Write the combined data frame to a csv file
-write.csv(df_combined, file.path(output_dir, "combined_output.csv"), row.names = FALSE)
-
-# Print "done" message
-cat("done\n")
