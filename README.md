@@ -47,10 +47,23 @@ In addition to SLEAP support, this project adds custom analyses of behavioral te
   - Side-by-side / side-by-side reverse.
   - Latencies and frequencies of each interaction.
 
-* **Pipeline for SLEAP Data:**
-  - Extract x and y coordinates.
-  - Impute missing data
-  - Format and merge SLEAP data using Python Jupyter Notebook.
+## Usage
+# **SLEAP/DLC Tracking Data Analysis with Modified DLCAnalyzer**
+
+## Extracting Coordinates
+
+- Extract x and y coordinates from the SLEAP tracking data.
+- Handle missing data by imputing values.
+
+## Formatting and Merging Data
+
+- Use a Python Jupyter Notebook to format and merge the SLEAP data.
+- Ensure the data is properly organized and ready for analysis.
+
+## Adjusting Analysis Parameters
+
+- Open the specific analysis file.
+- Modify the folders and parameters according to your needs.
 
 ## Installation
 
