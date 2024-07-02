@@ -47,23 +47,6 @@ In addition to SLEAP support, this project adds custom analyses of behavioral te
   - Side-by-side / side-by-side reverse.
   - Latencies and frequencies of each interaction.
 
-## Usage
-# **SLEAP/DLC Tracking Data Analysis with Modified DLCAnalyzer**
-
-## Extracting Coordinates
-
-- Extract x and y coordinates from the SLEAP tracking data.
-- Handle missing data by imputing values.
-
-## Formatting and Merging Data
-
-- Use a Python Jupyter Notebook to format and merge the SLEAP data.
-- Ensure the data is properly organized and ready for analysis.
-
-## Adjusting Analysis Parameters
-
-- Open the specific analysis file.
-- Modify the folders and parameters according to your needs.
 
 ## Installation
 
@@ -72,26 +55,22 @@ Installation processes for SLEAP and DLCanalyzer can be found here:
 * [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer#getting-started)
 
 To use the modified DLCAnalyzer package and the required packages, follow the installation guide by DLCAnalyzer.
-For our purposes, you will also need to replace the original DLCAnalyzer package with the one provided here.
 
 ## Usage
 
 1. **Prediction of Animal and Arena Coordinates**
-   
-   - Start by predicting animal and geometric (arena) coordinates.
-   - Utilize the respective Python notebook provided in the `SLEAPcoords` directory to extract the coordinates from the corresponding .h5 files.
+   - Predict animal and arena (geom) coordinates using the provided Python notebook in the `SLEAPcoords` directory.
+   - Extract coordinates from the corresponding .h5 files using the experiment-specific jupyter notebook for both animal and geom.
 
 2. **Merge and Format Coordinates Files**
-   
-   - After extracting coordinates, proceed to merge and format the created coords files (animal and geom).
-   - Use the `DLCA_Dataform` notebook for this purpose.
+   - Merge and format the created coords files (animal and geom).
+   - Use the `DLCA_Dataform` notebook for this step.
 
 3. **Analysis of Merged Data**
-   
-   - Analyze the resulting merged file using the provided code within the `SLEAPanalyzer` directory.
+   - Analyze the merged file using the code in the `SLEAPanalyzer` directory.
    - This code relies on basic functionality of DLCAnalyzer.
-   - Update the respective analysis code with the path of your merged dataframes and adjust the output directories to your preferred locations.
+   - Update the analysis code with the path of your merged dataframes and adjust the output directories.
 
 4. **Customization**
-   
-   - Modify parameters to match experimental settings or provide user-defined definitions of angles or distances as needed.
+   - Modify parameters to match experimental settings.
+   - Provide user-defined definitions of angles or distances as needed.
