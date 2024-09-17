@@ -1,26 +1,12 @@
-# Install required packages
-requiredPackages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
+required_packages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
 
-# Check if packages are installed, if not install and load them
-for (package in requiredPackages) {
+# Install and load required packages
+lapply(required_packages, function(package) {
   if (!requireNamespace(package, quietly = TRUE)) {
-    install.packages(package)
+    install.packages(package, dependencies = TRUE)
   }
   library(package, character.only = TRUE)
-}
-
-# Load required libraries
-library(sp)
-library(imputeTS)
-library(ggplot2)
-library(ggmap)
-library(data.table)
-library(cowplot)
-library(corrplot)
-library(keras)
-library(tensorflow)
-library(zoo)
-library(av)
+})
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
