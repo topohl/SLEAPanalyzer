@@ -63,12 +63,12 @@ Follow these steps to use the extended DLCAnalyzer for analyzing your tracking d
    - For SLEAP users:
       - Extract coordinates from `.h5` files for each experiment using the experiment-specific Jupyter notebook in `SLEAPcoords`.
    - For DLC users:
-      - DLC provides a similar `.h5` format; use the corresponding code here to extract these coordinates.
+      - DLC provides a formatted .csv file, just merge the animal and geom files.
 
 ### Step 2: Merge and Format Coordinate Files
    - With coordinates extracted, use the `DLCA_Dataform` notebook to merge and format the coordinates for animals and arena components.
    - This notebook allows you to:
-      - Combine data files from multiple sessions or subjects.
+      - Combine data files from the animal and geom file.
       - Apply custom formatting options to standardize data across experiments.
 
 ### Step 3: Analyze the Merged Data
