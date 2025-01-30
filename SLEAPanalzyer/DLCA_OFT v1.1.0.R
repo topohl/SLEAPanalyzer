@@ -1,80 +1,89 @@
+#' @title Open Field Test (OFT) Data Processing Script
+#' @description This script processes Open Field Test (OFT) data from multiple experimental batches.
+#' It reads tracking data from CSV files, calibrates and analyzes the data, assigns zones, and generates plots.
+#' The results are saved in structured output directories.
+#' 
+#' @author Tobias Pohl
+#' 
+#' @date 2025-01-30
+#' 
+#' @details
+#' The script performs the following steps:
+#' 
+#' 1. Installs and loads required R packages.
+#' 2. Sets the working directory and sources custom analysis functions.
+#' 3. Defines experimental batches to process.
+#' 4. Reads tracking data, calibrates measurements, assigns zones, and performs Open Field Test analysis.
+#' 5. Extracts behavioral metrics and saves results in CSV format.
+#' 6. Generates and saves density plots of movement patterns.
 
-# This script processes Open Field Test (OFT) data for multiple batches of experiments.
-# It installs and loads required packages, sets the working directory, and sources necessary functions.
-# The script reads tracking data from CSV files, calibrates the data, adds zones, performs analysis, 
-# and generates plots. The results are saved to output directories.
+# Load required packages using pacman
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+pacman::p_load(
+  stringr, sp, imputeTS, ggplot2, ggmap, data.table, cowplot, corrplot, keras, tensorflow, zoo, dplyr, reticulate
+)
 
-# Install and load required packages
-requiredPackages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
-
-# Install missing packages and load all required packages
-lapply(requiredPackages, function(package) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    tryCatch({
-      install.packages(package)
-    }, error = function(e) {
-      message(sprintf("Error installing package %s: %s", package, e$message))
-    })
-  }
-  library(package, character.only = TRUE)
-})
-
-# Set working directory and load R script with custom functions
+# Set working directory (modify path as needed)
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
+
+# Load external functions required for analysis
 source('R/DLCAnalyzer_Functions_final.R')
 
 # Define batches to process
 batches <- c("B1", "B2", "B3", "B4", "B5", "B6")
 
-# Loop through each batch
+# Loop through each batch for processing
 for (batch in batches) {
-  # Set input and output directories for the current batch
+
+  # Define input and output directories for the current batch
   inputDir <- file.path("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior", batch, "OFT/SLEAP/formatted")
   outputDir <- file.path("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior", batch, "OFT/SLEAP/output")
   
-  # Create output directory if it doesn't exist
+  # Create output directory if it does not exist
   dir.create(outputDir, recursive = TRUE, showWarnings = FALSE)
   
-  # Read in animal ID and Code list from a text file
+  # Load animal ID and Code mappings
   animalIDCode <- read.table("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt", header = TRUE)
   
-  # Create a new folder for saving the plots
+  # Create directory for saving plots
   plotDir <- file.path(outputDir, "plots")
   dir.create(plotDir, showWarnings = FALSE)
   
-  # Get a list of CSV files in the input directory
+  # Retrieve list of tracking data files
   fileList <- list.files(path = inputDir, pattern = "*.csv")
   
-  # Initialize a list to store data frames
+  # Initialize list to store processed data frames
   dfList <- list()
   
-  # Loop through each file in the input directory
+  # Process each tracking data file in the batch
   for (file in fileList) {
     # Read in tracking data from CSV file
     inputFile <- file.path(inputDir, file)
     tracking <- ReadDLCDataFromCSV(file = inputFile, fps = 30)
     
-    # Extract the input file name without the extension
+    # Extract file name without extension
     inputFileName <- sub(".csv$", "", basename(inputFile))
     
-    # Calibrate the tracking data and add zones
+    # Calibrate data and assign zones
     tracking <- CalibrateTrackingData(tracking, method = "area", in.metric = 49 * 49, points = c("tl", "tr", "br", "bl"))
     tracking <- AddOFTZones(tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.4, points = c("tl", "tr", "br", "bl"))
     
-    # Plot zones and point data
+    # Generate and visualize tracking plots
     PlotZones(tracking)
     PlotPointData(tracking, points = c("nose"))
     
-    # Perform OFT analysis on the tracking data
+    # Perform behavioral analysis
     tracking <- OFTAnalysis(tracking, points = "bodycentre", movement_cutoff = 5, integration_period = 5)
     
-    # Extract code from filename
+    # Extract unique identifier code from filename
     code <- str_extract(inputFileName, "[A-Za-z0-9]{4}")
     
-    # Extract the frequency of rear events
+    # Compute the frequency of rear events
     frequencyRear <- sum(freqRear)
     
-    # Create a data frame with the extracted data
+    # Construct data frame with key behavioral metrics
     df <- data.frame(
       file = inputFileName,
       ID = animalIDCode[animalIDCode$Code == code, "ID"],
@@ -94,34 +103,32 @@ for (batch in batches) {
       rawDistance = tracking$Report$bodycentre.raw.distance
     )
     
-    # Construct the output file name
+    # Save processed data to CSV file
     outputFile <- file.path(outputDir, paste0(inputFileName, "_output.csv"))
-    
-    # Write the data frame to a CSV file
     write.csv(df, outputFile, row.names = FALSE)
     
-    # Add the current data frame to the list
+    # Append current data frame to the list
     dfList[[length(dfList) + 1]] <- df
     
-    # Plot the density paths for bodycentre
+    # Generate density path plots
     plots <- PlotDensityPaths(tracking, points = c("bodycentre"))
     
     # Set the file name for the plot image
     plotFile <- file.path(plotDir, paste0(inputFileName, "_DensityPath.png"))
     
-    # Save the plot image
+    # Save plot as an image
     ggsave(plotFile, plot = plots$bodycentre, width = 7, height = 4)
     
-    # Print progress message
+    # Print processing status
     message(sprintf("Processed file %s", file))
   }
   
-  # Combine all data frames into a single data frame
+  # Combine all batch data into a single data frame
   dfCombined <- do.call(rbind, dfList)
   
-  # Write the combined data frame to a CSV file
+  # Save the combined results
   write.csv(dfCombined, file.path(outputDir, "combined_output.csv"), row.names = FALSE)
   
-  # Print "done" message for the current batch
+  # Print completion message for the batch
   message(sprintf("Processing complete for batch %s", batch))
 }
