@@ -1,12 +1,34 @@
-# Check if packages are installed, install them if needed, and load them
-required_packages <- c("tensorflow", "reticulate", "keras", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "zoo", "stringr", "tidyverse")
+#' @title DLCA_NOR v1.2.1.R
+#' @description
+#' This script processes behavioral tracking data from a snovel object recognition
+#' test.
+#' It loads required packages, iterates over different batches and test phases,
+#' reads and processes tracking data, calculates time spent in different zones,
+#' and generates output files with the extracted metrics and visualizations.
+#'
+#' @details
+#' - Installs and loads required packages.
+#' - Sets working directory and sources necessary functions.
+#' - Iterates through experimental batches and social preference phases.
+#' - Reads animal ID codes and novel location data.
+#' - Processes tracking data using DLC-style output and extracts behavioral metrics.
+#' - Calculates interaction time with novel and familiar object, proximity measures, and visit frequency.
+#' - Saves processed data and visualizations.
+#'
+#' @note
+#' - Ensure all required R packages are installed.
+#' - Update the file paths to match the actual directory structure.
+#' - This script assumes data is structured in specific formatted CSV and TXT files.
+#'
+#' @author Tobias Pohl
+#' @date 2025-02-06
+#' @version 1.2.1.R
 
-for (package in required_packages) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    install.packages(package)
-  }
-  library(package, character.only = TRUE)
+# Check if packages are installed, install them if needed, and load them using pacman
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
 }
+pacman::p_load(tensorflow, reticulate, keras, sp, imputeTS, ggplot2, ggmap, data.table, cowplot, corrplot, zoo, stringr, tidyverse)
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
@@ -21,14 +43,14 @@ calcAngle <- function(vec1, vec2) {
   return(angleRad * 180 / pi)
 }
 
-# read in animal ID and Code list from .txt file
+# Read in the animal ID and Code list from a .txt file
 animalIDCode <- read.table("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt", header = TRUE)
 
-# define batch
+# Define the experimental batches to be processed
 batches <- c("B1", "B2", "B3", "B4", "B5", "B6")
 
 for (batch in batches) {
-  # Set input and output directories
+  # Define input and output directories for the current batch
   inputDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B", batch, "/NOR/SLEAP/formatted")
   outputDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B", batch, "/NOR/SLEAP/output")
   novelLocDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B", batch, "/NOR")
@@ -37,17 +59,17 @@ for (batch in batches) {
   plotDir <- file.path(outputDir, "plots")
   dir.create(plotDir, showWarnings = FALSE)
   
-  # Get a list of CSV files in the input directory
+  # List all CSV files in the input directory
   fileList <- list.files(path = inputDir, pattern = "*.csv")
   
-  # Loop through each file in the input directory
+  # Loop through each CSV file in the input directory
   for (file in fileList) {
     # Read tracking data
     inputFile <- file.path(inputDir, file)
     Tracking <- ReadDLCDataFromCSV(file = inputFile, fps = 30)
     inputFileName <- sub(".csv$", "", basename(inputFile))
     
-    # Replace NAs in nose and bodycentre columns with last known values
+    # Fill missing values in nose and bodycentre columns with the last observed values
     Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose$x)
     Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose$y)
     Tracking$data$bodycentre$x <- zoo::na.locf(Tracking$data$bodycentre$x)
@@ -69,11 +91,11 @@ for (batch in batches) {
       vecNoseObjR = cbind((Tracking$data$nose$x - Tracking$data$objR$x), (Tracking$data$nose$y - Tracking$data$objR$y))
     )
     
-    # Initialize vectors to store angles
+    # Initialize vectors to store calculated angles for each object
     angleDegObjL <- numeric(length = nrow(dfTracking))
     angleDegObjR <- numeric(length = nrow(dfTracking))
     
-    # Calculate angles for each row in dfTracking
+    # Calculate angles between nose and objects for each row in dfTracking
     for (i in 1:nrow(dfTracking)) {
       vecNoseObjL <- c(dfTracking$vecNoseObjL.1[i], dfTracking$vecNoseObjL.2[i])
       vecNoseObjR <- c(dfTracking$vecNoseObjR.1[i], dfTracking$vecNoseObjR.2[i])
