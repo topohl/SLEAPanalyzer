@@ -1,12 +1,30 @@
-required_packages <- c("stringr", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "keras", "tensorflow", "zoo", "dplyr", "reticulate")
+#' @title Batch Processing of Social Preference Test Data
+#' @description
+#' This script processes behavioral tracking data from a social preference test.
+#' It loads required packages, iterates over different batches and test phases,
+#' reads and processes tracking data, calculates time spent in different zones,
+#' and generates output files with the extracted metrics and visualizations.
+#'
+#' @details
+#' - Installs and loads required packages.
+#' - Sets working directory and sources necessary functions.
+#' - Iterates through experimental batches and social preference phases.
+#' - Reads animal ID codes and novel location data.
+#' - Processes tracking data using DLC output and extracts behavioral metrics.
+#' - Calculates time in novel and familiar zones, proximity measures, and visit frequency.
+#' - Saves processed data and visualizations.
+#'
+#' @note
+#' - Ensure all required R packages are installed.
+#' - Update the file paths to match the actual directory structure.
+#' - This script assumes data is structured in specific formatted CSV and TXT files.
+#'
+#' @author Tobias Pohl
+#' @date 2025-02-06
+#' @version 1.1.0
 
-# Install and load required packages
-lapply(required_packages, function(package) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    install.packages(package, dependencies = TRUE)
-  }
-  library(package, character.only = TRUE)
-})
+if (!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
+pacman::p_load(stringr, sp, imputeTS, ggplot2, ggmap, data.table, cowplot, corrplot, keras, tensorflow, zoo, dplyr, reticulate)
 
 # Set working directory and load R script
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
