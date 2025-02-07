@@ -1,7 +1,6 @@
 #' @title DLCA_NOR v1.2.1.R
 #' @description
-#' This script processes behavioral tracking data from a snovel object recognition
-#' test.
+#' This script processes behavioral tracking data from a novel object recognition test.
 #' It loads required packages, iterates over different batches and test phases,
 #' reads and processes tracking data, calculates time spent in different zones,
 #' and generates output files with the extracted metrics and visualizations.
@@ -20,17 +19,18 @@
 #' - Update the file paths to match the actual directory structure.
 #' - This script assumes data is structured in specific formatted CSV and TXT files.
 #'
-#' @author Tobias Pohl
+#' @version 1.2.1
 #' @date 2025-02-06
-#' @version 1.2.1.R
+#' @author
+#' Tobias Pohl
 
-# Check if packages are installed, install them if needed, and load them using pacman
+# Load required packages using pacman
 if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")
 }
-pacman::p_load(tensorflow, reticulate, keras, sp, imputeTS, ggplot2, ggmap, data.table, cowplot, corrplot, zoo, stringr, tidyverse)
+pacman::p_load(tensorflow, reticulate, keras, sp, imputeTS, ggplot2, ggmap, data.table, cowplot, corrplot, zoo, stringr, tidyverse, openxlsx)
 
-# Set working directory and load R script
+# Set working directory and source necessary functions
 setwd("C:/Users/topohl/Documents/GitHub/DLCAnalyzer")
 source('R/DLCAnalyzer_Functions_final.R')
 
@@ -49,6 +49,7 @@ animalIDCode <- read.table("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Pl
 # Define the experimental batches to be processed
 batches <- c("B1", "B2", "B3", "B4", "B5", "B6")
 
+# Loop through each batch
 for (batch in batches) {
   # Define input and output directories for the current batch
   inputDir <- paste0("S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B", batch, "/NOR/SLEAP/formatted")
@@ -105,7 +106,7 @@ for (batch in batches) {
       angleDegObjR[i] <- calcAngle(vecNoseObjR, vecBodyCentre)
     }
     
-    # Define square coordinates around objL and objR
+    # Define square coordinates around the novel object objL and objR
     squareWidth <- 9
     squareHeight <- 7
     objLSquare <- data.frame(
@@ -117,10 +118,10 @@ for (batch in batches) {
       y = c(Tracking$data$objR$y - squareHeight/2, Tracking$data$objR$y - squareHeight/2, Tracking$data$objR$y + squareHeight/2, Tracking$data$objR$y + squareHeight/2)
     )
     
-    # Extract code from filename
+    # Extract the animal code from the filename
     code <- str_extract(inputFileName, "^[A-Za-z0-9]{4}")
     
-    # Check if code exists in novelLoc file
+    # Verify if the code exists in the novelLoc data frame
     if (code %in% novelLoc$Code) {
       totalTime <- 5 * 60
       if (novelLoc[novelLoc$Code == code, "NovelLoc"] == "R") {
@@ -141,19 +142,19 @@ for (batch in batches) {
       contactRight <- 0
     }
     
-    # Calculate time with nose between 6-10 cm of objL or objR
+    # Calculate time with nose between 4-8 cm of objL or objR
     isInProxLeft <- GetDistances(Tracking, "objL", "nose") > 4 & GetDistances(Tracking, "objL", "nose") <= 8
     isInProxRight <- GetDistances(Tracking, "objR", "nose") > 4 & GetDistances(Tracking, "objR", "nose") <= 8
     proxLeft <- sum(isInProxLeft) * totalTime / length(isInProxLeft)
     proxRight <- sum(isInProxRight) * totalTime / length(isInProxRight)
     
-    # Calculate time with nose between 6-10 cm of objL or objR with consideration of head angle
+    # Calculate time with nose between 6-10 cm of objL or objR considering head angle
     isInProxLeftAngle <- GetDistances(Tracking, "objL", "nose") > 4 & GetDistances(Tracking, "objL", "nose") <= 8 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270
     isInProxRightAngle <- GetDistances(Tracking, "objR", "nose") > 4 & GetDistances(Tracking, "objR", "nose") <= 8 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270
     proxLeftAngle <- sum(isInProxLeftAngle) * totalTime / length(isInProxLeftAngle)
     proxRightAngle <- sum(isInProxRightAngle) * totalTime / length(isInProxRightAngle)
     
-    # Calculate latency until first contact with objL or objR in seconds
+    # Calculate the latency until the first contact with objL or objR in seconds
     if (novelLoc[novelLoc$Code == code, "NovelLoc"] == "R") {
       latencyLeft <- min(which(point.in.polygon(Tracking$data$nose$x, Tracking$data$nose$y, objLSquare$x, objLSquare$y) & GetDistances(Tracking, "objL", "bodycentre") > 1 & abs(angleDegObjL) >= 90 & abs(angleDegObjL) <= 270)) * 1/30
       latencyRight <- min(which(GetDistances(Tracking, "objR", "nose") <= 4 & GetDistances(Tracking, "objR", "bodycentre") > 1 & abs(angleDegObjR) >= 70 & abs(angleDegObjR) <= 290)) * 1/30
@@ -191,7 +192,7 @@ for (batch in batches) {
       c(0, diff(GetDistances(Tracking, "bodycentre", "spine2") <= 1)) == 1
     frequencyRear <- sum(freqRear)
     
-    # Create data frame with results
+    # Create a data frame to store the results
     df <- data.frame(
       file = inputFileName,
       ID = animalIDCode[animalIDCode$Code == code, "ID"],
@@ -217,7 +218,7 @@ for (batch in batches) {
       novelLoc = novelLoc[novelLoc$Code == code, "NovelLoc"]
     )
     
-    # Write data frame to output file
+    # Write the results data frame to an output file
     outputFile <- paste0(inputFileName, "_output.csv")
     write.csv(df, outputFile, row.names = FALSE)
     
@@ -234,11 +235,11 @@ for (batch in batches) {
   }
 }
 
-# Combine all data frames into a single data frame
+# Combine all individual result data frames into a single data frame
 dfCombined <- do.call(rbind, dfList)
 
-# Write combined data frame to csv file
-write.csv(dfCombined, file.path(outputDir, "combined_output.csv"), row.names = FALSE)
+# Write the combined data frame to an Excel file
+write.xlsx(dfCombined, file.path(outputDir, "combined_output.xlsx"), row.names = FALSE)
 
-# Print "done" message
-cat("done\n")
+# Print completion message
+cat("Processing complete.\n")
