@@ -168,7 +168,6 @@ for (bodypart in bodyparts1) {
   }
 }
 
-
   # calculate interaction of animal 1 with animal 2 nose
     isInNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
     contactNose1toNose2 <- sum(isInNoseToNoseContactanimal1) * seconds_length / length(isInNoseToNoseContactanimal1)
