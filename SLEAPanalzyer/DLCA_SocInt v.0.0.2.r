@@ -1,301 +1,751 @@
-# Check if packages are installed, install them if needed, and load them
-required_packages <- c("tensorflow", "reticulate", "keras", "sp", "imputeTS", "ggplot2", "ggmap", "data.table", "cowplot", "corrplot", "zoo", "stringr", "tidyverse")
+# ================================================================
+# SLEAP/DLC Social Interaction Analyzer
+# Event-based animal-animal interaction analysis with QC
+# Author: Tobias Pohl / ChatGPT revision
+# ================================================================
+#
+# What this script adds vs. the exploratory v0.0.2 script:
+# - No hard-coded per-file overwrite inside the batch loop
+# - Centralized parameters for fps and thresholds
+# - Robust interpolation with QC reporting
+# - Geometry helpers for distances, headings, and angles
+# - Frame-level ethogram / event table
+# - Directional interaction metrics: animal1 -> animal2 and animal2 -> animal1
+# - Bout statistics: duration, count, latency, mean/max bout duration
+# - Proximity, facing, parallel, anti-parallel, following, and avoidance metrics
+# - Combined per-file summary table
+# - QC plots and distance/event plots
+#
+# Expected tracking object:
+# This script assumes that DLCAnalyzer_Functions_final.R provides:
+#   ReadDLCDataFromCSV(file, fps)
+# and returns Tracking$data[[bodypart]]$x and Tracking$data[[bodypart]]$y
+#
+# Bodypart names expected by default:
+# animal 1: nose_1, leftEar_1, rightEar_1, bodycentre_1, leftSide_1, rightSide_1, tailBase_1, tailEnd_1
+# animal 2: nose_2, leftEar_2, rightEar_2, bodycentre_2, leftSide_2, rightSide_2, tailBase_2, tailEnd_2
+#
+# ================================================================
 
-for (package in required_packages) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    install.packages(package)
+# -------------------------------
+# 0) Packages
+# -------------------------------
+
+required_packages <- c(
+  "dplyr", "tidyr", "purrr", "stringr", "readr", "ggplot2",
+  "zoo", "tibble", "fs", "rlang"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}
+
+# -------------------------------
+# 1) User parameters
+# -------------------------------
+
+config <- list(
+  fps = 30,
+
+  # Set these paths.
+  # Use forward slashes also on Windows to avoid escaping problems.
+  working_dir = "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/SLEAPanalzyer",
+  functions_file = "DLCAnalyzer_Functions_final.R",
+
+  input_dir  = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC",
+  output_dir = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/output_event_based",
+
+  # File pattern.
+  csv_pattern = "\\.csv$",
+
+  # Coordinate units.
+  # If data are not calibrated, these are pixels.
+  # If data are calibrated to cm, set thresholds in cm.
+  unit = "px",
+
+  # Interaction thresholds.
+  contact_dist = 30,
+  side_by_side_dist = 80,
+  close_proximity_dist = 80,
+  medium_proximity_dist = 160,
+
+  # Orientation thresholds.
+  # angle_to_target is 0 when the animal nose/body axis points directly to target.
+  # Use <= facing_angle for directed investigation.
+  facing_angle_deg = 60,
+  parallel_angle_deg = 45,
+  anti_parallel_angle_deg = 135,
+
+  # Movement thresholds.
+  movement_cutoff = 5,
+  follow_lag_s = 1.0,
+  follow_dist = 120,
+  avoidance_lag_s = 1.0,
+  avoidance_start_dist = 80,
+  avoidance_delta_dist = 40,
+
+  # QC thresholds.
+  max_interpolation_gap_frames = 30,
+  impossible_jump_dist = 100,
+  high_missing_fraction = 0.20,
+
+  # Plots.
+  save_plots = TRUE,
+  plot_width = 8,
+  plot_height = 5
+)
+
+# -------------------------------
+# 2) Setup
+# -------------------------------
+
+if (!dir.exists(config$working_dir)) {
+  warning("working_dir does not exist: ", config$working_dir)
+} else {
+  setwd(config$working_dir)
+}
+
+if (file.exists(config$functions_file)) {
+  source(config$functions_file)
+} else {
+  stop("Could not find functions file: ", config$functions_file,
+       "\nExpected function ReadDLCDataFromCSV(file, fps).")
+}
+
+fs::dir_create(config$output_dir)
+fs::dir_create(file.path(config$output_dir, "tables"))
+fs::dir_create(file.path(config$output_dir, "frames"))
+fs::dir_create(file.path(config$output_dir, "qc"))
+fs::dir_create(file.path(config$output_dir, "figures"))
+
+# -------------------------------
+# 3) Bodypart definitions
+# -------------------------------
+
+bodyparts_animal1 <- c(
+  "nose_1", "leftEar_1", "rightEar_1", "bodycentre_1",
+  "leftSide_1", "rightSide_1", "tailBase_1", "tailEnd_1"
+)
+
+bodyparts_animal2 <- c(
+  "nose_2", "leftEar_2", "rightEar_2", "bodycentre_2",
+  "leftSide_2", "rightSide_2", "tailBase_2", "tailEnd_2"
+)
+
+bodyparts_all <- c(bodyparts_animal1, bodyparts_animal2)
+
+# -------------------------------
+# 4) Utility functions
+# -------------------------------
+
+safe_divide <- function(x, y) {
+  ifelse(is.na(y) | y == 0, NA_real_, x / y)
+}
+
+vec_norm <- function(x, y) {
+  sqrt(x^2 + y^2)
+}
+
+angle_between_vectors_deg <- function(ax, ay, bx, by) {
+  dot <- ax * bx + ay * by
+  mag_a <- vec_norm(ax, ay)
+  mag_b <- vec_norm(bx, by)
+
+  cos_theta <- safe_divide(dot, mag_a * mag_b)
+  cos_theta <- pmin(1, pmax(-1, cos_theta))
+
+  angle <- acos(cos_theta) * 180 / pi
+  angle[is.nan(angle)] <- NA_real_
+  angle
+}
+
+circular_angle_diff_deg <- function(a, b) {
+  # Absolute smallest difference between two angles in degrees.
+  diff <- abs(a - b) %% 360
+  pmin(diff, 360 - diff)
+}
+
+get_xy <- function(Tracking, bodypart) {
+  if (!bodypart %in% names(Tracking$data)) {
+    stop("Bodypart not found in Tracking$data: ", bodypart)
   }
-  library(package, character.only = TRUE)
+
+  tibble(
+    x = as.numeric(Tracking$data[[bodypart]]$x),
+    y = as.numeric(Tracking$data[[bodypart]]$y)
+  )
 }
 
-# Define length of video in minutes and translation to seconds
-videoLength <- 2
-totalTime <- videoLength * 60
-
-# Set working directory and load R script
-setwd("C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/SLEAPanalzyer/")
-source('DLCAnalyzer_Functions_final.R')
-
-# Set input and output directories
-inputDir <- "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC"
-outputDir <- "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/output"
-# Create a new folder for saving the plots
-plotDir <- file.path(outputDir, "plots")
-dir.create(plotDir, showWarnings = FALSE)
-
-# Get a list of CSV files in the input directory
-fileList <- list.files(path = inputDir, pattern = "*.csv")
-
-# create a new list dfList
-dfList <- list()
-# Function to calculate angle between two vectors
-calcAngle <- function(vec1, vec2) {
-  dotProd <- sum(vec1 * vec2)
-  mag1 <- sqrt(sum(vec1^2))
-  mag2 <- sqrt(sum(vec2^2))
-  angleRad <- acos(dotProd / (mag1 * mag2))
-  return(angleRad * 180 / pi)
+distance_bp <- function(Tracking, bp1, bp2) {
+  a <- get_xy(Tracking, bp1)
+  b <- get_xy(Tracking, bp2)
+  vec_norm(a$x - b$x, a$y - b$y)
 }
 
-# Loop through each file in the input directory
-for (file in fileList) {
-  # Read tracking data
-  inputFile <- file.path(inputDir, file)
-  Tracking <- ReadDLCDataFromCSV(file = inputFile, fps = 30)
+heading_vector <- function(Tracking, animal_id) {
+  nose <- get_xy(Tracking, paste0("nose_", animal_id))
+  body <- get_xy(Tracking, paste0("bodycentre_", animal_id))
 
-  # Initialize dfTracking
-  dfTracking <- data.frame()  # Create an empty data frame to store results
+  tibble(
+    x = nose$x - body$x,
+    y = nose$y - body$y
+  )
+}
 
-  # extract length of Tracking$data$nose_1$x
-  length <- length(Tracking$data$nose_1$x)
-  seconds_length <- length / 30
-  minutes_length <- seconds_length / 60
+target_vector <- function(Tracking, from_bp, to_bp) {
+  from <- get_xy(Tracking, from_bp)
+  to   <- get_xy(Tracking, to_bp)
 
-  # read in 017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv from inpitDir
-  Tracking <- ReadDLCDataFromCSV(file = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/017-1DLC_dlcrnetms5_SHOct29shuffle1_200000_el_filtered.csv", fps = 30)
+  tibble(
+    x = to$x - from$x,
+    y = to$y - from$y
+  )
+}
 
-  str(dfTracking)
+angle_animal_to_bodypart <- function(Tracking, animal_id, target_bp) {
+  hv <- heading_vector(Tracking, animal_id)
+  tv <- target_vector(Tracking, paste0("nose_", animal_id), target_bp)
 
-  inputFileName <- sub(".csv$", "", basename(inputFile))
+  angle_between_vectors_deg(hv$x, hv$y, tv$x, tv$y)
+}
 
-  bodyparts <- c("nose_1", "leftEar_1", "rightEar_1", "bodycentre_1", "leftSide_1", "rightSide_1", "tailBase_1", "tailEnd_1", "nose_2", "leftEar_2", "rightEar_2", "bodycentre_2", "leftSide_2", "rightSide_2", "tailBase_2", "tailEnd_2")
-# assign bodyparts based on number behind separator "_"
-bodyparts1 <- bodyparts[1:8]
-bodyparts2 <- bodyparts[9:16]
+heading_angle_deg <- function(Tracking, animal_id) {
+  hv <- heading_vector(Tracking, animal_id)
+  atan2(hv$y, hv$x) * 180 / pi
+}
 
-  # Function to handle interpolation with specified behavior
-interpolate_with_leading_trailing <- function(x) {
-  # Handle leading NAs
-  if (is.na(x[1])) {
-    first_non_na <- which(!is.na(x))[1]
-    if (!is.na(first_non_na)) {
-      x[1:(first_non_na - 1)] <- x[first_non_na]
+speed_bp <- function(Tracking, bp, fps) {
+  xy <- get_xy(Tracking, bp)
+  dx <- c(NA_real_, diff(xy$x))
+  dy <- c(NA_real_, diff(xy$y))
+  vec_norm(dx, dy) * fps
+}
+
+first_true_time <- function(event_vec, fps) {
+  idx <- which(event_vec %in% TRUE)[1]
+  ifelse(is.na(idx), NA_real_, (idx - 1) / fps)
+}
+
+summarise_event <- function(event_vec, fps) {
+  event_vec <- ifelse(is.na(event_vec), FALSE, event_vec)
+
+  starts <- event_vec & !dplyr::lag(event_vec, default = FALSE)
+  ends   <- event_vec & !dplyr::lead(event_vec, default = FALSE)
+
+  bout_id <- cumsum(starts)
+  bout_id[!event_vec] <- NA_integer_
+
+  bout_df <- tibble(active = event_vec, bout_id = bout_id) |>
+    filter(active) |>
+    group_by(bout_id) |>
+    summarise(frames = n(), .groups = "drop")
+
+  tibble(
+    duration_s = sum(event_vec) / fps,
+    percent_time = 100 * mean(event_vec),
+    bout_n = sum(starts),
+    latency_s = first_true_time(event_vec, fps),
+    mean_bout_s = ifelse(nrow(bout_df) == 0, NA_real_, mean(bout_df$frames) / fps),
+    max_bout_s  = ifelse(nrow(bout_df) == 0, NA_real_, max(bout_df$frames) / fps),
+    event_frames = sum(event_vec)
+  )
+}
+
+interpolate_with_qc <- function(x, maxgap = Inf) {
+  x_orig <- as.numeric(x)
+  n <- length(x_orig)
+
+  # All values missing: return unchanged and let QC flag it.
+  if (all(is.na(x_orig))) {
+    return(list(
+      x = x_orig,
+      n_missing_original = n,
+      frac_missing_original = 1,
+      n_interpolated = 0,
+      frac_interpolated = 0,
+      longest_missing_run = n
+    ))
+  }
+
+  missing_orig <- is.na(x_orig)
+  r <- rle(missing_orig)
+  longest_missing_run <- ifelse(any(r$values), max(r$lengths[r$values]), 0)
+
+  # Fill leading/trailing NA with nearest observed value.
+  first_non_na <- which(!is.na(x_orig))[1]
+  last_non_na  <- tail(which(!is.na(x_orig)), 1)
+
+  x_filled <- x_orig
+  if (first_non_na > 1) x_filled[1:(first_non_na - 1)] <- x_orig[first_non_na]
+  if (last_non_na < n) x_filled[(last_non_na + 1):n] <- x_orig[last_non_na]
+
+  # Interpolate internal gaps up to maxgap.
+  x_interp <- zoo::na.approx(x_filled, na.rm = FALSE, maxgap = maxgap)
+
+  interpolated <- missing_orig & !is.na(x_interp)
+
+  list(
+    x = x_interp,
+    n_missing_original = sum(missing_orig),
+    frac_missing_original = mean(missing_orig),
+    n_interpolated = sum(interpolated),
+    frac_interpolated = mean(interpolated),
+    longest_missing_run = longest_missing_run
+  )
+}
+
+qc_tracking <- function(Tracking, bodyparts, config, file_id) {
+  qc_rows <- list()
+
+  for (bp in bodyparts) {
+    if (!bp %in% names(Tracking$data)) {
+      qc_rows[[length(qc_rows) + 1]] <- tibble(
+        file = file_id,
+        bodypart = bp,
+        coordinate = NA_character_,
+        n_missing_original = NA_integer_,
+        frac_missing_original = NA_real_,
+        n_interpolated = NA_integer_,
+        frac_interpolated = NA_real_,
+        longest_missing_run = NA_integer_,
+        impossible_jump_n = NA_integer_,
+        flag_high_missing = TRUE,
+        flag_missing_bodypart = TRUE
+      )
+      next
+    }
+
+    for (coord in c("x", "y")) {
+      raw <- as.numeric(Tracking$data[[bp]][[coord]])
+      jump_n <- sum(abs(c(NA_real_, diff(raw))) > config$impossible_jump_dist, na.rm = TRUE)
+
+      interp <- interpolate_with_qc(raw, maxgap = config$max_interpolation_gap_frames)
+      Tracking$data[[bp]][[coord]] <- interp$x
+
+      qc_rows[[length(qc_rows) + 1]] <- tibble(
+        file = file_id,
+        bodypart = bp,
+        coordinate = coord,
+        n_missing_original = interp$n_missing_original,
+        frac_missing_original = interp$frac_missing_original,
+        n_interpolated = interp$n_interpolated,
+        frac_interpolated = interp$frac_interpolated,
+        longest_missing_run = interp$longest_missing_run,
+        impossible_jump_n = jump_n,
+        flag_high_missing = interp$frac_missing_original > config$high_missing_fraction,
+        flag_missing_bodypart = FALSE
+      )
     }
   }
-  
-  # Handle trailing NAs
-  if (is.na(x[length(x)])) {
-    last_non_na <- tail(which(!is.na(x)), 1)
-    if (!is.na(last_non_na)) {
-      x[(last_non_na + 1):length(x)] <- x[last_non_na]
-    }
-  }
-  
-  # Interpolate internal NAs
-  x <- na.approx(x, na.rm = FALSE)  # Linear interpolation between known values
-  
-  return(x)
+
+  list(
+    Tracking = Tracking,
+    qc = bind_rows(qc_rows)
+  )
 }
 
-# Interpolate missing values in x and y coordinates for all body parts
-for (bodypart in bodyparts) {
-  # Interpolate the x values
-  Tracking$data[[bodypart]]$x <- interpolate_with_leading_trailing(Tracking$data[[bodypart]]$x)
-  
-  # Interpolate the y values
-  Tracking$data[[bodypart]]$y <- interpolate_with_leading_trailing(Tracking$data[[bodypart]]$y)
-}
+make_event_table <- function(Tracking, config, file_id) {
+  fps <- config$fps
+  n_frames <- length(Tracking$data$nose_1$x)
 
-  # Replace NAs in nose and bodycentre columns with last known values
-  #Tracking$data$nose$x <- zoo::na.locf(Tracking$data$nose1$x)
-  #Tracking$data$nose$y <- zoo::na.locf(Tracking$data$nose1$y)
-  #Tracking$data$bodycentre$x <- zoo::na.locf(Tracking$data$bodycentre1$x)
-  #Tracking$data$bodycentre$y <- zoo::na.locf(Tracking$data$bodycentre1$y)
-
-  # Calibrate tracking data, add zones, and plot
-  #Tracking <- CalibrateTrackingData(Tracking, method = "area", in.metric = 49 * 49, points = c("tl", "tr", "br", "bl"))
-  #Tracking <- AddOFTZones(Tracking, scale_center = 0.5, scale_periphery = 0.8, scale_corners = 0.4, points = c("tl", "tr", "br", "bl"))
-  #PlotZones(Tracking)
-  #PlotPointData(Tracking, points = c("nose"))
-  
-  # Perform OFT analysis for both bodycentre_1 and bodycentre_2
-  Tracking <- OFTAnalysis(Tracking, points = c("bodycentre_1", "bodycentre_2"), movement_cutoff = 5, integration_period = 5)
-  
-# Initialize a list to store distance values
-distances <- list()
-
-  # Create data frame for calculating angles
-  dfTracking <- data.frame(
-    vecNose1Bodycentre1 = cbind((Tracking$data$nose_1$x - Tracking$data$bodycentre_1$x), (Tracking$data$nose_1$y - Tracking$data$bodycentre_1$y)),
-    vecNose2Bodycentre2 = cbind((Tracking$data$nose_2$x - Tracking$data$bodycentre_2$x), (Tracking$data$nose_2$y - Tracking$data$bodycentre_2$y))
+  frame_tbl <- tibble(
+    file = file_id,
+    frame = seq_len(n_frames),
+    time_s = (frame - 1) / fps
   )
 
-# Loop through each body part combination
-for (i in 1:length(bodyparts1)) {
-  for (j in 1:length(bodyparts2)) {
-    bodypart1 <- bodyparts1[i]
-    bodypart2 <- bodyparts2[j]
-    
-    # Extract the animal numbers
-    animal1 <- substr(bodypart1, nchar(bodypart1) - 1, nchar(bodypart1))
-    animal2 <- substr(bodypart2, nchar(bodypart2) - 1, nchar(bodypart2))
-    
-    # Check if body parts belong to different animals
-    if (animal1 != animal2) {
-      # Calculate distance between body parts
-      # Calculate vectors between nose of animal 1 and body parts of animal 2
-      for (bodypart in bodyparts2) {
-        dfTracking[[paste0("vecNose1", bodypart)]] <- cbind((Tracking$data$nose_1$x - Tracking$data[[bodypart]]$x), (Tracking$data$nose_1$y - Tracking$data[[bodypart]]$y))
-      }
+  # Core distances.
+  d_nose_nose <- distance_bp(Tracking, "nose_1", "nose_2")
+  d_body_body <- distance_bp(Tracking, "bodycentre_1", "bodycentre_2")
+  d_tail_tail <- distance_bp(Tracking, "tailBase_1", "tailBase_2")
 
-      # Calculate vectors between nose of animal 2 and body parts of animal 1
-      for (bodypart in bodyparts1) {
-        dfTracking[[paste0("vecNose2", bodypart)]] <- cbind((Tracking$data$nose_2$x - Tracking$data[[bodypart]]$x), (Tracking$data$nose_2$y - Tracking$data[[bodypart]]$y))
-      }
-      
-    }
-  }
+  d_nose1_body2 <- distance_bp(Tracking, "nose_1", "bodycentre_2")
+  d_nose1_tail2 <- distance_bp(Tracking, "nose_1", "tailBase_2")
+  d_nose2_body1 <- distance_bp(Tracking, "nose_2", "bodycentre_1")
+  d_nose2_tail1 <- distance_bp(Tracking, "nose_2", "tailBase_1")
+
+  d_tail1_nose2 <- distance_bp(Tracking, "tailBase_1", "nose_2")
+  d_tail2_nose1 <- distance_bp(Tracking, "tailBase_2", "nose_1")
+
+  # Directional angles.
+  a1_to_nose2 <- angle_animal_to_bodypart(Tracking, 1, "nose_2")
+  a1_to_body2 <- angle_animal_to_bodypart(Tracking, 1, "bodycentre_2")
+  a1_to_tail2 <- angle_animal_to_bodypart(Tracking, 1, "tailBase_2")
+
+  a2_to_nose1 <- angle_animal_to_bodypart(Tracking, 2, "nose_1")
+  a2_to_body1 <- angle_animal_to_bodypart(Tracking, 2, "bodycentre_1")
+  a2_to_tail1 <- angle_animal_to_bodypart(Tracking, 2, "tailBase_1")
+
+  heading1 <- heading_angle_deg(Tracking, 1)
+  heading2 <- heading_angle_deg(Tracking, 2)
+  heading_diff <- circular_angle_diff_deg(heading1, heading2)
+
+  speed1 <- speed_bp(Tracking, "bodycentre_1", fps)
+  speed2 <- speed_bp(Tracking, "bodycentre_2", fps)
+
+  follow_lag_frames <- max(1, round(config$follow_lag_s * fps))
+  avoidance_lag_frames <- max(1, round(config$avoidance_lag_s * fps))
+
+  # Basic directional contacts.
+  a1_nose_nose <- d_nose_nose <= config$contact_dist &
+    a1_to_nose2 <= config$facing_angle_deg
+
+  a1_nose_body <- d_nose1_body2 <= config$contact_dist &
+    a1_to_body2 <= config$facing_angle_deg
+
+  a1_nose_tail <- d_nose1_tail2 <= config$contact_dist &
+    a1_to_tail2 <= config$facing_angle_deg
+
+  a2_nose_nose <- d_nose_nose <= config$contact_dist &
+    a2_to_nose1 <= config$facing_angle_deg
+
+  a2_nose_body <- d_nose2_body1 <= config$contact_dist &
+    a2_to_body1 <= config$facing_angle_deg
+
+  a2_nose_tail <- d_nose2_tail1 <= config$contact_dist &
+    a2_to_tail1 <= config$facing_angle_deg
+
+  # Non-directional posture / proximity.
+  side_by_side_parallel <- d_nose_nose <= config$side_by_side_dist &
+    d_body_body <= config$side_by_side_dist &
+    d_tail_tail <= config$side_by_side_dist &
+    heading_diff <= config$parallel_angle_deg
+
+  side_by_side_antiparallel <- d_nose1_tail2 <= config$side_by_side_dist &
+    d_body_body <= config$side_by_side_dist &
+    d_tail1_nose2 <= config$side_by_side_dist &
+    heading_diff >= config$anti_parallel_angle_deg
+
+  close_proximity <- d_body_body <= config$close_proximity_dist
+  medium_proximity <- d_body_body > config$close_proximity_dist &
+    d_body_body <= config$medium_proximity_dist
+
+  mutually_facing <- a1_to_nose2 <= config$facing_angle_deg &
+    a2_to_nose1 <= config$facing_angle_deg &
+    d_body_body <= config$medium_proximity_dist
+
+  # Following / avoidance.
+  # Interpretation: A1 follows if A2 was moving shortly before, A1 is moving now,
+  # and they remain spatially close. This is heuristic and should be validated visually.
+  a1_following_a2 <- d_body_body <= config$follow_dist &
+    dplyr::lag(speed2, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
+    speed1 > config$movement_cutoff
+
+  a2_following_a1 <- d_body_body <= config$follow_dist &
+    dplyr::lag(speed1, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
+    speed2 > config$movement_cutoff
+
+  # Avoidance: close now and distance increases after lag.
+  future_d <- dplyr::lead(d_body_body, n = avoidance_lag_frames, default = NA_real_)
+
+  a1_avoidance_from_a2 <- d_body_body <= config$avoidance_start_dist &
+    future_d - d_body_body >= config$avoidance_delta_dist &
+    speed1 > config$movement_cutoff
+
+  a2_avoidance_from_a1 <- d_body_body <= config$avoidance_start_dist &
+    future_d - d_body_body >= config$avoidance_delta_dist &
+    speed2 > config$movement_cutoff
+
+  # Export wide frame-level table.
+  frame_tbl <- frame_tbl |>
+    mutate(
+      d_nose_nose = d_nose_nose,
+      d_body_body = d_body_body,
+      d_nose1_body2 = d_nose1_body2,
+      d_nose1_tail2 = d_nose1_tail2,
+      d_nose2_body1 = d_nose2_body1,
+      d_nose2_tail1 = d_nose2_tail1,
+      angle_a1_to_nose2 = a1_to_nose2,
+      angle_a1_to_body2 = a1_to_body2,
+      angle_a1_to_tail2 = a1_to_tail2,
+      angle_a2_to_nose1 = a2_to_nose1,
+      angle_a2_to_body1 = a2_to_body1,
+      angle_a2_to_tail1 = a2_to_tail1,
+      heading_diff = heading_diff,
+      speed1 = speed1,
+      speed2 = speed2,
+
+      a1_nose_to_nose2 = a1_nose_nose,
+      a1_nose_to_body2 = a1_nose_body,
+      a1_nose_to_tail2 = a1_nose_tail,
+      a2_nose_to_nose1 = a2_nose_nose,
+      a2_nose_to_body1 = a2_nose_body,
+      a2_nose_to_tail1 = a2_nose_tail,
+
+      side_by_side_parallel = side_by_side_parallel,
+      side_by_side_antiparallel = side_by_side_antiparallel,
+      close_proximity = close_proximity,
+      medium_proximity = medium_proximity,
+      mutually_facing = mutually_facing,
+      a1_following_a2 = a1_following_a2,
+      a2_following_a1 = a2_following_a1,
+      a1_avoidance_from_a2 = a1_avoidance_from_a2,
+      a2_avoidance_from_a1 = a2_avoidance_from_a1,
+
+      # Combined directional investigation states.
+      a1_any_directed_contact = a1_nose_nose | a1_nose_body | a1_nose_tail,
+      a2_any_directed_contact = a2_nose_nose | a2_nose_body | a2_nose_tail,
+      any_social_contact = a1_any_directed_contact | a2_any_directed_contact |
+        side_by_side_parallel | side_by_side_antiparallel
+    )
+
+  frame_tbl
 }
 
-# calculate angles between vecNose1BodyCentre1 and bodyparts of animal 2, also calculate angles between vecNose2BodyCentre2 and bodyparts of animal 1
-for (bodypart in bodyparts2) {
-  dfTracking[[paste0("angleDegNose1", bodypart)]] <- numeric(length = nrow(dfTracking))
-  for (i in 1:nrow(dfTracking)) {
-    vecNose1Bodycentre1 <- c(dfTracking$vecNose1Bodycentre1.1[i], dfTracking$vecNose1Bodycentre1.2[i])
-    vecNose1Bodypart2 <- c(dfTracking[[paste0("vecNose1", bodypart)]][i, 1], dfTracking[[paste0("vecNose1", bodypart)]][i, 2])
-    
-    dfTracking[[paste0("angleDegNose1", bodypart)]][i] <- calcAngle(vecNose1Bodycentre1, vecNose1Bodypart2)
-  }
-}
+summarise_events_long <- function(frame_tbl, config) {
+  fps <- config$fps
 
-for (bodypart in bodyparts1) {
-  dfTracking[[paste0("angleDegNose2", bodypart)]] <- numeric(length = nrow(dfTracking))
-  for (i in 1:nrow(dfTracking)) {
-    vecNose2Bodycentre2 <- c(dfTracking$vecNose2Bodycentre2.1[i], dfTracking$vecNose2Bodycentre2.2[i])
-    vecNose2Bodypart1 <- c(dfTracking[[paste0("vecNose2", bodypart)]][i, 1], dfTracking[[paste0("vecNose2", bodypart)]][i, 2])
-    
-    dfTracking[[paste0("angleDegNose2", bodypart)]][i] <- calcAngle(vecNose2Bodycentre2, vecNose2Bodypart1)
-  }
-}
-
-  # calculate interaction of animal 1 with animal 2 nose
-    isInNoseToNoseContactanimal1 <- GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
-    contactNose1toNose2 <- sum(isInNoseToNoseContactanimal1) * seconds_length / length(isInNoseToNoseContactanimal1)
-    
-    isInNoseToBodycentreContactanimal1 <- GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270
-    contactNose1toBodycentre2 <- sum(isInNoseToBodycentreContactanimal1) * seconds_length / length(isInNoseToBodycentreContactanimal1)
-
-    isInNoseToTailBaseContactanimal1 <- GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270
-    contactNose1toTailBase2 <- sum(isInNoseToTailBaseContactanimal1) * seconds_length / length(isInNoseToTailBaseContactanimal1)
-
-    sideBySideContactAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80
-    contactSideBySideAnimal1 <- sum(sideBySideContactAnimal1) * seconds_length / length(sideBySideContactAnimal1)
-
-    sideBySideReverseContactAnimal1 <- GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80 
-    contactSideBySideReverseAnimal1 <- sum(sideBySideReverseContactAnimal1) * seconds_length / length(sideBySideReverseContactAnimal1)
-
-
-    # calculate interaction of animal 1 with animal 2 nose
-    isInNoseToNoseContactanimal2 <- GetDistances(Tracking, "nose_2", "nose_1") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
-    contactNose1toNose1 <- sum(isInNoseToNoseContactanimal1) * seconds_length / length(isInNoseToNoseContactanimal1)
-    
-    isInNoseToBodycentreContactanimal2 <- GetDistances(Tracking, "nose_2", "bodycentre_1") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270
-    contactNose1toBodycentre2 <- sum(isInNoseToBodycentreContactanimal1) * seconds_length / length(isInNoseToBodycentreContactanimal1)
-
-    isInNoseToTailBaseContactanimal2 <- GetDistances(Tracking, "nose_2", "tailBase_1") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270
-    contactNose1toTailBase2 <- sum(isInNoseToTailBaseContactanimal2) * seconds_length / length(isInNoseToTailBaseContactanimal2)
-
-    sideBySideContactAnimal2 <- GetDistances(Tracking, "nose_2", "nose_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "tailBase_1") <= 80
-    contactSideBySideAnimal2 <- sum(sideBySideContactAnimal2) * seconds_length / length(sideBySideContactAnimal2)
-
-    sideBySideReverseContactAnimal2 <- GetDistances(Tracking, "nose_2", "tailBase_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "nose_1") <= 80
-    contactSideBySideReverseAnimal2 <- sum(sideBySideReverseContactAnimal2) * seconds_length / length(sideBySideReverseContactAnimal2)
-
-  # calculate latency until first contact between nose_1 and any bodypart of animal 2 in seconds
-    latencyNose1toNose2 <- min(which(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270)) * 1/30
-    latencyNose1toBodycentre2 <- min(which(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270)) * 1/30
-    latencyNose1toTailBase2 <- min(which(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270)) * 1/30
-    latencySideBySideAnimal1 <- min(which(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80)) * 1/30
-    latencySideBySideReverseAnimal1 <- min(which(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80)) * 1/30
-
-  # calculate frequency of contact between nose_1 and any bodypart of animal 2
-    isInNoseToNoseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270) == 1
-    isInNoseToBodycentreContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270) == 1
-    isInNoseToTailBaseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270) == 1
-    sideBySideContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80) == 1
-    sideBySideReverseContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80) == 1
-    frequencyNose1toNose2 <- sum(isInNoseToNoseContactanimal1)
-    frequencyNose1toBodycentre2 <- sum(isInNoseToBodycentreContactanimal1)
-    frequencyNose1toTailBase2 <- sum(isInNoseToTailBaseContactanimal1)
-    frequencySideBySideAnimal1 <- sum(sideBySideContactAnimal1)
-    frequencySideBySideReverseAnimal1 <- sum(sideBySideReverseContactAnimal1)
-
-    # calculate proximity of animal 1 to animal 2
-    isInProxAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8
-    proxAnimal1 <- sum(isInProxAnimal1) * seconds_length / length(isInProxAnimal1)
-
-  # calculate proximity with orientation towards other animal (angle)
-    isInProxAnimal1Angle <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270
-    proxAnimal1Angle <- sum(isInProxAnimal1Angle) * seconds_length / length(isInProxAnimal1Angle)
-  
-  # check which animal initiated first contact between nose and bodypart
-    isInNoseToNoseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 30 & abs(dfTracking$angleDegNose1nose_2) >= 90 & abs(dfTracking$angleDegNose1nose_2) <= 270) == 1
-    isInNoseToBodycentreContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "bodycentre_2") <= 30 & abs(dfTracking$angleDegNose1bodycentre_2) >= 90 & abs(dfTracking$angleDegNose1bodycentre_2) <= 270) == 1
-    isInNoseToTailBaseContactanimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 30 & abs(dfTracking$angleDegNose1tailBase_2) >= 90 & abs(dfTracking$angleDegNose1tailBase_2) <= 270) == 1
-    sideBySideContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "nose_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "tailBase_2") <= 80) == 1
-    sideBySideReverseContactAnimal1 <- cumsum(GetDistances(Tracking, "nose_1", "tailBase_2") <= 80 & GetDistances(Tracking, "bodycentre_1", "bodycentre_2") <= 80 & GetDistances(Tracking, "tailBase_1", "nose_2") <= 80) == 1
-    isInNoseToNoseContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "nose_1") <= 30 & abs(dfTracking$angleDegNose2nose_1) >= 90 & abs(dfTracking$angleDegNose2nose_1) <= 270) == 1
-    isInNoseToBodycentreContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "bodycentre_1") <= 30 & abs(dfTracking$angleDegNose2bodycentre_1) >= 90 & abs(dfTracking$angleDegNose2bodycentre_1) <= 270) == 1
-    isInNoseToTailBaseContactanimal2 <- cumsum(GetDistances(Tracking, "nose_2", "tailBase_1") <= 30 & abs(dfTracking$angleDegNose2tailBase_1) >= 90 & abs(dfTracking$angleDegNose2tailBase_1) <= 270) == 1
-    sideBySideContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "nose_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "tailBase_1") <= 80) == 1
-    sideBySideReverseContactAnimal2 <- cumsum(GetDistances(Tracking, "nose_2", "tailBase_1") <= 80 & GetDistances(Tracking, "bodycentre_2", "bodycentre_1") <= 80 & GetDistances(Tracking, "tailBase_2", "nose_1") <= 80) == 1
-    isInProxAnimal1 <- GetDistances(Tracking, "nose_1", "nose_2") > 4 & GetDistances(Tracking, "nose_1", "nose_2") <= 8
-  
-  # Calculate frequency of rearings
-  #freqRear <- cumsum(GetDistances(Tracking, "spine1", "bodycentre1") <= 1) > 0 &
-  #  cumsum(GetDistances(Tracking, "bodycentre", "spine2") <= 1) > 0 &
-  #  c(0, diff(GetDistances(Tracking, "spine1", "bodycentre") <= 1)) == 1 &
-  #  c(0, diff(GetDistances(Tracking, "bodycentre", "spine2") <= 1)) == 1
-  #frequencyRear <- sum(freqRear)
-  
-  # Create data frame with results
-  df <- data.frame(
-    file = inputFileName,
-    contactNose1toNose2 = contactNose1toNose2,
-    contactNose1toBodycentre2 = contactNose1toBodycentre2,
-    contactNose1toTailBase2 = contactNose1toTailBase2,
-    contactSideBySideAnimal1 = contactSideBySideAnimal1,
-    contactSideBySideReverseAnimal1 = contactSideBySideReverseAnimal1,
-    latencyNose1toNose2 = latencyNose1toNose2,
-    latencyNose1toBodycentre2 = latencyNose1toBodycentre2,
-    latencyNose1toTailBase2 = latencyNose1toTailBase2,
-    latencySideBySideAnimal1 = latencySideBySideAnimal1,
-    latencySideBySideReverseAnimal1 = latencySideBySideReverseAnimal1,
-    frequencyNose1toNose2 = frequencyNose1toNose2,
-    frequencyNose1toBodycentre2 = frequencyNose1toBodycentre2,
-    frequencyNose1toTailBase2 = frequencyNose1toTailBase2,
-    frequencySideBySideAnimal1 = frequencySideBySideAnimal1,
-    frequencySideBySideReverseAnimal1 = frequencySideBySideReverseAnimal1,
-    proxAnimal1 = proxAnimal1,
-    proxAnimal1Angle = proxAnimal1Angle,
-    distance = Tracking$Report$bodycentre.raw.distance,
-    stationary = Tracking$Report$bodycentre.time.stationary,
-    speedMoving = Tracking$Report$bodycentre.speed.moving,
-    speedRaw = Tracking$Report$bodycentre.raw.speed,
-    frequencyRear = frequencyRear
+  event_cols <- c(
+    "a1_nose_to_nose2",
+    "a1_nose_to_body2",
+    "a1_nose_to_tail2",
+    "a2_nose_to_nose1",
+    "a2_nose_to_body1",
+    "a2_nose_to_tail1",
+    "side_by_side_parallel",
+    "side_by_side_antiparallel",
+    "close_proximity",
+    "medium_proximity",
+    "mutually_facing",
+    "a1_following_a2",
+    "a2_following_a1",
+    "a1_avoidance_from_a2",
+    "a2_avoidance_from_a1",
+    "a1_any_directed_contact",
+    "a2_any_directed_contact",
+    "any_social_contact"
   )
-  
-  # Write data frame to output file
-  outputFile <- paste0(inputFileName, "_output.csv")
-  write.csv(df, outputFile, row.names = FALSE)
-  
-  # Add data frame to list
-  dfList[[length(dfList) + 1]] <- df
-  
-  # Save density paths plot
-  plots <- PlotDensityPaths(Tracking, points = c("bodycentre"))
-  plotFile <- file.path(plotDir, paste0(inputFileName, "_DensityPath.png"))
-  ggsave(plotFile, plot = plots$bodycentre, width = 7, height = 6)
-  
-  # Print progress message
-  cat(sprintf("Processed file %s\n", file))
+
+  purrr::map_dfr(event_cols, function(ev) {
+    tmp <- summarise_event(frame_tbl[[ev]], fps)
+    tmp |>
+      mutate(
+        file = unique(frame_tbl$file),
+        event_type = ev,
+        .before = 1
+      )
+  })
 }
 
-# Combine all data frames into a single data frame
-dfCombined <- do.call(rbind, dfList)
+make_file_summary <- function(frame_tbl, event_summary_long, qc_tbl) {
+  file_id <- unique(frame_tbl$file)
 
-# Write combined data frame to csv file
-write.csv(dfCombined, file.path(outputDir, "combined_output_test.csv"), row.names = FALSE)
+  a1_total <- event_summary_long |>
+    filter(event_type == "a1_any_directed_contact") |>
+    pull(duration_s)
 
-# Print "done" message
-cat("done\n")
+  a2_total <- event_summary_long |>
+    filter(event_type == "a2_any_directed_contact") |>
+    pull(duration_s)
+
+  any_contact <- event_summary_long |>
+    filter(event_type == "any_social_contact") |>
+    pull(duration_s)
+
+  prox_close <- event_summary_long |>
+    filter(event_type == "close_proximity") |>
+    pull(duration_s)
+
+  # Positive = more directed contact from animal 1 than animal 2.
+  directional_bias <- safe_divide(a1_total - a2_total, a1_total + a2_total)
+
+  tibble(
+    file = file_id,
+    n_frames = nrow(frame_tbl),
+    duration_video_s = max(frame_tbl$time_s, na.rm = TRUE),
+    any_social_contact_s = any_contact,
+    close_proximity_s = prox_close,
+    a1_directed_contact_s = a1_total,
+    a2_directed_contact_s = a2_total,
+    directional_bias_a1_minus_a2 = directional_bias,
+    mean_body_distance = mean(frame_tbl$d_body_body, na.rm = TRUE),
+    median_body_distance = median(frame_tbl$d_body_body, na.rm = TRUE),
+    mean_speed_a1 = mean(frame_tbl$speed1, na.rm = TRUE),
+    mean_speed_a2 = mean(frame_tbl$speed2, na.rm = TRUE),
+    qc_max_missing_fraction = max(qc_tbl$frac_missing_original, na.rm = TRUE),
+    qc_any_high_missing = any(qc_tbl$flag_high_missing, na.rm = TRUE),
+    qc_total_impossible_jumps = sum(qc_tbl$impossible_jump_n, na.rm = TRUE)
+  )
+}
+
+plot_distance_events <- function(frame_tbl, file_id, output_dir, config) {
+  p <- ggplot(frame_tbl, aes(x = time_s)) +
+    geom_line(aes(y = d_body_body), linewidth = 0.3, alpha = 0.8) +
+    geom_point(
+      data = frame_tbl |> filter(any_social_contact),
+      aes(y = d_body_body),
+      size = 0.4,
+      alpha = 0.8
+    ) +
+    labs(
+      title = paste0(file_id, " — body-centre distance and social contact frames"),
+      x = "Time (s)",
+      y = paste0("Body-centre distance (", config$unit, ")")
+    ) +
+    theme_classic(base_size = 9)
+
+  ggsave(
+    filename = file.path(output_dir, "figures", paste0(file_id, "_distance_events.png")),
+    plot = p,
+    width = config$plot_width,
+    height = config$plot_height,
+    dpi = 300
+  )
+}
+
+plot_trajectory <- function(Tracking, file_id, output_dir, config) {
+  a1 <- get_xy(Tracking, "bodycentre_1") |>
+    mutate(frame = row_number(), animal = "animal1")
+  a2 <- get_xy(Tracking, "bodycentre_2") |>
+    mutate(frame = row_number(), animal = "animal2")
+
+  traj <- bind_rows(a1, a2)
+
+  p <- ggplot(traj, aes(x = x, y = y, group = animal)) +
+    geom_path(linewidth = 0.3, alpha = 0.7) +
+    coord_equal() +
+    labs(
+      title = paste0(file_id, " — body-centre trajectories"),
+      x = paste0("x (", config$unit, ")"),
+      y = paste0("y (", config$unit, ")")
+    ) +
+    theme_classic(base_size = 9)
+
+  ggsave(
+    filename = file.path(output_dir, "figures", paste0(file_id, "_trajectories.png")),
+    plot = p,
+    width = config$plot_width,
+    height = config$plot_height,
+    dpi = 300
+  )
+}
+
+analyze_socint_file <- function(input_file, config, bodyparts_all) {
+  file_id <- tools::file_path_sans_ext(basename(input_file))
+  message("Processing: ", file_id)
+
+  Tracking <- ReadDLCDataFromCSV(file = input_file, fps = config$fps)
+
+  missing_bodyparts <- setdiff(bodyparts_all, names(Tracking$data))
+  if (length(missing_bodyparts) > 0) {
+    warning("Missing bodyparts in ", file_id, ": ", paste(missing_bodyparts, collapse = ", "))
+  }
+
+  qc_res <- qc_tracking(Tracking, bodyparts_all, config, file_id)
+  Tracking <- qc_res$Tracking
+  qc_tbl <- qc_res$qc
+
+  frame_tbl <- make_event_table(Tracking, config, file_id)
+  event_summary_long <- summarise_events_long(frame_tbl, config)
+  file_summary <- make_file_summary(frame_tbl, event_summary_long, qc_tbl)
+
+  # Save per-file tables.
+  readr::write_csv(
+    frame_tbl,
+    file.path(config$output_dir, "frames", paste0(file_id, "_frame_events.csv"))
+  )
+
+  readr::write_csv(
+    event_summary_long,
+    file.path(config$output_dir, "tables", paste0(file_id, "_event_summary_long.csv"))
+  )
+
+  readr::write_csv(
+    qc_tbl,
+    file.path(config$output_dir, "qc", paste0(file_id, "_tracking_qc.csv"))
+  )
+
+  if (isTRUE(config$save_plots)) {
+    plot_distance_events(frame_tbl, file_id, config$output_dir, config)
+    plot_trajectory(Tracking, file_id, config$output_dir, config)
+  }
+
+  list(
+    file_summary = file_summary,
+    event_summary_long = event_summary_long,
+    qc = qc_tbl,
+    frame_tbl = frame_tbl
+  )
+}
+
+# -------------------------------
+# 5) Run batch analysis
+# -------------------------------
+
+file_list <- list.files(
+  path = config$input_dir,
+  pattern = config$csv_pattern,
+  full.names = TRUE
+)
+
+if (length(file_list) == 0) {
+  stop("No CSV files found in input_dir: ", config$input_dir)
+}
+
+results <- purrr::map(
+  file_list,
+  ~ analyze_socint_file(.x, config = config, bodyparts_all = bodyparts_all)
+)
+
+combined_file_summary <- purrr::map_dfr(results, "file_summary")
+combined_event_summary_long <- purrr::map_dfr(results, "event_summary_long")
+combined_qc <- purrr::map_dfr(results, "qc")
+
+# Wide version of event summary: useful for statistics.
+combined_event_summary_wide <- combined_event_summary_long |>
+  select(file, event_type, duration_s, percent_time, bout_n, latency_s, mean_bout_s, max_bout_s) |>
+  pivot_wider(
+    names_from = event_type,
+    values_from = c(duration_s, percent_time, bout_n, latency_s, mean_bout_s, max_bout_s),
+    names_glue = "{event_type}_{.value}"
+  )
+
+combined_output <- combined_file_summary |>
+  left_join(combined_event_summary_wide, by = "file")
+
+readr::write_csv(
+  combined_file_summary,
+  file.path(config$output_dir, "tables", "combined_file_summary.csv")
+)
+
+readr::write_csv(
+  combined_event_summary_long,
+  file.path(config$output_dir, "tables", "combined_event_summary_long.csv")
+)
+
+readr::write_csv(
+  combined_event_summary_wide,
+  file.path(config$output_dir, "tables", "combined_event_summary_wide.csv")
+)
+
+readr::write_csv(
+  combined_qc,
+  file.path(config$output_dir, "qc", "combined_tracking_qc.csv")
+)
+
+readr::write_csv(
+  combined_output,
+  file.path(config$output_dir, "combined_output_event_based.csv")
+)
+
+message("Done. Output written to: ", config$output_dir)
+
+# -------------------------------
+# 6) Notes for validation
+# -------------------------------
+#
+# Recommended checks:
+# 1. Open several *_distance_events.png plots and confirm event dots occur during real contact/proximity.
+# 2. Open *_frame_events.csv for a few videos and inspect frames where any_social_contact == TRUE.
+# 3. Check combined_tracking_qc.csv before trusting metrics.
+# 4. Tune thresholds:
+#      contact_dist
+#      side_by_side_dist
+#      close_proximity_dist
+#      medium_proximity_dist
+#      facing_angle_deg
+#    after comparing against manually scored example videos.
+# 5. If coordinates are calibrated to cm, rename unit = "cm" and adjust thresholds accordingly.
+#
+# ================================================================
