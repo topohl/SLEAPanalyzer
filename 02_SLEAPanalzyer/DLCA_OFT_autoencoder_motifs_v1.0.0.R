@@ -21,7 +21,7 @@
 # ================================================================
 
 required_packages <- c(
-  "dplyr", "tidyr", "purrr", "readr", "tibble", "ggplot2", "cluster"
+  "dplyr", "tidyr", "purrr", "readr", "tibble", "ggplot2", "cluster", "keras", "tensorflow", "reticulate"
 )
 
 for (pkg in required_packages) {
@@ -38,6 +38,42 @@ if (!requireNamespace("keras", quietly = TRUE)) {
 }
 
 suppressPackageStartupMessages(library(keras))
+
+assert_tensorflow_environment <- function() {
+  py_cfg <- tryCatch(
+    reticulate::py_discover_config(required_module = NULL),
+    error = function(e) NULL
+  )
+
+  if (is.null(py_cfg) || is.null(py_cfg$python) || !nzchar(py_cfg$python)) {
+    stop(
+      "No suitable Python installation was detected for TensorFlow in R.\n",
+      "Fix steps:\n",
+      "1) reticulate::install_python(version = '3.11:latest')\n",
+      "2) tensorflow::install_tensorflow(method = 'virtualenv', envname = 'r-tensorflow')\n",
+      "3) Restart R and rerun this script.\n",
+      "Alternative on Windows if virtualenv still fails:\n",
+      "- reticulate::install_miniconda()\n",
+      "- tensorflow::install_tensorflow(method = 'conda', envname = 'r-tensorflow', version = '2.16')"
+    )
+  }
+
+  tf_cfg <- tryCatch(
+    tensorflow::tf_config(),
+    error = function(e) NULL
+  )
+
+  if (is.null(tf_cfg)) {
+    stop(
+      "TensorFlow is not configured for the current R session.\n",
+      "Detected Python: ", py_cfg$python, "\n",
+      "Run: tensorflow::install_tensorflow(method = 'virtualenv', envname = 'r-tensorflow')\n",
+      "Then restart R and rerun this script."
+    )
+  }
+
+  invisible(TRUE)
+}
 
 config <- list(
   behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
@@ -79,6 +115,7 @@ config <- list(
 )
 
 set.seed(config$random_seed)
+assert_tensorflow_environment()
 tensorflow::set_random_seed(config$random_seed)
 
 safe_divide <- function(x, y) {
@@ -90,6 +127,24 @@ entropy <- function(x) {
   if (length(tab) == 0) return(NA_real_)
   p <- as.numeric(tab) / sum(tab)
   -sum(p * log2(p))
+}
+
+as_training_history_tbl <- function(history_obj) {
+  hist_raw <- tryCatch(history_obj$metrics, error = function(e) NULL)
+  if (is.null(hist_raw)) {
+    hist_raw <- tryCatch(history_obj$history, error = function(e) NULL)
+  }
+
+  if (is.null(hist_raw)) {
+    stop(
+      "Could not extract training history from Keras history object. ",
+      "Expected `history$metrics` or `history$history`."
+    )
+  }
+
+  as_tibble(hist_raw) %>%
+    mutate(epoch = seq_len(n())) %>%
+    select(epoch, everything())
 }
 
 make_theme_nature <- function(base_size = 7) {
@@ -139,26 +194,27 @@ prepare_scaled_matrix <- function(window_tbl, features) {
 }
 
 build_autoencoder <- function(input_dim, config) {
+  input_dim <- as.integer(input_dim)
   input <- layer_input(shape = input_dim, name = "window_features")
 
   encoded <- input %>%
-    layer_dense(units = config$hidden_dim_1, activation = config$activation, name = "encoder_dense_1") %>%
+    layer_dense(units = as.integer(config$hidden_dim_1), activation = config$activation, name = "encoder_dense_1") %>%
     layer_dropout(rate = config$dropout_rate) %>%
-    layer_dense(units = config$hidden_dim_2, activation = config$activation, name = "encoder_dense_2") %>%
-    layer_dense(units = config$latent_dim, activation = "linear", name = "latent")
+    layer_dense(units = as.integer(config$hidden_dim_2), activation = config$activation, name = "encoder_dense_2") %>%
+    layer_dense(units = as.integer(config$latent_dim), activation = "linear", name = "latent")
 
   decoded <- encoded %>%
-    layer_dense(units = config$hidden_dim_2, activation = config$activation, name = "decoder_dense_1") %>%
-    layer_dense(units = config$hidden_dim_1, activation = config$activation, name = "decoder_dense_2") %>%
+    layer_dense(units = as.integer(config$hidden_dim_2), activation = config$activation, name = "decoder_dense_1") %>%
+    layer_dense(units = as.integer(config$hidden_dim_1), activation = config$activation, name = "decoder_dense_2") %>%
     layer_dense(units = input_dim, activation = config$output_activation, name = "reconstruction")
 
   autoencoder <- keras_model(inputs = input, outputs = decoded)
   encoder <- keras_model(inputs = input, outputs = encoded)
 
-  autoencoder %>% compile(
+  autoencoder$compile(
     optimizer = optimizer_adam(learning_rate = config$learning_rate),
     loss = "mse",
-    metrics = c("mae")
+    metrics = list("mae")
   )
 
   list(autoencoder = autoencoder, encoder = encoder)
@@ -290,7 +346,7 @@ compare_with_pca_gmm_motifs <- function(autoencoder_scores, unsupervised_dir) {
     ungroup()
 }
 
-save_autoencoder_plots <- function(window_scores, motif_profiles, training_history, output_dir, config) {
+save_autoencoder_plots <- function(window_scores, motif_profiles, training_history_tbl, output_dir, config) {
   if (!isTRUE(config$save_plots)) return(invisible(NULL))
 
   plot_dir <- file.path(output_dir, "autoencoder_plots")
@@ -305,9 +361,7 @@ save_autoencoder_plots <- function(window_scores, motif_profiles, training_histo
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }
 
-  hist_tbl <- as_tibble(training_history$metrics) %>%
-    mutate(epoch = seq_len(n())) %>%
-    select(epoch, everything()) %>%
+  hist_tbl <- training_history_tbl %>%
     pivot_longer(-epoch, names_to = "metric", values_to = "value")
 
   p <- ggplot(hist_tbl, aes(x = epoch, y = value, group = metric)) +
@@ -367,29 +421,41 @@ if (nrow(x) < 20) {
 message("Training autoencoder on ", nrow(x), " windows and ", ncol(x), " features...")
 models <- build_autoencoder(ncol(x), config)
 
+n_windows <- nrow(x)
+n_val <- as.integer(floor(n_windows * config$validation_split))
+n_val <- max(1L, min(n_val, n_windows - 1L))
+
+set.seed(config$random_seed)
+idx <- sample.int(n_windows)
+val_idx <- idx[seq_len(n_val)]
+train_idx <- idx[(n_val + 1L):n_windows]
+
+x_train <- x[train_idx, , drop = FALSE]
+x_val <- x[val_idx, , drop = FALSE]
+
 early_stop <- callback_early_stopping(
   monitor = "val_loss",
-  patience = config$patience,
+  patience = as.integer(config$patience),
   restore_best_weights = TRUE
 )
 
-history <- models$autoencoder %>% fit(
-  x = x,
-  y = x,
-  epochs = config$epochs,
-  batch_size = config$batch_size,
-  validation_split = config$validation_split,
+history <- models$autoencoder$fit(
+  x = x_train,
+  y = x_train,
+  epochs = as.integer(config$epochs),
+  batch_size = as.integer(config$batch_size),
+  validation_data = list(x_val, x_val),
   callbacks = list(early_stop),
   verbose = 0
 )
 
-latent <- models$encoder %>% predict(x, verbose = 0)
-latent_tbl <- as_tibble(latent)
+latent <- models$encoder$predict(x, verbose = 0)
+latent_tbl <- as_tibble(latent, .name_repair = "unique")
 colnames(latent_tbl) <- paste0("AE", seq_len(ncol(latent_tbl)))
 
 clustering <- choose_k_latent(latent, config)
 
-reconstruction <- models$autoencoder %>% predict(x, verbose = 0)
+reconstruction <- models$autoencoder$predict(x, verbose = 0)
 reconstruction_mse <- rowMeans((x - reconstruction)^2)
 
 window_scores <- bind_cols(window_tbl, latent_tbl) %>%
@@ -430,9 +496,7 @@ animal_summary <- make_animal_summary(window_scores)
 transition_summary <- make_transition_summary(window_scores)
 comparison_tbl <- compare_with_pca_gmm_motifs(window_scores, unsupervised_dir)
 
-training_history_tbl <- as_tibble(history$metrics) %>%
-  mutate(epoch = seq_len(n())) %>%
-  select(epoch, everything())
+training_history_tbl <- as_training_history_tbl(history)
 
 model_info <- tibble(
   model = "shallow dense autoencoder",
@@ -461,6 +525,6 @@ readr::write_csv(training_history_tbl, file.path(output_dir, "oft_autoencoder_tr
 readr::write_csv(clustering$silhouette, file.path(output_dir, "oft_autoencoder_kmeans_silhouette_selection.csv"))
 readr::write_csv(model_info, file.path(output_dir, "oft_autoencoder_model_info.csv"))
 
-save_autoencoder_plots(window_scores, motif_profiles, history, output_dir, config)
+save_autoencoder_plots(window_scores, motif_profiles, training_history_tbl, output_dir, config)
 
 message("Autoencoder OFT motif discovery complete. Output written to: ", output_dir)
