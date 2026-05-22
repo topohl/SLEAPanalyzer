@@ -225,14 +225,26 @@ cluster_windows <- function(score_mat, config) {
   set.seed(config$random_seed)
 
   if (requireNamespace("mclust", quietly = TRUE)) {
-    fit <- mclust::Mclust(score_mat, G = config$k_min:config$k_max, verbose = FALSE)
-    return(list(
-      method = "Gaussian mixture model (mclust)",
-      cluster = as.integer(fit$classification),
-      k = length(unique(fit$classification)),
-      model = fit$modelName,
-      bic = fit$bic
-    ))
+    fit <- tryCatch(
+      mclust::Mclust(score_mat, G = config$k_min:config$k_max, verbose = FALSE),
+      error = function(e) {
+        message(
+          "mclust failed at runtime (", conditionMessage(e), "). ",
+          "Falling back to k-means motif discovery."
+        )
+        NULL
+      }
+    )
+
+    if (!is.null(fit)) {
+      return(list(
+        method = "Gaussian mixture model (mclust)",
+        cluster = as.integer(fit$classification),
+        k = length(unique(fit$classification)),
+        model = fit$modelName,
+        bic = fit$bic
+      ))
+    }
   }
 
   k_values <- config$k_min:min(config$k_max, nrow(score_mat) - 1)
