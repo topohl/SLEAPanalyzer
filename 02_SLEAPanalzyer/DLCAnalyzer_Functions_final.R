@@ -2010,7 +2010,7 @@ RotateTrackingData <- function(t, theta = 0, center.of = c("tl","tr","bl","br"),
 }
 
     # Calculate frequency of rearings
-    freqRear <- cumsum(GetDistances(tracking, "spine1", "bodycentre") <= 1) > 0 &
-      cumsum(GetDistances(tracking, "bodycentre", "spine2") <= 1) > 0 &
-      c(0, diff(GetDistances(tracking, "spine1", "bodycentre") <= 1)) == 1 &
-      c(0, diff(GetDistances(tracking, "bodycentre", "spine2") <= 1)) == 1
+    # freqRear <- cumsum(GetDistances(tracking, "spine1", "bodycentre") <= 1) > 0 &
+    #   cumsum(GetDistances(tracking, "bodycentre", "spine2") <= 1) > 0 &
+    #   c(0, diff(GetDistances(tracking, "spine1", "bodycentre") <= 1)) == 1 &
+    #   c(0, diff(GetDistances(tracking, "bodycentre", "spine2") <= 1)) == 1
