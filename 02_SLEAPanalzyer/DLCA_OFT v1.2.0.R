@@ -38,7 +38,7 @@
 # -------------------------------
 
 required_packages <- c(
-  "dplyr", "purrr", "stringr", "readr", "ggplot2", "zoo", "sp", "tibble", "tidyr"
+  "dplyr", "purrr", "stringr", "readr", "ggplot2", "zoo", "sp", "tibble", "tidyr", "imputeTS"
 )
 
 for (pkg in required_packages) {
@@ -55,51 +55,42 @@ config <- list(
   batches = c("B1"),
 
   # Repository/script setup.
-  functions_file = "DLCAnalyzer_Functions_final.R",
+  functions_file = "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/02_SLEAPanalzyer/DLCAnalyzer_Functions_final.R",
 
   # Experiment paths.
   behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
   animal_id_code_file = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt",
 
-  # Input/output structure inside each batch folder.
   input_subdir = file.path("OFT", "SLEAP", "formatted"),
   output_subdir = file.path("OFT", "SLEAP", "output_v1.2.0"),
   csv_pattern = "\\.csv$",
 
-  # Filename parsing.
-  # Anchored to the first 4 alphanumeric characters to avoid accidental matches later in the filename.
   code_regex = "^[A-Za-z0-9]{4}",
 
-  # Arena and zone geometry.
   arena_size_cm = 49,
   corner_points = c("tl", "tr", "br", "bl"),
   center_scale = 0.5,
   periphery_scale = 0.8,
   corner_scale = 0.4,
 
-  # Tracking cleanup and QC.
   likelihood_cutoff = 0.90,
   max_jump_cm = 15,
   high_missing_fraction = 0.20,
   high_low_likelihood_fraction = 0.20,
   min_valid_frames_fraction = 0.70,
 
-  # Movement analysis.
   movement_cutoff_cm_s = 5,
   integration_period_frames = 5,
   immobility_min_duration_s = 1.0,
 
-  # Time-course output.
   bin_size_s = 60,
 
-  # Enhanced OFT metrics.
   epoch_duration_s = 300,
   wall_thresholds_cm = c(5, 10),
   occupancy_grid_n = 10,
   speed_low_cm_s = 2,
   speed_high_cm_s = 10,
 
-  # Plots.
   save_plots = TRUE,
   save_enhanced_plots = TRUE,
   plot_width = 7,
@@ -130,9 +121,9 @@ get_script_dir <- function() {
 
 script_dir <- get_script_dir()
 functions_candidates <- c(
-  file.path(script_dir, config$functions_file),
-  file.path(getwd(), config$functions_file),
-  file.path(getwd(), "SLEAPanalyzer", "SLEAPanalzyer", config$functions_file)
+  config$functions_file,
+  file.path(script_dir, basename(config$functions_file)),
+  file.path(getwd(), basename(config$functions_file))
 )
 functions_path <- functions_candidates[file.exists(functions_candidates)][1]
 
@@ -886,11 +877,15 @@ for (batch in config$batches) {
     }
   }
 
-  batch_summaries <- bind_rows(all_summaries) %>% filter(Batch == batch)
-  batch_bins <- bind_rows(all_bins) %>% filter(Batch == batch)
-  batch_qc <- bind_rows(all_qc) %>% filter(Batch == batch)
-  batch_enhanced <- bind_rows(all_enhanced) %>% filter(Batch == batch)
-  batch_epochs <- bind_rows(all_epochs) %>% filter(Batch == batch)
+  safe_bind_filter <- function(lst, b) {
+    if (length(lst) == 0) return(tibble())
+    bind_rows(lst) %>% filter(Batch == b)
+  }
+  batch_summaries <- safe_bind_filter(all_summaries, batch)
+  batch_bins      <- safe_bind_filter(all_bins, batch)
+  batch_qc        <- safe_bind_filter(all_qc, batch)
+  batch_enhanced  <- safe_bind_filter(all_enhanced, batch)
+  batch_epochs    <- safe_bind_filter(all_epochs, batch)
 
   if (nrow(batch_summaries) > 0) {
     batch_summaries_scored <- add_center_exploration_score(batch_summaries)
