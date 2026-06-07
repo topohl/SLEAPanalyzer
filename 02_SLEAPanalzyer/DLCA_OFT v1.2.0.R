@@ -52,6 +52,10 @@ for (pkg in required_packages) {
 
 config <- list(
   fps = 30,
+  recursive_input_search = FALSE,
+  overwrite_outputs = TRUE,
+  strict_qc_stop = FALSE,
+  min_track_duration_s = 60,
   batches = c("B1"),
 
   # Repository/script setup.
@@ -90,6 +94,7 @@ config <- list(
   occupancy_grid_n = 10,
   speed_low_cm_s = 2,
   speed_high_cm_s = 10,
+  occupancy_use_arena_coordinates = TRUE,
 
   save_plots = TRUE,
   save_enhanced_plots = TRUE,
@@ -166,7 +171,10 @@ safe_report <- function(report, name) {
 }
 
 safe_divide <- function(x, y) {
-  ifelse(is.na(y) | y == 0, NA_real_, x / y)
+  out <- rep(NA_real_, length.out = max(length(x), length(y)))
+  ok <- !is.na(y) & y != 0
+  out[ok] <- x[ok] / y[ok]
+  out
 }
 
 zscore <- function(x) {
@@ -185,7 +193,8 @@ entry_count <- function(x) {
 latency_s <- function(x, fps) {
   x <- tidyr::replace_na(as.logical(x), FALSE)
   idx <- which(x)[1]
-  if (is.na(idx)) NA_real_ else (idx - 1) / fps
+  if (is.na(idx)) return(NA_real_)
+  (idx - 1) / fps
 }
 
 bout_summary <- function(x, fps, min_duration_s = 0) {
@@ -218,18 +227,24 @@ qc_tracking <- function(tracking, stage, config) {
     dx <- c(NA_real_, diff(dat$x))
     dy <- c(NA_real_, diff(dat$y))
     step_distance <- sqrt(dx^2 + dy^2)
+    missing_xy <- is.na(dat$x) | is.na(dat$y)
+
+    low_likelihood_fraction <- if ("likelihood" %in% names(dat)) {
+      mean(dat$likelihood < config$likelihood_cutoff | is.na(dat$likelihood), na.rm = TRUE)
+    } else {
+      NA_real_
+    }
 
     tibble(
       stage = stage,
       point = point,
       frames = nrow(dat),
-      missing_fraction = mean(is.na(dat$x) | is.na(dat$y)),
-      low_likelihood_fraction = if ("likelihood" %in% names(dat)) {
-        mean(dat$likelihood < config$likelihood_cutoff, na.rm = TRUE)
-      } else {
-        NA_real_
-      },
+      duration_s = nrow(dat) / config$fps,
+      missing_fraction = mean(missing_xy),
+      valid_fraction = mean(!missing_xy),
+      low_likelihood_fraction = low_likelihood_fraction,
       impossible_jump_n = sum(step_distance > config$max_jump_cm, na.rm = TRUE),
+      impossible_jump_fraction = mean(step_distance > config$max_jump_cm, na.rm = TRUE),
       median_likelihood = if ("likelihood" %in% names(dat)) {
         median(dat$likelihood, na.rm = TRUE)
       } else {
@@ -245,6 +260,12 @@ validate_tracking <- function(tracking, file_id, config) {
 
   if (length(missing_points) > 0) {
     stop(file_id, " is missing required point(s): ", paste(missing_points, collapse = ", "))
+  }
+
+  n_frames <- nrow(tracking$data$bodycentre)
+  duration_s <- n_frames / config$fps
+  if (is.na(duration_s) || duration_s < config$min_track_duration_s) {
+    stop(file_id, " is too short for reliable OFT analysis: ", round(duration_s, 2), " s")
   }
 
   invisible(TRUE)
@@ -264,10 +285,11 @@ make_frame_table <- function(tracking, file_id, batch, code, config) {
     Batch = batch,
     Code = code,
     frame = body$frame,
-    time_s = frame / config$fps,
+    frame_index = dplyr::row_number(),
+    time_s = (frame_index - 1) / config$fps,
     x = body$x,
     y = body$y,
-    likelihood = body$likelihood,
+    likelihood = if ("likelihood" %in% names(body)) body$likelihood else NA_real_,
     speed_cm_s = body$speed * config$fps,
     acceleration_cm_s2 = body$acceleration * config$fps * config$fps,
     is_moving = body$is.moving,
@@ -493,13 +515,20 @@ make_occupancy_entropy_metrics <- function(frame_tbl, config) {
     ))
   }
 
-  x_range <- range(valid$x, na.rm = TRUE)
-  y_range <- range(valid$y, na.rm = TRUE)
+  if (isTRUE(config$occupancy_use_arena_coordinates)) {
+    x_range <- c(0, config$arena_size_cm)
+    y_range <- c(0, config$arena_size_cm)
+  } else {
+    x_range <- range(valid$x, na.rm = TRUE)
+    y_range <- range(valid$y, na.rm = TRUE)
+  }
 
   valid %>%
     mutate(
       x_scaled = ifelse(diff(x_range) == 0, 0, (x - x_range[1]) / diff(x_range)),
       y_scaled = ifelse(diff(y_range) == 0, 0, (y - y_range[1]) / diff(y_range)),
+      x_scaled = pmin(pmax(x_scaled, 0), 1),
+      y_scaled = pmin(pmax(y_scaled, 0), 1),
       x_bin = pmin(pmax(floor(x_scaled * grid_n), 0), grid_n - 1),
       y_bin = pmin(pmax(floor(y_scaled * grid_n), 0), grid_n - 1),
       spatial_bin = paste(x_bin, y_bin, sep = "_")
@@ -668,6 +697,13 @@ make_summary_row <- function(tracking, frame_tbl, file_id, batch, code, animalID
   animal_id <- if (length(id_match) == 0) NA else id_match[1]
 
   qc_body <- qc_tbl %>% filter(stage == "raw_calibrated", point == "bodycentre")
+  if (nrow(qc_body) == 0) {
+    qc_body <- tibble(
+      missing_fraction = NA_real_,
+      low_likelihood_fraction = NA_real_,
+      impossible_jump_n = NA_real_
+    )
+  }
 
   tibble(
     file = file_id,
@@ -685,9 +721,9 @@ make_summary_row <- function(tracking, frame_tbl, file_id, batch, code, animalID
     percent_moving = safe_report(tracking$Report, "bodycentre.percentage.moving"),
 
     center_time_s = safe_report(tracking$Report, "bodycentre.center.total.time"),
-    center_time_percent = center_time_s / total_time_s * 100,
+    center_time_percent = safe_divide(center_time_s, total_time_s) * 100,
     center_distance_cm = safe_report(tracking$Report, "bodycentre.center.raw.distance"),
-    center_distance_percent = center_distance_cm / total_distance_cm * 100,
+    center_distance_percent = safe_divide(center_distance_cm, total_distance_cm) * 100,
     center_entries = entry_count(frame_tbl$in_center),
     center_transitions = safe_report(tracking$Report, "bodycentre.center.transitions"),
     center_latency_s = center_bouts$latency_s,
@@ -695,14 +731,14 @@ make_summary_row <- function(tracking, frame_tbl, file_id, batch, code, animalID
     center_max_bout_s = center_bouts$max_bout_s,
 
     periphery_time_s = safe_report(tracking$Report, "bodycentre.periphery.total.time"),
-    periphery_time_percent = periphery_time_s / total_time_s * 100,
+    periphery_time_percent = safe_divide(periphery_time_s, total_time_s) * 100,
     periphery_distance_cm = safe_report(tracking$Report, "bodycentre.periphery.raw.distance"),
     periphery_entries = entry_count(frame_tbl$in_periphery),
     periphery_mean_bout_s = periphery_bouts$mean_bout_s,
     periphery_max_bout_s = periphery_bouts$max_bout_s,
 
     corner_time_s = safe_report(tracking$Report, "bodycentre.corners.total.time"),
-    corner_time_percent = corner_time_s / total_time_s * 100,
+    corner_time_percent = safe_divide(corner_time_s, total_time_s) * 100,
     corner_entries = entry_count(frame_tbl$in_corners),
     corner_mean_bout_s = corner_bouts$mean_bout_s,
     corner_max_bout_s = corner_bouts$max_bout_s,
@@ -720,9 +756,9 @@ make_summary_row <- function(tracking, frame_tbl, file_id, batch, code, animalID
     bodycentre_missing_fraction = qc_body$missing_fraction[1],
     bodycentre_low_likelihood_fraction = qc_body$low_likelihood_fraction[1],
     bodycentre_impossible_jump_n = qc_body$impossible_jump_n[1],
-    qc_flag = bodycentre_missing_fraction > config$high_missing_fraction |
-      bodycentre_low_likelihood_fraction > config$high_low_likelihood_fraction |
-      bodycentre_impossible_jump_n > 0
+    qc_flag = tidyr::replace_na(bodycentre_missing_fraction > config$high_missing_fraction, TRUE) |
+      tidyr::replace_na(bodycentre_low_likelihood_fraction > config$high_low_likelihood_fraction, TRUE) |
+      tidyr::replace_na(bodycentre_impossible_jump_n > 0, TRUE)
   )
 }
 
@@ -752,6 +788,16 @@ process_oft_file <- function(file, batch, dirs, animalIDCode, config) {
   input_file <- file.path(dirs$input, file)
   file_id <- sub("\\.csv$", "", basename(input_file))
   code <- stringr::str_extract(file_id, config$code_regex)
+
+  summary_path <- file.path(dirs$tables, paste0(file_id, "_summary.csv"))
+  if (file.exists(summary_path) && !isTRUE(config$overwrite_outputs)) {
+    message("Skipping existing output for ", file_id)
+    return(NULL)
+  }
+
+  if (is.na(code) || !nzchar(code)) {
+    warning("Could not extract animal code from file name: ", file_id)
+  }
 
   tracking <- ReadDLCDataFromCSV(file = input_file, fps = config$fps)
   validate_tracking(tracking, file_id, config)
@@ -793,6 +839,13 @@ process_oft_file <- function(file, batch, dirs, animalIDCode, config) {
 
   qc_clean <- qc_tracking(tracking, "cleaned", config)
   qc_tbl <- bind_rows(qc_raw, qc_clean)
+  body_qc_clean <- qc_tbl %>% filter(stage == "cleaned", point == "bodycentre")
+  if (nrow(body_qc_clean) > 0 && isTRUE(config$strict_qc_stop)) {
+    hard_fail <- body_qc_clean$valid_fraction[1] < config$min_valid_frames_fraction
+    if (isTRUE(hard_fail)) {
+      stop(file_id, " failed strict QC: cleaned valid frame fraction = ", round(body_qc_clean$valid_fraction[1], 3))
+    }
+  }
   frame_tbl <- make_frame_table(tracking, file_id, batch, code, config)
   binned_tbl <- make_binned_table(frame_tbl, config)
   summary_tbl <- make_summary_row(tracking, frame_tbl, file_id, batch, code, animalIDCode, qc_tbl, config)
@@ -844,7 +897,12 @@ for (batch in config$batches) {
 
   purrr::walk(dirs[-1], ~ dir.create(.x, recursive = TRUE, showWarnings = FALSE))
 
-  file_list <- list.files(path = dirs$input, pattern = config$csv_pattern)
+  file_list <- list.files(
+    path = dirs$input,
+    pattern = config$csv_pattern,
+    recursive = isTRUE(config$recursive_input_search),
+    full.names = FALSE
+  )
 
   if (length(file_list) == 0) {
     warning("No CSV files found for batch ", batch, " in ", dirs$input)
@@ -871,7 +929,7 @@ for (batch in config$batches) {
       all_summaries[[length(all_summaries) + 1]] <- result$summary
       all_bins[[length(all_bins) + 1]] <- result$bins
       all_qc[[length(all_qc) + 1]] <- result$qc %>%
-        mutate(Batch = batch, file = sub("\\.csv$", "", file), .before = 1)
+        mutate(Batch = batch, file = sub("\\.csv$", "", basename(file)), .before = 1)
       all_enhanced[[length(all_enhanced) + 1]] <- result$enhanced
       all_epochs[[length(all_epochs) + 1]] <- result$epochs
     }
@@ -879,7 +937,9 @@ for (batch in config$batches) {
 
   safe_bind_filter <- function(lst, b) {
     if (length(lst) == 0) return(tibble())
-    bind_rows(lst) %>% filter(Batch == b)
+    out <- bind_rows(lst)
+    if (!"Batch" %in% names(out)) return(tibble())
+    out %>% filter(Batch == b)
   }
   batch_summaries <- safe_bind_filter(all_summaries, batch)
   batch_bins      <- safe_bind_filter(all_bins, batch)
@@ -889,16 +949,16 @@ for (batch in config$batches) {
 
   if (nrow(batch_summaries) > 0) {
     batch_summaries_scored <- add_center_exploration_score(batch_summaries)
-    batch_enhanced_scored <- batch_enhanced %>%
-      left_join(
-        batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score),
-        by = c("file", "Batch", "Code")
-      ) %>%
-      mutate(
-        enhanced_qc_flag = batch_summaries$qc_flag[match(file, batch_summaries$file)] |
-          valid_frame_fraction < config$min_valid_frames_fraction |
-          is.na(occupancy_entropy_normalized)
-      )
+      batch_enhanced_scored <- batch_enhanced %>%
+        left_join(
+          batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score),
+          by = c("file", "Batch", "Code")
+        ) %>%
+        mutate(
+          enhanced_qc_flag = tidyr::replace_na(qc_flag, TRUE) |
+            tidyr::replace_na(valid_frame_fraction < config$min_valid_frames_fraction, TRUE) |
+            is.na(occupancy_entropy_normalized)
+        )
 
     readr::write_csv(batch_summaries_scored, file.path(dirs$output, "combined_summary.csv"))
     readr::write_csv(batch_bins, file.path(dirs$output, "combined_bins.csv"))
@@ -925,8 +985,8 @@ if (length(all_summaries) > 0) {
       by = c("file", "Batch", "Code")
     ) %>%
     mutate(
-      enhanced_qc_flag = qc_flag |
-        valid_frame_fraction < config$min_valid_frames_fraction |
+      enhanced_qc_flag = tidyr::replace_na(qc_flag, TRUE) |
+        tidyr::replace_na(valid_frame_fraction < config$min_valid_frames_fraction, TRUE) |
         is.na(occupancy_entropy_normalized)
     )
   all_epochs_tbl <- bind_rows(all_epochs)
