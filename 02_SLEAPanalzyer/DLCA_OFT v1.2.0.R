@@ -41,10 +41,15 @@ required_packages <- c(
   "dplyr", "purrr", "stringr", "readr", "ggplot2", "zoo", "sp", "tibble", "tidyr", "imputeTS"
 )
 
-for (pkg in required_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
-  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+if (length(missing_packages) > 0) {
+  stop("Install required OFT package(s) before running: ", paste(missing_packages, collapse = ", "))
 }
+invisible(lapply(required_packages, function(pkg) {
+  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}))
 
 # -------------------------------
 # 1) User parameters

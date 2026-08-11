@@ -36,10 +36,15 @@ required_packages <- c(
   "zoo", "tibble", "fs", "rlang"
 )
 
-for (pkg in required_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
-  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+if (length(missing_packages) > 0) {
+  stop("Install required SocInt package(s) before running: ", paste(missing_packages, collapse = ", "))
 }
+invisible(lapply(required_packages, function(pkg) {
+  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}))
 
 # -------------------------------
 # 1) User parameters
@@ -55,7 +60,6 @@ config <- list(
 
   # Set these paths.
   # Use forward slashes also on Windows to avoid escaping problems.
-  working_dir = "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/02_SLEAPanalzyer",
   functions_file = "DLCAnalyzer_Functions_final.R",
 
   input_dir  = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC",
@@ -68,20 +72,26 @@ config <- list(
   # If use_arena_calibration = TRUE, x/y coordinates are converted from pixels to cm
   # before distances, speeds, jumps, and event thresholds are computed.
   unit = "px",
-  use_arena_calibration = TRUE,
+  threshold_unit = "px",
+  use_arena_calibration = FALSE,
+  scientific_cm_thresholds_confirmed = FALSE,
   arena_geom_dir = "S:/Lab_Member/Tobi/Experiments/Collabs/Rosalba/SocInteraction/DLC/geom",
   arena_geom_suffix = "_locs.csv",
   arena_width_cm = 49,
   arena_height_cm = 49,
   arena_corner_names = c("tl", "tr", "br", "bl"),
+  max_calibration_anisotropy_percent = 10,
 
   # Interaction thresholds.
-  # If use_arena_calibration = TRUE, these thresholds are interpreted as cm.
-  # Otherwise, they are interpreted in raw coordinate units, usually pixels.
+  # These values originated in the uncalibrated pixel workflow. Do not enable
+  # arena calibration until every distance threshold has been converted and
+  # threshold_unit has explicitly been changed to "cm".
   contact_dist = 30,
   side_by_side_dist = 80,
   close_proximity_dist = 80,
   medium_proximity_dist = 160,
+  enable_proximity_bins = FALSE,
+  proximity_bin_unit = "cm",
   proximity_bins = c(0, 5, 10, 20, 40, Inf),
   proximity_bin_labels = c("0_5", "5_10", "10_20", "20_40", "gt_40"),
 
@@ -117,11 +127,61 @@ config <- list(
   plot_height = 5
 )
 
+validate_socint_units <- function(config) {
+  output_unit <- if (isTRUE(config$use_arena_calibration)) "cm" else config$unit
+  if (length(config$threshold_unit) != 1 || !config$threshold_unit %in% c("px", "cm")) {
+    stop("threshold_unit must be either 'px' or 'cm'")
+  }
+  if (!identical(config$threshold_unit, output_unit)) {
+    stop(
+      "SocInt threshold_unit ('", config$threshold_unit,
+      "') does not match analyzed coordinate unit ('", output_unit, "'). ",
+      "Convert and scientifically validate all distance thresholds before changing threshold_unit."
+    )
+  }
+  if (isTRUE(config$use_arena_calibration) &&
+      !isTRUE(config$scientific_cm_thresholds_confirmed)) {
+    stop(
+      "Centimeter-mode SocInt thresholds have not been scientifically confirmed. ",
+      "Convert and validate every distance threshold, then set scientific_cm_thresholds_confirmed = TRUE."
+    )
+  }
+  if (isTRUE(config$enable_proximity_bins) &&
+      !identical(config$proximity_bin_unit, output_unit)) {
+    stop("proximity_bin_unit must match the analyzed coordinate unit when proximity bins are enabled")
+  }
+  positive_fields <- c(
+    "fps", "contact_dist", "side_by_side_dist", "close_proximity_dist",
+    "medium_proximity_dist", "movement_cutoff", "follow_dist",
+    "avoidance_start_dist", "avoidance_delta_dist", "approach_start_dist",
+    "approach_delta_dist", "retreat_start_dist", "retreat_delta_dist"
+  )
+  invalid <- positive_fields[!vapply(positive_fields, function(name) {
+    value <- config[[name]]
+    length(value) == 1 && is.numeric(value) && is.finite(value) && value > 0
+  }, logical(1))]
+  if (length(invalid) > 0) {
+    stop("SocInt config requires positive finite value(s) for: ", paste(invalid, collapse = ", "))
+  }
+  invisible(TRUE)
+}
+
+validate_socint_units(config)
+
 # -------------------------------
 # 2) Setup
 # -------------------------------
 
-script_dir <- if (dir.exists(config$working_dir)) normalizePath(config$working_dir) else getwd()
+get_script_dir <- function() {
+  file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+  if (length(file_arg) > 0) {
+    script_path <- sub("^--file=", "", file_arg[1])
+    if (file.exists(script_path)) return(dirname(normalizePath(script_path)))
+  }
+  getwd()
+}
+
+script_dir <- get_script_dir()
 
 functions_candidates <- c(
   config$functions_file,
@@ -140,11 +200,14 @@ if (is.na(functions_path)) {
 
 source(functions_path)
 
-fs::dir_create(config$output_dir)
-fs::dir_create(file.path(config$output_dir, "tables"))
-fs::dir_create(file.path(config$output_dir, "frames"))
-fs::dir_create(file.path(config$output_dir, "qc"))
-fs::dir_create(file.path(config$output_dir, "figures"))
+skip_batch <- identical(Sys.getenv("SLEAP_ANALYZER_SKIP_BATCH"), "true")
+if (!skip_batch) {
+  fs::dir_create(config$output_dir)
+  fs::dir_create(file.path(config$output_dir, "tables"))
+  fs::dir_create(file.path(config$output_dir, "frames"))
+  fs::dir_create(file.path(config$output_dir, "qc"))
+  fs::dir_create(file.path(config$output_dir, "figures"))
+}
 
 # -------------------------------
 # 3) Bodypart definitions
@@ -167,7 +230,10 @@ bodyparts_all <- c(bodyparts_animal1, bodyparts_animal2)
 # -------------------------------
 
 safe_divide <- function(x, y) {
-  out <- rep(NA_real_, length.out = max(length(x), length(y)))
+  out_length <- max(length(x), length(y))
+  x <- rep_len(x, out_length)
+  y <- rep_len(y, out_length)
+  out <- rep(NA_real_, out_length)
   ok <- !is.na(y) & y != 0
   out[ok] <- x[ok] / y[ok]
   out
@@ -175,6 +241,10 @@ safe_divide <- function(x, y) {
 
 suppress_short_events <- function(event_vec, min_frames = 1) {
   event_vec <- tidyr::replace_na(as.logical(event_vec), FALSE)
+  if (length(min_frames) != 1 || !is.numeric(min_frames) ||
+      !is.finite(min_frames) || min_frames < 1 || min_frames != floor(min_frames)) {
+    stop("min_frames must be one positive integer")
+  }
   if (min_frames <= 1 || length(event_vec) == 0) return(event_vec)
 
   r <- rle(event_vec)
@@ -258,7 +328,7 @@ read_static_arena_geometry <- function(file_id, config) {
     stop("Arena geometry file is missing columns: ", paste(missing_cols, collapse = ", "), " | file: ", geom_file)
   }
 
-  purrr::map_dfr(config$arena_corner_names, function(corner) {
+  arena_geom <- purrr::map_dfr(config$arena_corner_names, function(corner) {
     tibble(
       corner = corner,
       x = median(geom_tbl[[paste0(corner, "_x")]], na.rm = TRUE),
@@ -266,9 +336,24 @@ read_static_arena_geometry <- function(file_id, config) {
       geom_file = geom_file
     )
   })
+  if (any(!is.finite(arena_geom$x)) || any(!is.finite(arena_geom$y))) {
+    stop("Arena geometry contains a corner with no finite x/y observations: ", geom_file)
+  }
+  arena_geom
 }
 
 estimate_arena_calibration <- function(arena_geom, config) {
+  required_corners <- c("tl", "tr", "br", "bl")
+  if (!all(required_corners %in% arena_geom$corner)) {
+    stop("Arena calibration requires corners: ", paste(required_corners, collapse = ", "))
+  }
+  if (any(!is.finite(arena_geom$x)) || any(!is.finite(arena_geom$y))) {
+    stop("Arena calibration coordinates must all be finite")
+  }
+  if (any(!is.finite(c(config$arena_width_cm, config$arena_height_cm))) ||
+      any(c(config$arena_width_cm, config$arena_height_cm) <= 0)) {
+    stop("arena_width_cm and arena_height_cm must be positive finite values")
+  }
   get_corner <- function(name) arena_geom |> filter(corner == name) |> slice(1)
 
   tl <- get_corner("tl")
@@ -284,8 +369,12 @@ estimate_arena_calibration <- function(arena_geom, config) {
   width_px <- mean(c(top_px, bottom_px), na.rm = TRUE)
   height_px <- mean(c(left_px, right_px), na.rm = TRUE)
 
-  cm_per_px_x <- safe_divide(config$arena_width_cm, width_px)
-  cm_per_px_y <- safe_divide(config$arena_height_cm, height_px)
+  if (!is.finite(width_px) || !is.finite(height_px) || width_px <= 0 || height_px <= 0) {
+    stop("Invalid or degenerate arena calibration geometry")
+  }
+
+  cm_per_px_x <- config$arena_width_cm / width_px
+  cm_per_px_y <- config$arena_height_cm / height_px
   cm_per_px_mean <- mean(c(cm_per_px_x, cm_per_px_y), na.rm = TRUE)
 
   if (is.na(cm_per_px_mean) || cm_per_px_mean <= 0) {
@@ -348,7 +437,16 @@ maybe_calibrate_tracking <- function(Tracking, file_id, config, bodyparts_all) {
       .before = 1
     )
 
+  if (calibration$calibration_anisotropy_percent[1] > config$max_calibration_anisotropy_percent) {
+    warning(
+      file_id, " arena calibration anisotropy is ",
+      round(calibration$calibration_anisotropy_percent[1], 1),
+      "% (limit ", config$max_calibration_anisotropy_percent, "%)."
+    )
+  }
+
   Tracking <- calibrate_tracking_to_cm(Tracking, bodyparts_all, arena_geom, calibration)
+  Tracking$distance.units <- "cm"
 
   list(
     Tracking = Tracking,
@@ -409,6 +507,9 @@ first_true_time <- function(event_vec, fps) {
 }
 
 summarise_event <- function(event_vec, fps, min_event_duration_frames = 1) {
+  if (length(fps) != 1 || !is.numeric(fps) || !is.finite(fps) || fps <= 0) {
+    stop("fps must be one positive finite number")
+  }
   event_vec <- suppress_short_events(event_vec, min_frames = min_event_duration_frames)
 
   starts <- event_vec & !dplyr::lag(event_vec, default = FALSE)
@@ -423,7 +524,7 @@ summarise_event <- function(event_vec, fps, min_event_duration_frames = 1) {
 
   tibble(
     duration_s = sum(event_vec, na.rm = TRUE) / fps,
-    percent_time = 100 * mean(event_vec, na.rm = TRUE),
+    percent_time = if (length(event_vec) == 0) NA_real_ else 100 * mean(event_vec),
     bout_n = sum(starts, na.rm = TRUE),
     latency_s = first_true_time(event_vec, fps),
     mean_bout_s = ifelse(nrow(bout_df) == 0, NA_real_, mean(bout_df$frames) / fps),
@@ -466,13 +567,20 @@ interpolate_with_qc <- function(x, maxgap = Inf) {
   r <- rle(missing_orig)
   longest_missing_run <- ifelse(any(r$values), max(r$lengths[r$values]), 0)
 
-  # Fill leading/trailing NA with nearest observed value.
+  # Fill only short leading/trailing gaps; long gaps remain missing for QC and
+  # are excluded from event calculations rather than extrapolated silently.
   first_non_na <- which(!is.na(x_orig))[1]
   last_non_na  <- tail(which(!is.na(x_orig)), 1)
 
   x_filled <- x_orig
-  if (first_non_na > 1) x_filled[1:(first_non_na - 1)] <- x_orig[first_non_na]
-  if (last_non_na < n) x_filled[(last_non_na + 1):n] <- x_orig[last_non_na]
+  leading_gap <- first_non_na - 1L
+  trailing_gap <- n - last_non_na
+  if (leading_gap > 0 && leading_gap <= maxgap) {
+    x_filled[seq_len(leading_gap)] <- x_orig[first_non_na]
+  }
+  if (trailing_gap > 0 && trailing_gap <= maxgap) {
+    x_filled[(last_non_na + 1L):n] <- x_orig[last_non_na]
+  }
 
   # Interpolate internal gaps up to maxgap.
   x_interp <- zoo::na.approx(x_filled, na.rm = FALSE, maxgap = maxgap)
@@ -1021,6 +1129,9 @@ analyze_socint_file <- function(input_file, config, bodyparts_all) {
 # -------------------------------
 
 make_proximity_bin_summary <- function(frame_tbl, config) {
+  if (!isTRUE(config$enable_proximity_bins)) {
+    return(tibble(file = unique(frame_tbl$file)))
+  }
   bins <- config$proximity_bins
   labels <- config$proximity_bin_labels
 
@@ -1085,6 +1196,7 @@ make_interbout_summary <- function(frame_tbl, config) {
 # 5) Run batch analysis
 # -------------------------------
 
+if (!skip_batch) {
 file_list <- list.files(
   path = config$input_dir,
   pattern = config$csv_pattern,
@@ -1183,6 +1295,7 @@ if (length(failures) > 0) {
 }
 
 message("Done. Output written to: ", config$output_dir)
+}
 
 # -------------------------------
 # 6) Notes for validation
@@ -1199,6 +1312,8 @@ message("Done. Output written to: ", config$output_dir)
 #      medium_proximity_dist
 #      facing_angle_deg
 #    after comparing against manually scored example videos.
-# 5. If coordinates are calibrated to cm, rename unit = "cm" and adjust thresholds accordingly.
+# 5. Calibration remains disabled by default because the legacy thresholds are
+#    pixel values. Convert and validate every threshold, then set both
+#    use_arena_calibration = TRUE and threshold_unit = "cm".
 #
 # ================================================================

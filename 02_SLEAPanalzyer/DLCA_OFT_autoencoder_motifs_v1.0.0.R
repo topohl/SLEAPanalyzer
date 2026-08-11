@@ -24,10 +24,15 @@ required_packages <- c(
   "dplyr", "tidyr", "purrr", "readr", "tibble", "ggplot2", "cluster", "keras", "tensorflow", "reticulate"
 )
 
-for (pkg in required_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
-  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+if (length(missing_packages) > 0) {
+  stop("Install required optional autoencoder package(s): ", paste(missing_packages, collapse = ", "))
 }
+invisible(lapply(required_packages, function(pkg) {
+  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}))
 
 if (!requireNamespace("keras", quietly = TRUE)) {
   stop(

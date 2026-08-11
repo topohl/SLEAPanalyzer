@@ -5,34 +5,93 @@
 #' @return An object of type TrackingData
 #' @examples
 #' ReadDLCDataFromCSV("DLCData/Data.csv", fps = 25)
-ReadDLCDataFromCSV <- function(file,fps = 1){
+ReadDLCDataFromCSV <- function(file, fps = 1){
+  if (!file.exists(file)) {
+    stop("Tracking CSV does not exist: ", file)
+  }
+  if (length(fps) != 1 || !is.numeric(fps) || !is.finite(fps) || fps <= 0) {
+    stop("fps must be one positive finite number")
+  }
+
   out <- list()
   out$data <- list()
-  data.header <- read.table(file, sep =",", header = T, nrows = 1)
-  data.header <- data.frame(sapply(data.header, as.character), stringsAsFactors=FALSE)
-  raw.data <- read.table(file, sep =",", header = T, skip = 2)
-  for(i in seq(from = 2, to = nrow(data.header), by = 3)){
-    out$data[[paste(data.header[i,])]] <- data.frame(frame = raw.data$coords, x = raw.data[,i], y = raw.data[,(i+1)], likelihood = raw.data[,(i+2)])
+  data.header <- utils::read.csv(
+    file, header = FALSE, skip = 1, nrows = 1,
+    stringsAsFactors = FALSE, check.names = FALSE
+  )
+  coordinate.header <- utils::read.csv(
+    file, header = FALSE, skip = 2, nrows = 1,
+    stringsAsFactors = FALSE, check.names = FALSE
+  )
+  raw.data <- utils::read.csv(
+    file, header = FALSE, skip = 3,
+    stringsAsFactors = FALSE, check.names = FALSE
+  )
+
+  if (nrow(raw.data) == 0) {
+    stop("Invalid DLC/SLEAP CSV: no tracking rows found")
+  }
+  if (ncol(raw.data) < 4 || (ncol(raw.data) - 1) %% 3 != 0) {
+    stop("Invalid DLC/SLEAP CSV: expected frame plus x/y/likelihood triplets")
+  }
+  if (ncol(data.header) != ncol(raw.data) || ncol(coordinate.header) != ncol(raw.data)) {
+    stop("Invalid DLC/SLEAP CSV: header and data column counts differ")
+  }
+
+  frames <- suppressWarnings(as.numeric(raw.data[[1]]))
+  if (anyNA(frames) || any(!is.finite(frames))) {
+    stop("Invalid DLC/SLEAP CSV: frame values must be finite numbers")
+  }
+  if (anyDuplicated(frames)) {
+    stop("Invalid DLC/SLEAP CSV: frame values must be unique")
+  }
+
+  point.columns <- seq.int(from = 2, to = ncol(raw.data), by = 3)
+  point.names <- trimws(as.character(data.header[1, point.columns]))
+  if (any(!nzchar(point.names)) || anyDuplicated(point.names)) {
+    stop("Invalid DLC/SLEAP CSV: body-part names must be non-empty and unique")
+  }
+  coordinate.names <- tolower(trimws(as.character(coordinate.header[1, -1, drop = TRUE])))
+  expected.coordinates <- rep(c("x", "y", "likelihood"), length(point.columns))
+  if (!identical(coordinate.names, expected.coordinates)) {
+    stop("Invalid DLC/SLEAP CSV: expected x/y/likelihood coordinate headers")
+  }
+
+  for(i in seq_along(point.columns)){
+    column <- point.columns[i]
+    out$data[[point.names[i]]] <- data.frame(
+      frame = frames,
+      x = suppressWarnings(as.numeric(raw.data[[column]])),
+      y = suppressWarnings(as.numeric(raw.data[[column + 1]])),
+      likelihood = suppressWarnings(as.numeric(raw.data[[column + 2]]))
+    )
   }
   
   if(fps == 1){
     warning("no fps set. setting fps to 1. keep in mind that time based analyses are resolved in frames / second")
   }
-  out$frames <- raw.data$coords
+  out$frames <- frames
   out$fps <- fps
-  out$seconds <- out$frames / fps
+  out$seconds <- (out$frames - out$frames[1]) / fps
   
   out$median.data <- NULL
   for(i in names(out$data)){
-    out$median.data <- rbind(out$median.data, data.frame(PointName = i, x = median(out$data[[i]]$x), y = median(out$data[[i]]$y)))
+    out$median.data <- rbind(
+      out$median.data,
+      data.frame(
+        PointName = i,
+        x = stats::median(out$data[[i]]$x, na.rm = TRUE),
+        y = stats::median(out$data[[i]]$y, na.rm = TRUE)
+      )
+    )
   }
   rownames(out$median.data) <- out$median.data$PointName
   
   out$point.info <- data.frame(PointName = names(out$data), PointType = "NotDefined")
   out$distance.units <- "pixel"
   out$labels <- list()
-  out$filename <- last(strsplit(file,split = "/")[[1]])
-  out$object.type = "TrackingData"
+  out$filename <- basename(file)
+  out$object.type <- "TrackingData"
   
   return(out)
 }
@@ -93,38 +152,63 @@ IsTrackingData <- function(t){
 #' CutTrackingData(Data, start = 100, end = 100)
 #' CutTrackingData(Data, keep.frames = c(10,11,12,13))
 #' CutTrackingData(Data, remove.frames = c(21,22,23,24))
-CutTrackingData <- function(t,start = NULL, end = NULL, remove.frames = NULL, keep.frames = NULL){
+CutTrackingData <- function(t, start = NULL, end = NULL, remove.frames = NULL, keep.frames = NULL){
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
-  keep <- t$frames
-  if(!is.null(start)){
-    keep <- keep[-(1:start)]
+  n <- length(t$frames)
+  validate_trim_count <- function(x, name) {
+    if (is.null(x)) return(0L)
+    if (length(x) != 1 || !is.numeric(x) || !is.finite(x) || x < 0 || x != floor(x)) {
+      stop(name, " must be one non-negative integer")
+    }
+    as.integer(x)
   }
-  if(!is.null(end)){
-    keep <- keep[-((length(keep) - end):length(keep))]
+  start <- validate_trim_count(start, "start")
+  end <- validate_trim_count(end, "end")
+  if (start + end >= n) {
+    stop("Trimming must leave at least one frame")
   }
-  if(!is.null(remove.frames)){
-    keep <- setdiff(keep, remove.frames)
+
+  keep.rows <- seq_len(n)
+  if (start > 0) keep.rows <- keep.rows[-seq_len(start)]
+  if (end > 0) keep.rows <- head(keep.rows, -end)
+  if (!is.null(remove.frames)) {
+    keep.rows <- keep.rows[!t$frames[keep.rows] %in% remove.frames]
   }
-  if(!is.null(keep.frames)){
-    keep <- intersect(keep, keep.frames)
+  if (!is.null(keep.frames)) {
+    keep.rows <- keep.rows[t$frames[keep.rows] %in% keep.frames]
   }
-  t$frames <- keep
+
+  original.frames <- t$frames
+  t$frames <- t$frames[keep.rows]
   if(!is.null(t$seconds)){
-    t$seconds <- t$seconds[keep+1]
+    if (length(t$seconds) != n) stop("seconds is not aligned with frames")
+    t$seconds <- t$seconds[keep.rows]
   }
-  if(length(names(t$labels)) > 0){
-    for(i in (names(t$labels))){
-      t$labels[[i]] <- t$labels[[i]][keep+1]
+  if(length(t$labels) > 0){
+    for(i in names(t$labels)){
+      if (length(t$labels[[i]]) != n) stop("label '", i, "' is not aligned with frames")
+      t$labels[[i]] <- t$labels[[i]][keep.rows]
     }
   }
   if(!is.null(t$features)){
-    t$features <- t$features[keep + 1,]
+    if (NROW(t$features) != n) stop("features are not aligned with frames")
+    t$features <- t$features[keep.rows, , drop = FALSE]
   }
-  
-  for(i in 1:length(t$data)){
-    t$data[[i]] <- t$data[[i]][t$data[[i]]$frame %in% keep,]
+
+  for(i in seq_along(t$data)){
+    if (nrow(t$data[[i]]) != n || !identical(as.numeric(t$data[[i]]$frame), as.numeric(original.frames))) {
+      stop("tracked point '", names(t$data)[i], "' is not aligned with frames")
+    }
+    t$data[[i]] <- t$data[[i]][keep.rows, , drop = FALSE]
+  }
+
+  if (!is.null(t$median.data)) {
+    for (point in names(t$data)) {
+      t$median.data[point, "x"] <- stats::median(t$data[[point]]$x, na.rm = TRUE)
+      t$median.data[point, "y"] <- stats::median(t$data[[point]]$y, na.rm = TRUE)
+    }
   }
   return(t)
 }
@@ -161,7 +245,7 @@ CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL, 
       }else if(length(existence.pol$x) != length(existence.pol$y)){
         warning("invalid polygon entered. polygon data needs to include variable x and variable y of equal length")
       }else{
-        process <- process | !point.in.polygon(t$data[[i]]$x,t$data[[i]]$y,existence.pol$x, existence.pol$y)
+        process <- process | !sp::point.in.polygon(t$data[[i]]$x,t$data[[i]]$y,existence.pol$x, existence.pol$y)
       }
     }
     if(!is.null(maxdelta)){
@@ -169,7 +253,7 @@ CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL, 
     }
     t$data[[i]]$x[process] <- NA
     t$data[[i]]$y[process] <- NA
-    t$data[[i]] <- na_interpolation(t$data[[i]])
+    t$data[[i]] <- imputeTS::na_interpolation(t$data[[i]])
   }
   return(t)
 }
@@ -188,43 +272,66 @@ CalibrateTrackingData <- function(t, method, in.metric = NULL, points = NULL, ra
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
-  if(!method %in% c("distance","area","ratio")){
-    warning("invalid method: valid methods are distance, area or ratio, can not calibrate")
-    return(t)
+  if (length(method) != 1 || !is.character(method) || !method %in% c("distance", "area", "ratio")) {
+    stop("method must be one of: distance, area, ratio")
   }
+  if (!is.null(t$px.to.cm) || (!is.null(t$distance.units) && t$distance.units != "pixel")) {
+    stop("TrackingData is already calibrated; refusing to apply calibration twice")
+  }
+  if (!is.null(new.units) && (length(new.units) != 1 || !is.character(new.units) || !nzchar(new.units))) {
+    stop("new.units must be one non-empty character value")
+  }
+
+  valid_positive_scalar <- function(x) {
+    length(x) == 1 && is.numeric(x) && is.finite(x) && x > 0
+  }
+
   if(method == "ratio"){
-    if(is.numeric(ratio)){
-      t$px.to.cm <- ratio
-    }else{
-      warning("method ratio needs a valid ratio to be entered. can not calibrate")
-      return(t)
+    if (!valid_positive_scalar(ratio)) {
+      stop("method = 'ratio' requires one positive finite ratio")
     }
+    t$px.to.cm <- ratio
   }else{
-    if(is.numeric(in.metric) & is.null(points)){
-      warning("method requires both points and a in.metric (numeric!) measurement")
-      return(t)
+    if (!valid_positive_scalar(in.metric)) {
+      stop("in.metric must be one positive finite distance or area")
     }
-    if(sum(!(points %in% t$median.data$PointName))){
-      warning("invalid points entered, can not calibrate")
-      return(t)
+    expected.points <- if (method == "distance") 2L else 3L
+    if (!is.character(points) || length(unique(points)) != length(points) ||
+        (method == "distance" && length(points) != expected.points) ||
+        (method == "area" && length(points) < expected.points)) {
+      stop(if (method == "distance") {
+        "method = 'distance' requires exactly two distinct point names"
+      } else {
+        "method = 'area' requires at least three distinct point names"
+      })
     }
-    
+    missing.points <- setdiff(points, t$median.data$PointName)
+    if (length(missing.points) > 0) {
+      stop("Calibration point(s) not found: ", paste(missing.points, collapse = ", "))
+    }
+    calibration.points <- t$median.data[points, c("x", "y"), drop = FALSE]
+    if (any(!is.finite(as.matrix(calibration.points)))) {
+      stop("Calibration point coordinates must all be finite")
+    }
+
     if(method == "distance"){
-      if(length(points) == 2){
-        t$px.to.cm <- in.metric / Distance2d(t$median.data[points[1],],t$median.data[points[2],]) 
-      }else{
-        warning("invalid number of points: distance needs 2 points, can not calibrate")
-        return(t)
+      distance.px <- Distance2d(calibration.points[1, ], calibration.points[2, ])
+      if (!is.finite(distance.px) || distance.px <= 0) {
+        stop("Degenerate calibration geometry: calibration distance is zero")
       }
+      t$px.to.cm <- in.metric / distance.px
     }
     if(method == "area"){
-      if(length(points) > 2){
-        t$px.to.cm <- sqrt(in.metric / AreaPolygon2d(t$median.data[points,])) 
-      }else{
-        warning("invalid number of points: area need polygon of > 2 points, can not calibrate")
-        return(t)
+      area.px <- AreaPolygon2d(calibration.points)
+      if (!is.finite(area.px) || area.px <= 0) {
+        stop("Degenerate calibration geometry: calibration polygon area is zero")
       }
+      t$px.to.cm <- sqrt(in.metric / area.px)
     }
+  }
+
+  if (!is.finite(t$px.to.cm) || t$px.to.cm <= 0) {
+    stop("Calibration produced an invalid scale factor")
   }
   
   for(i in 1:length(t$data)){
@@ -292,9 +399,23 @@ AddOFTZones <- function(t, points = c("tl","tr","br","bl"), scale_center = 0.5, 
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
-  if(length(intersect(points,names(t$data) != 4))){
-    warning("invalid number or type of points entered. exactly 4 existing points needed for OFT Zones")
-    return(t)
+  if (!is.character(points) || length(points) != 4 || length(unique(points)) != 4) {
+    stop("Exactly four distinct corner point names are required for OFT zones")
+  }
+  missing.points <- setdiff(points, names(t$data))
+  if (length(missing.points) > 0) {
+    stop("OFT corner point(s) not found: ", paste(missing.points, collapse = ", "))
+  }
+  if (is.null(t$median.data) || any(!points %in% rownames(t$median.data))) {
+    stop("Median coordinates are missing for one or more OFT corner points")
+  }
+  corners <- t$median.data[points, c("x", "y"), drop = FALSE]
+  if (any(!is.finite(as.matrix(corners))) || AreaPolygon2d(corners) <= 0) {
+    stop("OFT corner geometry must be finite and non-degenerate")
+  }
+  scales <- c(scale_center, scale_corners, scale_periphery)
+  if (any(!is.finite(scales)) || any(scales <= 0)) {
+    stop("OFT zone scale factors must be positive finite numbers")
   }
   zones <- list()
   zones.invert <- list()
@@ -439,7 +560,7 @@ IsInZone <- function(t,p,z,invert = FALSE){
   zones <- t$zones[z]
   in.zone <- rep(FALSE,nrow(t$data[[p]]))
   for(i in zones){
-    in.zone <- in.zone | (point.in.polygon(t$data[[p]]$x,t$data[[p]]$y,i$x,i$y) == 1)
+    in.zone <- in.zone | (sp::point.in.polygon(t$data[[p]]$x,t$data[[p]]$y,i$x,i$y) == 1)
   }
   if(invert){
     in.zone <- !in.zone
@@ -522,7 +643,7 @@ ZoneReport <- function(t,point,zones, zone.name = NULL, invert = FALSE){
   dat <- t$data[[point]]
   in.zone <- rep(FALSE,nrow(dat))
   for(i in t$zones[zones]){
-    in.zone <- in.zone | (point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
+    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
   }
   if(invert){
     in.zone <- !in.zone
@@ -955,13 +1076,21 @@ AddBinData <- function(t, bindat = NULL, unit = "frame", binlength = NULL){
     stop("Object is not of type TrackingData")
   }
   if(!is.null(bindat)){
-    if(unit == "second"){
-      bindat$from <- bindat$from * t$fps
-      bindat$to <- bindat$to * t$fps
-    }
-    if(unit == "minute"){
-      bindat$from <- bindat$from * t$fps * 60
-      bindat$to <- bindat$to * t$fps * 60
+    if(unit %in% c("second", "minute")){
+      multiplier <- ifelse(unit == "minute", 60, 1)
+      from.seconds <- bindat$from * multiplier
+      to.seconds <- bindat$to * multiplier
+      bindat$from <- vapply(from.seconds, function(value) {
+        index <- which(t$seconds >= value)[1]
+        if (is.na(index)) NA_real_ else t$frames[index]
+      }, numeric(1))
+      bindat$to <- vapply(to.seconds, function(value) {
+        indices <- which(t$seconds <= value)
+        if (length(indices) == 0) NA_real_ else t$frames[tail(indices, 1)]
+      }, numeric(1))
+      if (anyNA(bindat$from) || anyNA(bindat$to)) {
+        stop("One or more requested time bins fall outside the tracking duration")
+      }
     }
     t$bins <- bindat
   }else if(!is.null(binlength)){
@@ -1278,7 +1407,7 @@ PlotPointData <- function(t, points = NULL, from = NULL, to = NULL, unit = "fram
 RunPipeline <- function(files, path, FUN){
   out <- list()
   for(j in files){
-    out[[paste(j)]] <- FUN(paste(path,j,sep = ""))
+    out[[paste(j)]] <- FUN(file.path(path, j))
   }
   return(out)
 }
@@ -1417,7 +1546,7 @@ PlotZoneSelection <- function(t,point,zones, invert = FALSE){
   dat <- t$data[[point]]
   in.zone <- rep(FALSE,nrow(dat))
   for(i in t$zones[zones]){
-    in.zone <- in.zone | (point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
+    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
   }
   if(invert){
     in.zone <- !in.zone
