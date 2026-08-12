@@ -34,31 +34,14 @@ config <- list(
   novel_location_file = "novelLoc.txt"
 )
 
-read_metadata_or_empty <- function(path, columns, sep = "") {
-  if (!file.exists(path)) {
-    warning("Metadata file not found: ", path)
-    out <- as.data.frame(setNames(replicate(length(columns), character(), simplify = FALSE), columns))
-    return(out)
-  }
-  out <- utils::read.table(path, header = TRUE, sep = sep, stringsAsFactors = FALSE)
-  missing <- setdiff(columns, names(out))
-  if (length(missing) > 0) stop("Metadata file is missing column(s): ", paste(missing, collapse = ", "))
-  out
-}
-
-metadata_value <- function(data, code, column) {
-  values <- data[data$Code == code, column]
-  if (length(values) == 0) return(NA_character_)
-  if (length(values) > 1) warning("Multiple metadata rows found for code ", code, "; using the first")
-  as.character(values[1])
-}
-
 fill_edges_and_gaps <- function(x) {
   x <- zoo::na.locf(x, na.rm = FALSE)
   zoo::na.locf(x, fromLast = TRUE, na.rm = FALSE)
 }
 
-animalIDCode <- read_metadata_or_empty(config$animal_id_code_file, c("Code", "ID"))
+animalIDCode <- read_metadata_table(
+  config$animal_id_code_file, c("Code", "ID"), if_missing = "empty"
+)
 
 for (batch in config$batches) {
   inputDir <- file.path(config$behavior_root, batch, "NOR", "SLEAP", "formatted")
@@ -67,18 +50,22 @@ for (batch in config$batches) {
   plotDir <- file.path(outputDir, "plots")
   dir.create(plotDir, recursive = TRUE, showWarnings = FALSE)
 
-  novelLoc <- read_metadata_or_empty(novelLocPath, c("Code", "NovelLoc"), sep = "\t")
+  novelLoc <- read_metadata_table(
+    novelLocPath, c("Code", "NovelLoc"), sep = "\t", if_missing = "empty"
+  )
   fileList <- list.files(path = inputDir, pattern = "\\.csv$", full.names = TRUE)
   dfList <- list()
 
   for (inputFile in fileList) {
     inputFileName <- tools::file_path_sans_ext(basename(inputFile))
-    tracking <- ReadDLCDataFromCSV(file = inputFile, fps = config$fps)
+    tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
 
     for (point in c("nose", "bodycentre")) {
-      if (!point %in% names(tracking$data)) stop(inputFileName, " is missing tracked point: ", point)
-      tracking$data[[point]]$x <- fill_edges_and_gaps(tracking$data[[point]]$x)
-      tracking$data[[point]]$y <- fill_edges_and_gaps(tracking$data[[point]]$y)
+      if (!has_landmarks(tracking, point)) stop(inputFileName, " is missing tracked point: ", point)
+      coordinates <- get_point_coordinates(tracking, point)
+      coordinates$x <- fill_edges_and_gaps(coordinates$x)
+      coordinates$y <- fill_edges_and_gaps(coordinates$y)
+      tracking <- set_point_coordinates(tracking, point, coordinates)
     }
 
     tracking <- CalibrateTrackingData(
@@ -96,25 +83,25 @@ for (batch in config$batches) {
 
     code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
     if (is.na(code)) warning("Could not extract a four-character animal code from ", inputFileName)
-    novel_location <- metadata_value(novelLoc, code, "NovelLoc")
+    novel_location <- metadata_lookup(novelLoc, code, "NovelLoc")
     metrics <- compute_nor_metrics(tracking, novel_location, config$fps)
 
-    spine1_distance <- if (all(c("spine1", "bodycentre") %in% names(tracking$data))) {
-      tracking_distance(tracking, "spine1", "bodycentre")
+    spine1_distance <- if (has_landmarks(tracking, c("spine1", "bodycentre"))) {
+      tracking_point_distance(tracking, "spine1", "bodycentre")
     } else numeric()
-    spine2_distance <- if (all(c("spine2", "bodycentre") %in% names(tracking$data))) {
-      tracking_distance(tracking, "bodycentre", "spine2")
+    spine2_distance <- if (has_landmarks(tracking, c("spine2", "bodycentre"))) {
+      tracking_point_distance(tracking, "bodycentre", "spine2")
     } else numeric()
     frequencyRear <- if (length(spine1_distance) == 0 || length(spine2_distance) == 0) {
       NA_integer_
     } else {
-      event_entry_count(spine1_distance <= 1 & spine2_distance <= 1)
+      event_frequency(spine1_distance <= 1 & spine2_distance <= 1)
     }
 
     df <- cbind(
       data.frame(
         file = inputFileName,
-        ID = metadata_value(animalIDCode, code, "ID"),
+        ID = metadata_lookup(animalIDCode, code, "ID"),
         Code = code,
         stringsAsFactors = FALSE
       ),

@@ -1,103 +1,64 @@
-# Small, dependency-free helpers shared by the Phase 1 NOR/SocP analyses and tests.
+# Compatibility and assay-definition layer for the shared behavioral core.
 
-as_event_vector <- function(x) {
-  x <- as.logical(x)
-  x[is.na(x)] <- FALSE
-  x
+behavior_metrics_files <- unlist(lapply(sys.frames(), function(frame) {
+  if (is.null(frame$ofile)) character() else as.character(frame$ofile)
+}), use.names = FALSE)
+behavior_metrics_files <- behavior_metrics_files[
+  basename(behavior_metrics_files) == "Behavioral_Metrics_Phase1.R"
+]
+behavior_metrics_root <- Sys.getenv("SLEAP_ANALYZER_REPO_ROOT")
+behavior_metrics_dir <- if (length(behavior_metrics_files) > 0) {
+  dirname(normalizePath(tail(behavior_metrics_files, 1), mustWork = TRUE))
+} else if (nzchar(behavior_metrics_root)) {
+  file.path(behavior_metrics_root, "02_SLEAPanalzyer")
+} else {
+  getwd()
 }
+source(file.path(behavior_metrics_dir, "core", "io.R"))
+source_behavior_core(file.path(behavior_metrics_dir, "core"), envir = environment())
+rm(behavior_metrics_files, behavior_metrics_root, behavior_metrics_dir)
+
+# Phase 1 public names retained as delegating wrappers.
+as_event_vector <- function(x) normalize_event_vector(x)
 
 suppress_short_event_bouts <- function(x, min_frames = 1L) {
-  x <- as_event_vector(x)
-  if (length(min_frames) != 1 || !is.numeric(min_frames) ||
-      !is.finite(min_frames) || min_frames < 1 || min_frames != floor(min_frames)) {
-    stop("min_frames must be one positive integer")
-  }
-  if (length(x) == 0 || min_frames == 1) return(x)
-
-  runs <- rle(x)
-  runs$values <- runs$values & runs$lengths >= min_frames
-  inverse.rle(runs)
+  filter_short_events(x, min_frames)
 }
 
 event_entry_count <- function(x, min_frames = 1L) {
-  x <- suppress_short_event_bouts(x, min_frames)
-  if (length(x) == 0) return(0L)
-  as.integer(sum(x & !c(FALSE, head(x, -1L))))
+  event_frequency(x, min_frames)
 }
 
 event_latency_s <- function(x, fps, min_frames = 1L) {
-  if (length(fps) != 1 || !is.numeric(fps) || !is.finite(fps) || fps <= 0) {
-    stop("fps must be one positive finite number")
-  }
-  x <- suppress_short_event_bouts(x, min_frames)
-  first <- which(x)[1]
-  if (is.na(first)) return(NA_real_)
-  (first - 1) / fps
+  event_latency(x, fps, min_frames)
 }
 
 event_interbout_intervals_s <- function(x, fps, min_frames = 1L) {
-  if (length(fps) != 1 || !is.numeric(fps) || !is.finite(fps) || fps <= 0) {
-    stop("fps must be one positive finite number")
-  }
-  x <- suppress_short_event_bouts(x, min_frames)
-  if (!any(x)) return(numeric())
-
-  starts <- which(x & !c(FALSE, head(x, -1L)))
-  ends <- which(x & !c(tail(x, -1L), FALSE))
-  if (length(starts) < 2) return(numeric())
-  (starts[-1L] - ends[-length(ends)] - 1L) / fps
+  event_interbout_intervals(x, fps, min_frames)
 }
 
 event_summary <- function(x, fps, min_frames = 1L) {
-  x <- suppress_short_event_bouts(x, min_frames)
-  lengths <- if (any(x)) rle(x)$lengths[rle(x)$values] else numeric()
-  list(
-    duration_s = sum(x) / fps,
-    bouts = event_entry_count(x),
-    latency_s = event_latency_s(x, fps),
-    mean_bout_s = if (length(lengths) == 0) NA_real_ else mean(lengths) / fps,
-    max_bout_s = if (length(lengths) == 0) NA_real_ else max(lengths) / fps,
-    interbout_intervals_s = event_interbout_intervals_s(x, fps)
-  )
+  summarize_event_metrics(x, fps, min_frames)
 }
 
 angle_between_vectors <- function(ax, ay, bx, by) {
-  denominator <- sqrt(ax^2 + ay^2) * sqrt(bx^2 + by^2)
-  cosine <- (ax * bx + ay * by) / denominator
-  cosine[!is.finite(cosine)] <- NA_real_
-  cosine <- pmax(-1, pmin(1, cosine))
-  acos(cosine) * 180 / pi
+  vector_angle_degrees(ax, ay, bx, by)
 }
 
-tracking_xy <- function(tracking, point) {
-  if (!point %in% names(tracking$data)) stop("Missing tracked point: ", point)
-  data.frame(
-    x = as.numeric(tracking$data[[point]]$x),
-    y = as.numeric(tracking$data[[point]]$y)
-  )
-}
+tracking_xy <- function(tracking, point) get_point_coordinates(tracking, point)
 
 tracking_distance <- function(tracking, first, second) {
-  a <- tracking_xy(tracking, first)
-  b <- tracking_xy(tracking, second)
-  if (nrow(a) != nrow(b)) stop("Tracked points have inconsistent frame counts")
-  sqrt((a$x - b$x)^2 + (a$y - b$y)^2)
+  tracking_point_distance(tracking, first, second)
 }
 
 tracking_target_angle <- function(tracking, target) {
-  nose <- tracking_xy(tracking, "nose")
-  body <- tracking_xy(tracking, "bodycentre")
-  target_xy <- tracking_xy(tracking, target)
-  angle_between_vectors(
-    nose$x - body$x,
-    nose$y - body$y,
-    nose$x - target_xy$x,
-    nose$y - target_xy$y
-  )
+  # Preserve the legacy NOR convention exactly: bodycentre -> nose compared
+  # with target -> nose, rather than the more usual nose -> target vector.
+  tracking_vector_angle(tracking, "bodycentre", "nose", target, "nose")
 }
 
 inside_axis_aligned_box <- function(x, y, center_x, center_y, width, height) {
-  abs(x - center_x) <= width / 2 & abs(y - center_y) <= height / 2
+  points_in_axis_aligned_box(x, y, center_x, center_y, width, height)
 }
 
 validate_location_metadata <- function(location) {
@@ -107,6 +68,15 @@ validate_location_metadata <- function(location) {
   as.character(location)
 }
 
+validate_assay_timing <- function(tracking, fps) {
+  validate_fps(fps)
+  tracking_fps <- get_tracking_fps(tracking)
+  if (!isTRUE(all.equal(as.numeric(fps), as.numeric(tracking_fps)))) {
+    stop("fps does not match TrackingData$fps")
+  }
+  invisible(fps)
+}
+
 compute_nor_metrics <- function(tracking, novel_location, fps,
                                 contact_distance = 4,
                                 body_exclusion_distance = 1,
@@ -114,24 +84,23 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
                                 object_box_height = 7,
                                 contact_angle = c(70, 290),
                                 proximity_range = c(4, 8),
-                                proximity_angle = c(90, 270)) {
+                                proximity_angle = c(90, 270),
+                                threshold_unit = "cm") {
   required <- c("nose", "bodycentre", "objL", "objR")
-  missing <- setdiff(required, names(tracking$data))
-  if (length(missing) > 0) stop("NOR tracking is missing: ", paste(missing, collapse = ", "))
+  validate_tracking_data(tracking, required_landmarks = required)
+  validate_assay_timing(tracking, fps)
+  validate_threshold_unit(threshold_unit, get_tracking_unit(tracking))
 
-  nose <- tracking_xy(tracking, "nose")
-  obj_left <- tracking_xy(tracking, "objL")
-  obj_right <- tracking_xy(tracking, "objR")
-  n <- nrow(nose)
-  if (any(c(nrow(obj_left), nrow(obj_right)) != n)) {
-    stop("NOR tracked points have inconsistent frame counts")
-  }
-
+  nose <- get_point_coordinates(tracking, "nose")
+  obj_left <- get_point_coordinates(tracking, "objL")
+  obj_right <- get_point_coordinates(tracking, "objR")
+  n <- length(get_tracking_frames(tracking))
   location <- validate_location_metadata(novel_location)
-  distance_left <- tracking_distance(tracking, "objL", "nose")
-  distance_right <- tracking_distance(tracking, "objR", "nose")
-  body_left <- tracking_distance(tracking, "objL", "bodycentre")
-  body_right <- tracking_distance(tracking, "objR", "bodycentre")
+
+  distance_left <- tracking_point_distance(tracking, "objL", "nose")
+  distance_right <- tracking_point_distance(tracking, "objR", "nose")
+  body_left <- tracking_point_distance(tracking, "objL", "bodycentre")
+  body_right <- tracking_point_distance(tracking, "objR", "bodycentre")
   angle_left <- tracking_target_angle(tracking, "objL")
   angle_right <- tracking_target_angle(tracking, "objR")
   oriented_left <- abs(angle_left) >= contact_angle[1] & abs(angle_left) <= contact_angle[2]
@@ -140,7 +109,7 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   if (is.na(location)) {
     contact_left <- contact_right <- rep(NA, n)
   } else if (location == "R") {
-    contact_left <- inside_axis_aligned_box(
+    contact_left <- points_in_axis_aligned_box(
       nose$x, nose$y, obj_left$x, obj_left$y, object_box_width, object_box_height
     ) & body_left > body_exclusion_distance & oriented_left
     contact_right <- distance_right <= contact_distance &
@@ -148,7 +117,7 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   } else {
     contact_left <- distance_left <= contact_distance &
       body_left > body_exclusion_distance & oriented_left
-    contact_right <- inside_axis_aligned_box(
+    contact_right <- points_in_axis_aligned_box(
       nose$x, nose$y, obj_right$x, obj_right$y, object_box_width, object_box_height
     ) & body_right > body_exclusion_distance & oriented_right
   }
@@ -160,8 +129,8 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   proximity_angle_right <- proximity_right &
     abs(angle_right) >= proximity_angle[1] & abs(angle_right) <= proximity_angle[2]
 
-  left <- if (is.na(location)) NULL else event_summary(contact_left, fps)
-  right <- if (is.na(location)) NULL else event_summary(contact_right, fps)
+  left <- if (is.na(location)) NULL else summarize_event_metrics(contact_left, fps)
+  right <- if (is.na(location)) NULL else summarize_event_metrics(contact_right, fps)
 
   # Preserve the repository's legacy assignment: metadata R maps the left side to
   # novel and metadata L maps the right side to novel. Its biological meaning must
@@ -176,8 +145,10 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
     if (is.null(left)) NA_real_ else left$duration_s,
     if (is.null(right)) NA_real_ else right$duration_s
   )
-  proximity_mapped <- mapped(sum(proximity_left, na.rm = TRUE) / fps,
-                             sum(proximity_right, na.rm = TRUE) / fps)
+  proximity_mapped <- mapped(
+    frames_to_seconds(sum(proximity_left, na.rm = TRUE), fps),
+    frames_to_seconds(sum(proximity_right, na.rm = TRUE), fps)
+  )
   latency_values <- if (is.null(left)) numeric() else c(left$latency_s, right$latency_s)
   latency_values <- latency_values[is.finite(latency_values)]
   first_contact_latency <- if (length(latency_values) == 0) NA_real_ else min(latency_values)
@@ -187,18 +158,18 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
     contactRight = if (is.null(right)) NA_real_ else right$duration_s,
     contactNov = unname(contact_mapped["novel"]),
     contactFam = unname(contact_mapped["familiar"]),
-    proxLeft = sum(proximity_left, na.rm = TRUE) / fps,
-    proxRight = sum(proximity_right, na.rm = TRUE) / fps,
+    proxLeft = frames_to_seconds(sum(proximity_left, na.rm = TRUE), fps),
+    proxRight = frames_to_seconds(sum(proximity_right, na.rm = TRUE), fps),
     proxNov = unname(proximity_mapped["novel"]),
     proxFam = unname(proximity_mapped["familiar"]),
-    proxLeftAngle = sum(proximity_angle_left, na.rm = TRUE) / fps,
-    proxRightAngle = sum(proximity_angle_right, na.rm = TRUE) / fps,
+    proxLeftAngle = frames_to_seconds(sum(proximity_angle_left, na.rm = TRUE), fps),
+    proxRightAngle = frames_to_seconds(sum(proximity_angle_right, na.rm = TRUE), fps),
     latency = first_contact_latency,
     latencyLeft = if (is.null(left)) NA_real_ else left$latency_s,
     latencyRight = if (is.null(right)) NA_real_ else right$latency_s,
     frequencyL = if (is.null(left)) NA_integer_ else left$bouts,
     frequencyR = if (is.null(right)) NA_integer_ else right$bouts,
-    totalTime = n / fps,
+    totalTime = get_tracking_duration(tracking),
     novelLoc = location
   )
 

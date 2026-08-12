@@ -5,14 +5,27 @@ testthat::test_that("NOR uses the corresponding object angle and frame-derived t
   points$nose <- cbind(x = rep(0, n), y = rep(0, n))
   points$objL <- cbind(x = rep(2, n), y = rep(0, n))
   points$objR <- cbind(x = rep(-3, n), y = rep(0, n))
-  result <- compute_nor_metrics(make_tracking(frames = 0:(n - 1), points = points), "R", fps = 30)
+  result <- compute_nor_metrics(
+    make_tracking(frames = 0:(n - 1), points = points, distance_unit = "cm"),
+    "R", fps = 30
+  )
 
   testthat::expect_equal(result$summary$contactLeft, 2)
   testthat::expect_equal(result$summary$contactRight, 0)
   testthat::expect_equal(result$summary$contactNov, result$summary$contactLeft)
   testthat::expect_equal(result$summary$frequencyL, 1)
+  testthat::expect_equal(result$summary$latencyLeft, 0)
   testthat::expect_equal(result$summary$totalTime, 2)
   testthat::expect_equal(result$angles$right, rep(0, n))
+  testthat::expect_named(
+    result$summary,
+    c(
+      "contactLeft", "contactRight", "contactNov", "contactFam", "proxLeft",
+      "proxRight", "proxNov", "proxFam", "proxLeftAngle", "proxRightAngle",
+      "latency", "latencyLeft", "latencyRight", "frequencyL", "frequencyR",
+      "totalTime", "novelLoc"
+    )
+  )
 })
 
 testthat::test_that("NOR no-contact latency is NA and separated visits count as entries", {
@@ -22,12 +35,16 @@ testthat::test_that("NOR no-contact latency is NA and separated visits count as 
   points$nose <- cbind(x = c(0, 0, 20, 20, 0, 0, 20, 20, 20, 20), y = 0)
   points$objL <- cbind(x = rep(2, n), y = 0)
   points$objR <- cbind(x = rep(100, n), y = 0)
-  result <- compute_nor_metrics(make_tracking(points = points), "R", fps = 10)
+  result <- compute_nor_metrics(
+    make_tracking(points = points, fps = 10, distance_unit = "cm"), "R", fps = 10
+  )
   testthat::expect_equal(result$summary$frequencyL, 2)
   testthat::expect_true(is.na(result$summary$latencyRight))
 
   points$nose[,] <- 50
-  absent <- compute_nor_metrics(make_tracking(points = points), "R", fps = 10)
+  absent <- compute_nor_metrics(
+    make_tracking(points = points, fps = 10, distance_unit = "cm"), "R", fps = 10
+  )
   testthat::expect_true(is.na(absent$summary$latency))
   testthat::expect_false(is.infinite(absent$summary$latency))
 })

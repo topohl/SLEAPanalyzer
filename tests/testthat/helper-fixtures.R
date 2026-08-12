@@ -3,7 +3,8 @@ if (!nzchar(repo_root)) stop("SLEAP_ANALYZER_REPO_ROOT is not set; use tests/tes
 source(file.path(repo_root, "02_SLEAPanalzyer", "DLCAnalyzer_Functions_final.R"))
 source(file.path(repo_root, "02_SLEAPanalzyer", "Behavioral_Metrics_Phase1.R"))
 
-make_tracking <- function(frames = 0:9, fps = 30, points = list()) {
+make_tracking <- function(frames = 0:9, fps = 30, points = list(),
+                          distance_unit = "pixel") {
   n <- length(frames)
   if (length(points) == 0) points <- list(bodycentre = cbind(x = rep(0, n), y = rep(0, n)))
   data <- lapply(points, function(xy) {
@@ -30,7 +31,7 @@ make_tracking <- function(frames = 0:9, fps = 30, points = list()) {
     seconds = (frames - frames[1]) / fps,
     median.data = median_data,
     point.info = data.frame(PointName = names(data), PointType = "NotDefined"),
-    distance.units = "pixel",
+    distance.units = distance_unit,
     labels = list(),
     filename = "synthetic.csv",
     object.type = "TrackingData"
