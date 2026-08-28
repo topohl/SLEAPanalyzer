@@ -65,7 +65,9 @@ testthat::test_that("SocP contact, remapping, entries, and missing metadata are 
   points$nose <- cbind(x = c(0, 0, 20, 20, 0, 0, 20, 20), y = 0)
   points$socl <- cbind(x = rep(2, n), y = 0)
   points$socr <- cbind(x = rep(100, n), y = 0)
-  tracking <- make_tracking(frames = 0:(n - 1), points = points)
+  # fps must agree with the value passed to compute_socp_metrics(); the old
+  # fixture built 30 fps tracking and analysed it as 2 fps.
+  tracking <- make_tracking(frames = 0:(n - 1), fps = 2, points = points)
 
   result <- compute_socp_metrics(tracking, "R", fps = 2)
   testthat::expect_equal(result$summary$contactLeft, 2)

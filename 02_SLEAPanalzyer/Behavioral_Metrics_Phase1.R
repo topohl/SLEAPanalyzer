@@ -264,25 +264,66 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   )
 }
 
+#' Social-preference measurements.
+#'
+#' The same detector is applied to both stimulus chambers. Unlike NOR, no
+#' head-orientation criterion is applied by default, which preserves the
+#' repository's established SocP definition; set `require_orientation = TRUE`
+#' to add one. That changes the definition and requires validation.
+#'
+#' @param valid optional per-frame validity mask; defaults to frames where
+#'   every required landmark has finite coordinates.
+#' @param threshold_unit unit the distance thresholds are expressed in; must
+#'   match the coordinate unit of the tracking data.
 compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_distance = 6,
                                  body_exclusion_distance = 1,
-                                 proximity_range = c(6, 10)) {
+                                 proximity_range = c(6, 10),
+                                 threshold_unit = NULL,
+                                 require_orientation = FALSE,
+                                 contact_angle = c(70, 290),
+                                 valid = NULL,
+                                 min_bout_s = 0,
+                                 max_gap_s = 0) {
   required <- c("nose", "bodycentre", "socl", "socr")
-  missing <- setdiff(required, names(tracking$data))
-  if (length(missing) > 0) stop("SocP tracking is missing: ", paste(missing, collapse = ", "))
+  validate_tracking_data(tracking, required_landmarks = required)
+  validate_assay_timing(tracking, fps)
+  # Applying centimetre thresholds to pixel coordinates silently produces
+  # meaningless contact times, so the unit must be stated and must agree.
+  if (is.null(threshold_unit)) threshold_unit <- get_tracking_unit(tracking)
+  validate_threshold_unit(threshold_unit, get_tracking_unit(tracking))
 
+  n <- length(get_tracking_frames(tracking))
   location <- validate_location_metadata(novel_location)
+  if (is.null(valid)) valid <- landmark_validity(tracking, required)
+  valid <- normalize_validity_mask(valid, n)
+
   distance_left <- tracking_distance(tracking, "socl", "nose")
   distance_right <- tracking_distance(tracking, "socr", "nose")
   body_left <- tracking_distance(tracking, "socl", "bodycentre")
   body_right <- tracking_distance(tracking, "socr", "bodycentre")
+
   contact_left <- distance_left <= contact_distance & body_left > body_exclusion_distance
   contact_right <- distance_right <= contact_distance & body_right > body_exclusion_distance
+  if (isTRUE(require_orientation)) {
+    angle_left <- tracking_target_angle(tracking, "socl")
+    angle_right <- tracking_target_angle(tracking, "socr")
+    contact_left <- contact_left &
+      abs(angle_left) >= contact_angle[1] & abs(angle_left) <= contact_angle[2]
+    contact_right <- contact_right &
+      abs(angle_right) >= contact_angle[1] & abs(angle_right) <= contact_angle[2]
+  }
+
   proximity_left <- distance_left > proximity_range[1] & distance_left <= proximity_range[2]
   proximity_right <- distance_right > proximity_range[1] & distance_right <= proximity_range[2]
-  left <- event_summary(contact_left, fps)
-  right <- event_summary(contact_right, fps)
+
+  segment <- function(event) {
+    segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)
+  }
+  left <- segment(contact_left)
+  right <- segment(contact_right)
+  proximity_left_seg <- segment(proximity_left)
+  proximity_right_seg <- segment(proximity_right)
 
   novel_is_left <- !is.na(location) && location == "R"
   mapped <- function(left_value, right_value) {
@@ -291,8 +332,7 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       c(novel = right_value, familiar = left_value)
   }
   contact_mapped <- mapped(left$duration_s, right$duration_s)
-  proximity_mapped <- mapped(sum(proximity_left, na.rm = TRUE) / fps,
-                             sum(proximity_right, na.rm = TRUE) / fps)
+  proximity_mapped <- mapped(proximity_left_seg$duration_s, proximity_right_seg$duration_s)
   latency_mapped <- mapped(left$latency_s, right$latency_s)
 
   list(
@@ -307,16 +347,26 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       latencyFamiliar = unname(latency_mapped["familiar"]),
       latencyLeft = left$latency_s,
       latencyRight = right$latency_s,
-      frequencyLeft = left$bouts,
-      frequencyRight = right$bouts,
-      totalTime = length(contact_left) / fps,
-      novelLoc = location
+      frequencyLeft = left$n_bouts,
+      frequencyRight = right$n_bouts,
+      meanBoutLeft = left$mean_bout_s,
+      meanBoutRight = right$mean_bout_s,
+      entriesLeft = count_entries(contact_left, valid = valid),
+      entriesRight = count_entries(contact_right, valid = valid),
+      totalTime = get_tracking_duration(tracking),
+      validTime = left$valid_time_s,
+      validFraction = left$valid_time_s / get_tracking_duration(tracking),
+      coordinateUnit = get_tracking_unit(tracking),
+      novelLoc = location,
+      stringsAsFactors = FALSE
     ),
     events = data.frame(
       contact_left = contact_left,
       contact_right = contact_right,
       proximity_left = proximity_left,
-      proximity_right = proximity_right
-    )
+      proximity_right = proximity_right,
+      valid = valid
+    ),
+    segmentation = list(left = left, right = right)
   )
 }

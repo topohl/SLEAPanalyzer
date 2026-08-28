@@ -2,7 +2,7 @@
 #' @description Batch analysis for the social-preference workflow.
 #' @version 1.1.0 (Phase 1 correctness fixes)
 
-required_packages <- c("sp", "imputeTS", "ggplot2", "cowplot", "stringr")
+required_packages <- c("sp", "ggplot2", "stringr")
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
 ]
@@ -31,28 +31,30 @@ config <- list(
   batches = c("B3"),
   phases = c("HAB", "S1", "S2"),
   behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
-  animal_id_code_file = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt"
+  animal_id_code_file = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt",
+
+  # Arena geometry of the three-chamber apparatus floor.
+  arena_width_cm = 44,
+  arena_height_cm = 24,
+  arena_corner_names = c("tl", "tr", "br", "bl"),
+
+  # Tracking quality.
+  max_interpolation_gap_s = 0.2,
+  likelihood_cutoff = NULL,
+
+  # Contact definition. Requires assay-specific validation against manually
+  # scored video; see docs/assay_definitions.md.
+  contact_distance_cm = 6,
+  proximity_range_cm = c(6, 10),
+  min_contact_bout_s = 0,
+  max_contact_gap_s = 0
 )
 
-read_metadata_or_empty <- function(path, columns, sep = "") {
-  if (!file.exists(path)) {
-    warning("Metadata file not found: ", path)
-    return(as.data.frame(setNames(replicate(length(columns), character(), simplify = FALSE), columns)))
-  }
-  out <- utils::read.table(path, header = TRUE, sep = sep, stringsAsFactors = FALSE)
-  missing <- setdiff(columns, names(out))
-  if (length(missing) > 0) stop("Metadata file is missing column(s): ", paste(missing, collapse = ", "))
-  out
-}
-
-metadata_value <- function(data, code, column) {
-  values <- data[data$Code == code, column]
-  if (length(values) == 0) return(NA_character_)
-  if (length(values) > 1) warning("Multiple metadata rows found for code ", code, "; using the first")
-  as.character(values[1])
-}
-
-animalIDCode <- read_metadata_or_empty(config$animal_id_code_file, c("Code", "ID"))
+# Metadata parsing uses the shared core helpers; SocP previously carried
+# private copies that could drift from the NOR implementation.
+animalIDCode <- read_metadata_table(
+  config$animal_id_code_file, c("Code", "ID"), if_missing = "empty"
+)
 
 for (batch in config$batches) {
   for (socpPhase in config$phases) {
@@ -62,20 +64,35 @@ for (batch in config$batches) {
     plotDir <- file.path(outputDir, "plots")
     dir.create(plotDir, recursive = TRUE, showWarnings = FALSE)
 
-    novelLoc <- read_metadata_or_empty(novelLocPath, c("Code", "NovelLoc"), sep = "\t")
+    novelLoc <- read_metadata_table(
+      novelLocPath, c("Code", "NovelLoc"), sep = "\t", if_missing = "empty"
+    )
     fileList <- list.files(path = inputDir, pattern = "\\.csv$", full.names = TRUE)
     dfList <- list()
 
     for (inputFile in fileList) {
       inputFileName <- tools::file_path_sans_ext(basename(inputFile))
-      tracking <- ReadDLCDataFromCSV(file = inputFile, fps = config$fps)
+      tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
+
+      # Bounded interpolation: SocP previously performed none at all, so
+      # untracked frames reached the contact test as NA and were scored as
+      # confident absence of social contact.
+      tracking <- interpolate_tracking(
+        tracking,
+        landmarks = c("nose", "bodycentre"),
+        max_gap_s = config$max_interpolation_gap_s,
+        likelihood_cutoff = config$likelihood_cutoff
+      )
+      trackingQC <- interpolation_report(tracking, c("nose", "bodycentre"))
+
       tracking <- CalibrateTrackingData(
-        tracking, method = "area", in.metric = 44 * 24,
-        points = c("tl", "tr", "br", "bl")
+        tracking, method = "area",
+        in.metric = config$arena_width_cm * config$arena_height_cm,
+        points = config$arena_corner_names
       )
       tracking <- AddOFTZones(
         tracking, scale_center = 0.5, scale_periphery = 0.8,
-        scale_corners = 0.4, points = c("tl", "tr", "br", "bl")
+        scale_corners = 0.4, points = config$arena_corner_names
       )
       tracking <- OFTAnalysis(
         tracking, points = "bodycentre", movement_cutoff = 5,
@@ -84,13 +101,20 @@ for (batch in config$batches) {
 
       code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
       if (is.na(code)) warning("Could not extract a four-character animal code from ", inputFileName)
-      novel_location <- metadata_value(novelLoc, code, "NovelLoc")
-      metrics <- compute_socp_metrics(tracking, novel_location, config$fps)
+      novel_location <- metadata_lookup(novelLoc, code, "NovelLoc")
+      metrics <- compute_socp_metrics(
+        tracking, novel_location, config$fps,
+        contact_distance = config$contact_distance_cm,
+        proximity_range = config$proximity_range_cm,
+        threshold_unit = "cm",
+        min_bout_s = config$min_contact_bout_s,
+        max_gap_s = config$max_contact_gap_s
+      )
 
       df <- cbind(
         data.frame(
           file = inputFileName,
-          ID = metadata_value(animalIDCode, code, "ID"),
+          ID = metadata_lookup(animalIDCode, code, "ID"),
           Code = code,
           stringsAsFactors = FALSE
         ),
@@ -99,7 +123,11 @@ for (batch in config$batches) {
           distance = tracking$Report$bodycentre.raw.distance,
           stationary = tracking$Report$bodycentre.time.stationary,
           speedMoving = tracking$Report$bodycentre.speed.moving,
-          speedRaw = tracking$Report$bodycentre.raw.speed
+          speedRaw = tracking$Report$bodycentre.raw.speed,
+          noseObservedFraction = trackingQC$observed_fraction[trackingQC$landmark == "nose"],
+          noseInterpolatedFraction = trackingQC$interpolated_fraction[trackingQC$landmark == "nose"],
+          noseInvalidFraction = trackingQC$invalid_fraction[trackingQC$landmark == "nose"],
+          noseLongestGapSeconds = trackingQC$longest_invalid_gap_s[trackingQC$landmark == "nose"]
         )
       )
 

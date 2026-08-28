@@ -12,7 +12,7 @@ test is committed.
 | P0-2 FIXED | `DLCA_SocInt v.0.0.2.r` | `a1_avoidance_from_a2` / `a2_avoidance_from_a1` share an identical distance condition and differ only in which animal's *scalar* speed exceeds a cutoff. Scalar speed carries no direction, so both flags fire whenever both animals move. `approach_event` / `retreat_event` are fully symmetric and cannot attribute at all. |
 | P0-3 FIXED | core `events.R`, all assays | `normalize_event_vector()` maps `NA` to `FALSE`, so untracked frames are scored as confident absence of behavior. No validity mask exists anywhere and denominators use every frame. |
 | P0-4 FIXED | `CleanTrackingData()`, NOR `fill_edges_and_gaps()` | Interpolation is unbounded. `imputeTS::na_interpolation()` fills gaps of any length and also overwrites the `likelihood` column; NOR's `zoo::na.locf` fills leading and trailing runs of any length. Fabricated coordinates are indistinguishable from observed ones downstream. |
-| P0-5 | `compute_socp_metrics()` | No unit, fps or TrackingData validation, unlike `compute_nor_metrics()`. Centimetre thresholds can be applied silently to pixel coordinates. |
+| P0-5 FIXED | `compute_socp_metrics()` | No unit, fps or TrackingData validation, unlike `compute_nor_metrics()`. Centimetre thresholds can be applied silently to pixel coordinates. |
 | P0-6 | `CalculateTransitions()` | Counts onsets *and* offsets, so zone `transitions` is roughly twice the entry count and is biased by whether the animal starts or ends inside the zone. |
 
 ## P1 - tracking, geometry and QC core
@@ -39,4 +39,4 @@ test is committed.
 | P3-1 | Machine-specific `S:/` and `C:/Users/...` paths in every production script. |
 | P3-2 | No configuration files; arena size, thresholds and fps are literals inside loops. |
 | P3-3 | No run manifest, commit SHA, or dependency versions in outputs. |
-| P3-4 | `DLCA_SocP` re-implements `read_metadata_table()` / `metadata_lookup()` locally. |
+| P3-4 FIXED | `DLCA_SocP` re-implements `read_metadata_table()` / `metadata_lookup()` locally. |
