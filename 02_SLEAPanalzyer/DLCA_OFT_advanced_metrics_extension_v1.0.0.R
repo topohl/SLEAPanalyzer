@@ -61,7 +61,7 @@ config <- list(
   statistics_metrics = c(
     "center_time_percent", "center_entries", "center_latency_s",
     "distance_cm", "mean_speed_cm_s", "mean_wall_distance_cm",
-    "oft_center_exploration_score", "zone_fragmentation_rate_per_min",
+    "oft_center_exploration_score_cohort_z_experimental", "zone_fragmentation_rate_per_min",
     "movement_fragmentation_rate_per_min", "sustained_center_entries_3s",
     "center_time_per_100cm", "wall_5cm_percent_per_100cm",
     "burst_count", "burst_rate_per_min"

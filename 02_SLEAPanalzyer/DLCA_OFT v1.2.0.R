@@ -362,7 +362,14 @@ fit_slope <- function(data, y, x = "bin_s") {
     slope_per_min = unname(stats::coef(mod)[[x]]) * 60,
     intercept = unname(stats::coef(mod)[["(Intercept)"]]),
     r_squared = sm$r.squared,
-    p_value = sm$coefficients[x, "Pr(>|t|)"]
+    # This p-value tests one animal's own time-bin regression, treating
+    # consecutive bins as independent observations. Locomotion is strongly
+    # autocorrelated across adjacent bins, so the standard error is
+    # underestimated and the p-value is anticonservative. It is a descriptive
+    # fit diagnostic only. Group differences in habituation belong in the
+    # statistical layer, where bins are nested within animal; see
+    # docs/statistical_layer.md.
+    p_value_within_animal_nominal = sm$coefficients[x, "Pr(>|t|)"]
   )
 }
 
@@ -376,7 +383,7 @@ make_habituation_slopes <- function(binned_tbl) {
   purrr::map_dfr(slope_metrics, fit_slope, data = binned_tbl) %>%
     pivot_wider(
       names_from = metric,
-      values_from = c(slope_per_min, intercept, r_squared, p_value),
+      values_from = c(slope_per_min, intercept, r_squared, p_value_within_animal_nominal),
       names_glue = "{.value}_{metric}"
     )
 }
@@ -578,14 +585,33 @@ make_enhanced_row <- function(summary_tbl, frame_tbl, binned_tbl, config) {
   )
 }
 
+#' Cohort-relative composite of centre-exploration measures.
+#'
+#' EXPLORATORY, AND NOT A SUBJECT-LEVEL MEASUREMENT.
+#'
+#' Every component is z-scored against the other animals in `summary_tbl`, so
+#' the value depends on which animals happened to be analysed together. The
+#' same recording scores differently in a different cohort, and the scores
+#' cannot be compared across batches or experiments. It is a within-cohort
+#' ranking aid, not a property of the animal.
+#'
+#' Anchoring it to a fixed reference population would make it subject-level,
+#' but that requires reference means and standard deviations this repository
+#' does not have. Until those exist, the column name carries the caveat.
+#'
+#' The raw components (`center_time_percent`, `center_entries`,
+#' `center_latency_s`, `mean_wall_distance_cm`) are retained. Prefer modelling
+#' those directly in the statistical layer over modelling the composite, which
+#' has a cohort-dependent scale.
 add_center_exploration_score <- function(summary_tbl) {
+  cohort_n <- sum(!is.na(summary_tbl$center_time_percent))
   summary_tbl %>%
     mutate(
       z_center_time_percent = zscore(center_time_percent),
       z_center_entries = zscore(center_entries),
       z_center_latency_inverse = -zscore(center_latency_s),
       z_mean_wall_distance = zscore(mean_wall_distance_cm),
-      oft_center_exploration_score = rowMeans(
+      oft_center_exploration_score_cohort_z_experimental = rowMeans(
         cbind(
           z_center_time_percent,
           z_center_entries,
@@ -594,7 +620,13 @@ add_center_exploration_score <- function(summary_tbl) {
         ),
         na.rm = TRUE
       ),
-      oft_center_exploration_score = ifelse(is.nan(oft_center_exploration_score), NA_real_, oft_center_exploration_score)
+      oft_center_exploration_score_cohort_z_experimental = ifelse(
+        is.nan(oft_center_exploration_score_cohort_z_experimental),
+        NA_real_,
+        oft_center_exploration_score_cohort_z_experimental
+      ),
+      # Recorded so a reader can see what the score was standardised against.
+      oft_center_exploration_cohort_n = cohort_n
     )
 }
 
@@ -619,20 +651,20 @@ save_enhanced_plots <- function(summary_tbl, bins_tbl, output_dir, config) {
   plot_dir <- file.path(output_dir, "enhanced_plots")
   dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
-  if ("oft_center_exploration_score" %in% names(summary_tbl)) {
+  if ("oft_center_exploration_score_cohort_z_experimental" %in% names(summary_tbl)) {
     p1 <- summary_tbl %>%
-      ggplot(aes(x = reorder(file, oft_center_exploration_score), y = oft_center_exploration_score)) +
+      ggplot(aes(x = reorder(file, oft_center_exploration_score_cohort_z_experimental), y = oft_center_exploration_score_cohort_z_experimental)) +
       geom_col(width = 0.75) +
       coord_flip() +
       labs(
-        title = "OFT center-exploration profile score",
+        title = "OFT centre-exploration composite (cohort-relative, exploratory)",
         x = NULL,
-        y = "Composite z-score"
+        y = "Composite z-score, standardised within this cohort"
       ) +
       make_theme_nature()
 
     ggsave(
-      file.path(plot_dir, "enhanced_oft_center_exploration_score.svg"),
+      file.path(plot_dir, "enhanced_oft_center_exploration_score_cohort_z_experimental.svg"),
       p1,
       width = config$plot_width_double_col,
       height = config$plot_height_double_col
@@ -968,7 +1000,7 @@ for (batch in config$batches) {
     batch_summaries_scored <- add_center_exploration_score(batch_summaries)
       batch_enhanced_scored <- batch_enhanced %>%
         left_join(
-          batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score),
+          batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score_cohort_z_experimental, oft_center_exploration_cohort_n),
           by = c("file", "Batch", "Code")
         ) %>%
         mutate(
@@ -998,7 +1030,7 @@ if (length(all_summaries) > 0) {
   all_qc_tbl <- bind_rows(all_qc)
   all_enhanced_tbl <- bind_rows(all_enhanced) %>%
     left_join(
-      all_summaries_tbl %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score, qc_flag),
+      all_summaries_tbl %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score_cohort_z_experimental, oft_center_exploration_cohort_n, qc_flag),
       by = c("file", "Batch", "Code")
     ) %>%
     mutate(
