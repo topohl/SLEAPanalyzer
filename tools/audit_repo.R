@@ -64,7 +64,7 @@ CHECKS <- list(
     id = "legacy_transition_count",
     description = "CalculateTransitions() used instead of count_entries()",
     pattern = "CalculateTransitions\\(",
-    budget = 3
+    budget = 2
   ),
   list(
     id = "boundary_excluding_zone_test",

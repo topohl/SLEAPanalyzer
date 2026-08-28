@@ -13,7 +13,7 @@ test is committed.
 | P0-3 FIXED | core `events.R`, all assays | `normalize_event_vector()` maps `NA` to `FALSE`, so untracked frames are scored as confident absence of behavior. No validity mask exists anywhere and denominators use every frame. |
 | P0-4 FIXED | `CleanTrackingData()`, NOR `fill_edges_and_gaps()` | Interpolation is unbounded. `imputeTS::na_interpolation()` fills gaps of any length and also overwrites the `likelihood` column; NOR's `zoo::na.locf` fills leading and trailing runs of any length. Fabricated coordinates are indistinguishable from observed ones downstream. |
 | P0-5 FIXED | `compute_socp_metrics()` | No unit, fps or TrackingData validation, unlike `compute_nor_metrics()`. Centimetre thresholds can be applied silently to pixel coordinates. |
-| P0-6 | `CalculateTransitions()` | Counts onsets *and* offsets, so zone `transitions` is roughly twice the entry count and is biased by whether the animal starts or ends inside the zone. |
+| P0-6 FIXED | `CalculateTransitions()` | Counts onsets *and* offsets, so zone `transitions` is roughly twice the entry count and is biased by whether the animal starts or ends inside the zone. |
 
 ## P1 - tracking, geometry and QC core
 
@@ -30,7 +30,7 @@ test is committed.
 | # | Defect |
 |---|--------|
 | P1-6 FIXED | No CI configuration of any kind. |
-| P1-7 | No synthetic assay tests for OFT or EPM; EPM is not executable under test. |
+| P1-7 FIXED | No synthetic assay tests for OFT or EPM; EPM is not executable under test. |
 
 ## P3 - reproducibility and architecture
 

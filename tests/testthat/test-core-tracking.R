@@ -57,16 +57,24 @@ testthat::test_that("movement is zero when stationary and correct at constant ve
     points = list(bodycentre = cbind(x = rep(5, 31), y = rep(-2, 31)))
   )
   stationary <- CalculateMovement(stationary, movement_cutoff = 1, integration_period = 0)
-  testthat::expect_equal(stationary$data$bodycentre$speed, rep(0, 31))
-  testthat::expect_equal(sum(stationary$data$bodycentre$speed), 0)
+  # Frame one has no preceding frame, so its displacement is undefined rather
+  # than zero. Substituting zero biased mean speed by a factor of (n-1)/n.
+  testthat::expect_true(is.na(stationary$data$bodycentre$speed[1]))
+  testthat::expect_equal(stationary$data$bodycentre$speed[-1], rep(0, 30))
+  testthat::expect_equal(sum(stationary$data$bodycentre$speed, na.rm = TRUE), 0)
 
   moving <- make_tracking(
     frames = 0:30, fps = 10,
     points = list(bodycentre = cbind(x = 2 * (0:30), y = rep(0, 31)))
   )
   moving <- CalculateMovement(moving, movement_cutoff = 1, integration_period = 0)
-  testthat::expect_equal(sum(moving$data$bodycentre$speed), 60)
+  # Thirty real displacement intervals of 2 units each.
+  testthat::expect_equal(sum(moving$data$bodycentre$speed, na.rm = TRUE), 60)
   testthat::expect_equal(moving$data$bodycentre$speed[-1] * moving$fps, rep(20, 30))
+  # Mean speed is now unbiased: 20 units/s, not 60/31 * 10.
+  testthat::expect_equal(
+    mean(moving$data$bodycentre$speed, na.rm = TRUE) * moving$fps, 20
+  )
 })
 
 testthat::test_that("area calibration is correct, invariant, and rejects invalid geometry", {

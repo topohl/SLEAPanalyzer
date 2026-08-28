@@ -514,6 +514,46 @@ AddOFTZones <- function(t, points = c("tl","tr","br","bl"), scale_center = 0.5, 
 #' @return a TrackingData object
 #' @examples
 #' OFTAnalysis(t, movement_cutoff = 5,integration_period = 5,points = "bodycentre")
+#' Locomotion summary for one tracked point.
+#'
+#' Extracted from OFTAnalysis() and EPMAnalysis(), which carried identical
+#' copies of this block.
+#'
+#' `total.time` is the duration of the recording. `valid.time` is the duration
+#' actually observed for this point, and `percentage.moving.valid` uses it as
+#' the denominator. `percentage.moving` retains the legacy denominator, which
+#' is biased downward in proportion to the tracking dropout rate because the
+#' numerator drops unobserved frames while the denominator keeps them.
+#'
+#' Note on units: the `speed` column produced by CalculateMovement() holds
+#' per-frame displacement in coordinate units, so summing it gives a distance
+#' and multiplying its mean by fps gives a speed in units per second.
+#'
+#' @param t a TrackingData object with movement already calculated
+#' @param k the name of a tracked point
+#' @return a named list of report entries
+PointLocomotionReport <- function(t, k){
+  dat <- t$data[[k]]
+  observed <- is.finite(dat$x) & is.finite(dat$y)
+  Report <- list()
+  Report[[paste(k, "raw.distance", sep = ".")]] <- sum(dat[,"speed"], na.rm = T)
+  Report[[paste(k, "distance.moving", sep = ".")]] <- sum(dat[dat$is.moving,"speed"], na.rm = T)
+  Report[[paste(k, "raw.speed", sep = ".")]] <- mean(dat[,"speed"], na.rm = T) * t$fps
+  Report[[paste(k, "speed.moving", sep = ".")]] <- mean(dat[dat$is.moving,"speed"], na.rm = T) * t$fps
+  Report[[paste(k, "time.moving", sep = ".")]] <- sum(dat[,"is.moving"], na.rm = T) / t$fps
+  Report[[paste(k, "total.time", sep = ".")]] <- length(dat[,"is.moving"]) / t$fps
+  Report[[paste(k, "valid.time", sep = ".")]] <- sum(observed) / t$fps
+  Report[[paste(k, "valid.fraction", sep = ".")]] <- mean(observed)
+  Report[[paste(k, "time.stationary", sep = ".")]] <- Report[[paste(k, "total.time", sep = ".")]] - Report[[paste(k, "time.moving", sep = ".")]]
+  Report[[paste(k, "percentage.moving", sep = ".")]] <- Report[[paste(k, "time.moving", sep = ".")]] / Report[[paste(k, "total.time", sep = ".")]] * 100
+  Report[[paste(k, "percentage.moving.valid", sep = ".")]] <- if (any(observed)) {
+    Report[[paste(k, "time.moving", sep = ".")]] / Report[[paste(k, "valid.time", sep = ".")]] * 100
+  } else {
+    NA_real_
+  }
+  Report
+}
+
 OFTAnalysis <- function(t, movement_cutoff,integration_period, points){
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
@@ -530,15 +570,7 @@ OFTAnalysis <- function(t, movement_cutoff,integration_period, points){
   }
   
   for(k in points){
-    dat <- t$data[[k]]
-    t$Report[[paste(k, "raw.distance", sep = ".")]] <- sum(dat[,"speed"], na.rm = T)
-    t$Report[[paste(k, "distance.moving", sep = ".")]] <- sum(dat[dat$is.moving,"speed"], na.rm = T)
-    t$Report[[paste(k, "raw.speed", sep = ".")]] <- mean(dat[,"speed"], na.rm = T) * t$fps
-    t$Report[[paste(k, "speed.moving", sep = ".")]] <- mean(dat[dat$is.moving,"speed"], na.rm = T) * t$fps
-    t$Report[[paste(k, "time.moving", sep = ".")]] <- sum(dat[,"is.moving"], na.rm = T) / t$fps
-    t$Report[[paste(k, "total.time", sep = ".")]] <- length(dat[,"is.moving"]) / t$fps
-    t$Report[[paste(k, "time.stationary", sep = ".")]] <- t$Report[[paste(k, "total.time", sep = ".")]] - t$Report[[paste(k, "time.moving", sep = ".")]]
-    t$Report[[paste(k, "percentage.moving", sep = ".")]] <- t$Report[[paste(k, "time.moving", sep = ".")]] / t$Report[[paste(k, "total.time", sep = ".")]] * 100
+    t$Report <- append(t$Report, PointLocomotionReport(t, k))
     
     if(!is.null(t$zones)){
       t$Report <- append(t$Report, ZoneReport(t,k,"center", zone.name = paste(k,"center", sep = ".")))
@@ -574,22 +606,31 @@ EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips =
     if((length(setdiff(c("headcentre","bodycentre","neck"),names(t$data))) != 0) | (length(setdiff(c("closed.left","closed.right","arena"),names(t$zones))) != 0)){
       warning("Not all points or zones needed for nosedip analysis. Requires points : headcentre,bodycentre,neck and zones closed.left, closed.right, arena")
     }else{
-      t$labels$automatic.nosedip <- avgbool(!IsInZone(t,"headcentre","arena") & IsInZone(t,"bodycentre","arena") &!IsInZone(t,"neck",c("closed.left","closed.right")),integration_period)
-      t$Report[["nose.dip"]] <- CalculateTransitions(t$labels$automatic.nosedip,integration_period) / 2
-      t$labels$automatic.nosedip <- ifelse(t$labels$automatic.nosedip == 1,"Nosedip","None")
+      # A nose dip requires the head outside the maze outline while the body is
+      # still on the maze and the neck is not in a closed arm.
+      nosedip.observed <- is.finite(t$data$headcentre$x) & is.finite(t$data$headcentre$y) &
+        is.finite(t$data$bodycentre$x) & is.finite(t$data$bodycentre$y) &
+        is.finite(t$data$neck$x) & is.finite(t$data$neck$y)
+      nosedip <- !IsInZone(t,"headcentre","arena") &
+        IsInZone(t,"bodycentre","arena") &
+        !IsInZone(t,"neck",c("closed.left","closed.right"))
+      # IsInZone() already reports FALSE for unobserved frames; negating the
+      # head test would otherwise turn a dropout into a nose dip.
+      nosedip <- nosedip & nosedip.observed
+      t$labels$automatic.nosedip <- as.logical(avgbool(nosedip, integration_period))
+      # Counting onsets directly. The previous CalculateTransitions(...) / 2
+      # counted onsets plus offsets and halved them, which returns a
+      # half-integer whenever a dip is still in progress on the last frame.
+      t$Report[["nose.dip"]] <- count_entries(
+        t$labels$automatic.nosedip, valid = nosedip.observed
+      )
+      t$Report[["nose.dip.valid.time"]] <- sum(nosedip.observed) / t$fps
+      t$labels$automatic.nosedip <- ifelse(t$labels$automatic.nosedip,"Nosedip","None")
     }
   }
   
   for(k in points){
-    dat <- t$data[[k]]
-    t$Report[[paste(k, "raw.distance", sep = ".")]] <- sum(dat[,"speed"], na.rm = T)
-    t$Report[[paste(k, "distance.moving", sep = ".")]] <- sum(dat[dat$is.moving,"speed"], na.rm = T)
-    t$Report[[paste(k, "raw.speed", sep = ".")]] <- mean(dat[,"speed"], na.rm = T) * t$fps
-    t$Report[[paste(k, "speed.moving", sep = ".")]] <- mean(dat[dat$is.moving,"speed"], na.rm = T) * t$fps
-    t$Report[[paste(k, "time.moving", sep = ".")]] <- sum(dat[,"is.moving"], na.rm = T) / t$fps
-    t$Report[[paste(k, "total.time", sep = ".")]] <- length(dat[,"is.moving"]) / t$fps
-    t$Report[[paste(k, "time.stationary", sep = ".")]] <- t$Report[[paste(k, "total.time", sep = ".")]] - t$Report[[paste(k, "time.moving", sep = ".")]]
-    t$Report[[paste(k, "percentage.moving", sep = ".")]] <- t$Report[[paste(k, "time.moving", sep = ".")]] / t$Report[[paste(k, "total.time", sep = ".")]] * 100
+    t$Report <- append(t$Report, PointLocomotionReport(t, k))
     
     t$Report <- append(t$Report, ZoneReport(t,k,"center", zone.name = paste(k,"center", sep = ".")))
     t$Report <- append(t$Report, ZoneReport(t,k,c("open.top","open.bottom"), zone.name = paste(k,"open", sep = ".")))
@@ -626,16 +667,26 @@ IsInZone <- function(t,p,z,invert = FALSE){
   
   
   zones <- t$zones[z]
+  observed <- is.finite(t$data[[p]]$x) & is.finite(t$data[[p]]$y)
+  x <- t$data[[p]]$x
+  y <- t$data[[p]]$y
+  x[!observed] <- 0
+  y[!observed] <- 0
   in.zone <- rep(FALSE,nrow(t$data[[p]]))
   for(i in zones){
     # sp::point.in.polygon returns 2 on an edge and 3 on a vertex. Testing
     # for == 1 dropped those frames, so an animal exactly on a shared zone
     # boundary belonged to no zone at all. Boundary points count as inside.
-    in.zone <- in.zone | (sp::point.in.polygon(t$data[[p]]$x,t$data[[p]]$y,i$x,i$y) > 0)
+    in.zone <- in.zone | (sp::point.in.polygon(x,y,i$x,i$y) > 0)
   }
   if(invert){
     in.zone <- !in.zone
   }
+  # An unobserved frame belongs to no zone, and to no inverted zone either.
+  # Applying this after the inversion matters: sp reports an untracked frame
+  # as outside every polygon, so inverting first would have credited every
+  # dropout to the complementary zone (the OFT periphery, for example).
+  in.zone <- in.zone & observed
   return(in.zone)
 }
 
@@ -712,13 +763,20 @@ ZoneReport <- function(t,point,zones, zone.name = NULL, invert = FALSE){
   }
   
   dat <- t$data[[point]]
+  observed <- is.finite(dat$x) & is.finite(dat$y)
+  x <- dat$x
+  y <- dat$y
+  x[!observed] <- 0
+  y[!observed] <- 0
   in.zone <- rep(FALSE,nrow(dat))
   for(i in t$zones[zones]){
-    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) > 0)
+    in.zone <- in.zone | (sp::point.in.polygon(x,y,i$x,i$y) > 0)
   }
   if(invert){
     in.zone <- !in.zone
   }
+  # See IsInZone(): unobserved frames belong to no zone, inverted or not.
+  in.zone <- in.zone & observed
   Report[[paste(zone.name, "raw.distance", sep = ".")]] <- sum(dat[in.zone,"speed"], na.rm = T)
   Report[[paste(zone.name, "distance.moving", sep = ".")]] <- sum(dat[dat$is.moving & in.zone,"speed"], na.rm = T)
   Report[[paste(zone.name, "raw.speed", sep = ".")]] <- mean(dat[in.zone,"speed"], na.rm = T) * t$fps
@@ -727,8 +785,22 @@ ZoneReport <- function(t,point,zones, zone.name = NULL, invert = FALSE){
   Report[[paste(zone.name, "total.time", sep = ".")]] <- length(dat[in.zone,"is.moving"]) / t$fps
   Report[[paste(zone.name, "time.stationary", sep = ".")]] <- Report[[paste(zone.name, "total.time", sep = ".")]] - Report[[paste(zone.name, "time.moving", sep = ".")]]
   Report[[paste(zone.name, "percentage.moving", sep = ".")]] <- Report[[paste(zone.name, "time.moving", sep = ".")]] / Report[[paste(zone.name, "total.time", sep = ".")]] * 100
-  Report[[paste(zone.name, "transitions", sep = ".")]] <- CalculateTransitions(in.zone, t$integration_period) 
-  
+
+  # `transitions` applies the legacy formula, onsets *plus* offsets, so it is
+  # roughly twice the number of zone entries and depends on whether the animal
+  # starts or ends inside the zone. It is kept so the legacy quantity is still
+  # available, but it is now computed on the validity-masked occupancy vector,
+  # so values can differ from pre-v2 outputs. `entries` is the quantity that
+  # should be reported: observed onsets only, on the same smoothed vector so
+  # the two are directly comparable.
+  #
+  # Both are counted between consecutive *observed* frames, so a tracking
+  # dropout in the middle of a visit does not fabricate an extra entry.
+  smoothed <- as.logical(avgbool(in.zone, t$integration_period))
+  Report[[paste(zone.name, "transitions", sep = ".")]] <- count_state_changes(smoothed, valid = observed)
+  Report[[paste(zone.name, "entries", sep = ".")]] <- count_entries(smoothed, valid = observed)
+  Report[[paste(zone.name, "valid.time", sep = ".")]] <- sum(observed) / t$fps
+
   return(Report)
 }
 
@@ -1875,11 +1947,19 @@ NormalizeZscore_median <- function(x){
 #' @examples
 #' integratevector(myvector)
 #'
+#' First difference of a vector, aligned to the later frame.
+#'
+#' The first element is NA, not 0: there is no preceding frame, so the
+#' displacement is undefined rather than zero. Substituting 0 biased every
+#' mean-speed estimate by a factor of (n-1)/n, which is negligible over a
+#' whole recording but reaches several percent over short time bins.
+#'
+#' Sums are unaffected, because the omitted interval never existed.
 integratevector <- function(x){
   if(length(x) < 2){
     stop("can  not integrate a vector of length < 2")
   }
-  append(0, x[2:length(x)] - x[1:(length(x)-1)])
+  append(NA_real_, x[2:length(x)] - x[1:(length(x)-1)])
 }
 
 #' Boolean smoothing over an integration period
