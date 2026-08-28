@@ -33,6 +33,19 @@ frames_to_seconds <- function(frames, fps) {
   frames / fps
 }
 
+#' Convert a duration in seconds to a whole number of frames.
+#'
+#' @param seconds a non-negative duration
+#' @param fps frames per second
+#' @param round_fn rounding applied to the frame count; use ceiling for
+#'   minimum durations and floor for maximum tolerated gaps
+seconds_to_frames <- function(seconds, fps, round_fn = ceiling) {
+  validate_fps(fps)
+  validate_scalar_number(seconds, "seconds", positive = TRUE, allow_zero = TRUE)
+  if (!is.function(round_fn)) stop("round_fn must be a function")
+  as.integer(round_fn(seconds * fps))
+}
+
 distance_to_speed <- function(distance, fps, interval_frames = 1,
                               coordinate_unit = NULL,
                               threshold_unit = coordinate_unit) {
