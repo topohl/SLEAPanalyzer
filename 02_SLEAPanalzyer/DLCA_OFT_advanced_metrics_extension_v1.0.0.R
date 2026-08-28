@@ -322,6 +322,20 @@ run_optional_group_statistics <- function(full_tbl, config) {
   }
 
   covariates <- setdiff(intersect(config$covariate_columns_priority, names(full_tbl)), group_col)
+  # DEPRECATED. Selecting the model by package availability means two
+  # researchers get different inference from identical data. Worse, with one
+  # session per animal lme4 refuses (1|ID) outright (number of groups equals
+  # number of observations), the error is swallowed below, and every metric
+  # silently reports "Model failed." -- so installing lmerTest changes the
+  # output from p-values to nothing at all.
+  #
+  # Use 03_statistics/ instead, which derives the model from the design.
+  # See docs/statistical_layer.md.
+  warning(
+    "This in-script statistics block is deprecated and selects its model by ",
+    "package availability. Use 03_statistics/ instead; see ",
+    "docs/statistical_layer.md."
+  )
   use_lmm <- requireNamespace("lmerTest", quietly = TRUE) && "ID" %in% names(full_tbl)
   use_emm <- requireNamespace("emmeans", quietly = TRUE)
 
