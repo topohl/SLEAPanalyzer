@@ -49,7 +49,7 @@ CHECKS <- list(
     id = "absolute_paths",
     description = "machine-specific absolute paths in production scripts",
     pattern = "\"[A-Za-z]:/|\"//|\"\\\\\\\\\\\\\\\\",
-    budget = 9
+    budget = 8
   ),
   list(
     # A call is acceptable when it passes an explicit maxgap.

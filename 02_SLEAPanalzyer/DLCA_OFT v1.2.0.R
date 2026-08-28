@@ -64,9 +64,12 @@ config <- list(
   batches = c("B1"),
 
   # Repository/script setup.
-  functions_file = "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/02_SLEAPanalzyer/DLCAnalyzer_Functions_final.R",
+  functions_file = "DLCAnalyzer_Functions_final.R",
 
   # Experiment paths.
+  # Machine-specific paths. Override them from a YAML file rather than by
+  # editing this script: see config/oft.example.yaml and set
+  # SLEAP_ANALYZER_CONFIG to your own copy.
   behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
   animal_id_code_file = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt",
 
@@ -145,6 +148,15 @@ if (is.na(functions_path)) {
 }
 
 source(functions_path)
+
+# Configuration overlay. Any key above can be overridden from a YAML file so
+# that running this analysis elsewhere never requires editing source code:
+#
+#   SLEAP_ANALYZER_CONFIG=my_oft.yaml Rscript "DLCA_OFT v1.2.0.R"
+config <- apply_config_overlay(
+  config,
+  path_fields = c("behavior_root", "animal_id_code_file")
+)
 
 if (file.exists(config$animal_id_code_file)) {
   animalIDCode <- read.table(config$animal_id_code_file, header = TRUE)

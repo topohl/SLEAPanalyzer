@@ -44,6 +44,8 @@ jobs:
             any::ggplot2
             any::fs
             any::rlang
+            any::yaml
+            any::cowplot
 
       - name: Check that every R file parses
         run: Rscript tools/check_parse.R

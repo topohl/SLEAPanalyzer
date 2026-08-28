@@ -209,6 +209,16 @@ if (!dir.exists(core_dir)) {
 source(file.path(core_dir, "io.R"))
 source_behavior_core(core_dir, envir = environment())
 
+# Configuration overlay. Any key in config above can be overridden from a
+# YAML file so running this analysis elsewhere never requires editing source:
+#
+#   SLEAP_ANALYZER_CONFIG=my_socint.yaml Rscript "DLCA_SocInt v.0.0.2.r"
+config <- apply_config_overlay(
+  config,
+  path_fields = c("input_dir", "output_dir", "arena_geom_dir")
+)
+validate_socint_units(config)
+
 skip_batch <- identical(Sys.getenv("SLEAP_ANALYZER_SKIP_BATCH"), "true")
 if (!skip_batch) {
   fs::dir_create(config$output_dir)

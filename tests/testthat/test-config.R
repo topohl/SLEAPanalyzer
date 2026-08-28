@@ -140,3 +140,48 @@ test_that("resolve_config_path prefers the environment variable", {
   # An explicit argument still wins.
   expect_equal(resolve_config_path("/explicit.yaml", "NOR"), "/explicit.yaml")
 })
+
+test_that("apply_config_overlay overrides only the keys it names", {
+  skip_if_no_yaml()
+  base <- list(fps = 30, input_dir = "orig", threshold = 5, flag = TRUE)
+  path <- write_config(c("fps: 60", "threshold: 9"))
+  merged <- apply_config_overlay(base, path)
+  expect_equal(merged$fps, 60)
+  expect_equal(merged$threshold, 9)
+  expect_equal(merged$input_dir, "orig")
+  expect_true(merged$flag)
+})
+
+test_that("apply_config_overlay rejects unknown keys and type changes", {
+  skip_if_no_yaml()
+  base <- list(fps = 30, label = "a")
+  expect_error(
+    apply_config_overlay(base, write_config("fpss: 60")),
+    "does not use"
+  )
+  expect_error(
+    apply_config_overlay(base, write_config("fps: not-a-number")),
+    "changes the type"
+  )
+})
+
+test_that("apply_config_overlay is a no-op without a configuration", {
+  old <- Sys.getenv("SLEAP_ANALYZER_CONFIG", unset = NA_character_)
+  Sys.unsetenv("SLEAP_ANALYZER_CONFIG")
+  on.exit({
+    if (!is.na(old)) Sys.setenv(SLEAP_ANALYZER_CONFIG = old)
+  }, add = TRUE)
+
+  base <- list(fps = 30)
+  expect_equal(apply_config_overlay(base), base)
+  expect_error(apply_config_overlay(base, required = TRUE), "SLEAP_ANALYZER_CONFIG")
+})
+
+test_that("the OFT script no longer contains an absolute functions path", {
+  script <- readLines(
+    file.path(repo_root, "02_SLEAPanalzyer", "DLCA_OFT v1.2.0.R"), warn = FALSE
+  )
+  functions_line <- grep("functions_file *=", script, value = TRUE)[1]
+  expect_false(grepl("[A-Za-z]:/", functions_line))
+  expect_true(grepl("DLCAnalyzer_Functions_final.R", functions_line))
+})

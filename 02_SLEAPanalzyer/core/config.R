@@ -167,3 +167,68 @@ config_for_manifest <- function(config) {
   recorded <- config[setdiff(names(config), ".config_dir")]
   recorded
 }
+
+#' Overlay a YAML configuration onto an existing config list.
+#'
+#' For scripts whose configuration has grown organically and is not yet
+#' described by a schema, this removes the need to edit source code to run the
+#' analysis elsewhere without forcing a full migration first. Keys absent from
+#' the overlay keep their in-script value.
+#'
+#' Overriding a key with a value of a different type is refused, because it
+#' almost always means a typo in the YAML rather than an intended change.
+#'
+#' @param config the configuration list defined in the script
+#' @param path a YAML file, or NULL to read SLEAP_ANALYZER_CONFIG
+#' @param path_fields keys to resolve relative to the config file directory
+#' @param required whether a missing configuration is an error
+apply_config_overlay <- function(config, path = NULL, path_fields = character(),
+                                 required = FALSE) {
+  if (is.null(path) || !nzchar(path)) path <- Sys.getenv("SLEAP_ANALYZER_CONFIG")
+  if (!nzchar(path)) {
+    if (required) stop("No configuration file supplied; set SLEAP_ANALYZER_CONFIG.")
+    return(config)
+  }
+  if (!requireNamespace("yaml", quietly = TRUE)) {
+    stop("Reading configuration files requires the yaml package.")
+  }
+  if (!file.exists(path)) stop("Configuration file not found: ", path)
+  overrides <- yaml::yaml.load_file(path)
+  if (is.null(overrides)) overrides <- list()
+  if (!is.list(overrides)) stop("Configuration file must contain a mapping: ", path)
+
+  unknown <- setdiff(names(overrides), names(config))
+  if (length(unknown) > 0) {
+    stop(
+      "Configuration file sets key(s) this analysis does not use: ",
+      paste(unknown, collapse = ", "),
+      ". Check for a typo; the accepted keys are: ",
+      paste(sort(names(config)), collapse = ", ")
+    )
+  }
+  mismatched <- names(overrides)[vapply(names(overrides), function(key) {
+    original <- config[[key]]
+    replacement <- overrides[[key]]
+    if (is.null(original) || is.null(replacement)) return(FALSE)
+    !identical(is.numeric(original), is.numeric(replacement)) ||
+      !identical(is.character(original), is.character(replacement)) ||
+      !identical(is.logical(original), is.logical(replacement))
+  }, logical(1))]
+  if (length(mismatched) > 0) {
+    stop(
+      "Configuration file changes the type of key(s): ",
+      paste(mismatched, collapse = ", ")
+    )
+  }
+
+  merged <- merge_config(config, overrides)
+  config_dir <- dirname(normalizePath(path, winslash = "/", mustWork = TRUE))
+  for (field in path_fields) {
+    value <- merged[[field]]
+    if (is.null(value) || !is.character(value)) next
+    absolute <- grepl("^(/|~|[A-Za-z]:[/\\]|\\\\)", value)
+    merged[[field]] <- ifelse(absolute, value, file.path(config_dir, value))
+  }
+  merged$.config_path <- normalizePath(path, winslash = "/", mustWork = TRUE)
+  merged
+}
