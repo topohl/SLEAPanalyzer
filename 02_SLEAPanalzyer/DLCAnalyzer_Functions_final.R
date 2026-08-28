@@ -1247,7 +1247,36 @@ AddZones <- function(t,z){
   }
   
   for(i in names(z)){
-    t$zones[[i]] <- t$median.data[as.character(z[z[,i]!= "",i]),c("x","y")]
+    landmarks <- as.character(z[z[,i] != "", i])
+    landmarks <- landmarks[!is.na(landmarks) & nzchar(trimws(landmarks))]
+    missing <- setdiff(landmarks, rownames(t$median.data))
+    if (length(missing) > 0) {
+      stop("Zone '", i, "' refers to untracked landmark(s): ",
+           paste(missing, collapse = ", "))
+    }
+    polygon <- t$median.data[landmarks, c("x", "y")]
+
+    # A zone is only meaningful if its vertices trace a simple polygon. Listing
+    # the corners in the wrong order produces a self-intersecting shape whose
+    # area collapses, and sp::point.in.polygon() then silently reports almost
+    # every frame as outside the zone. Occupancy would be badly
+    # under-counted with no diagnostic at all, so refuse to build it.
+    area <- tryCatch(polygon_area(polygon), error = function(e) NA_real_)
+    if (is.na(area) || area <= 0) {
+      stop(
+        "Zone '", i, "' is degenerate (area ", format(area),
+        "). Check that its landmarks are listed in order around the ",
+        "perimeter rather than diagonally: ", paste(landmarks, collapse = ", ")
+      )
+    }
+    if (is_self_intersecting(polygon)) {
+      stop(
+        "Zone '", i, "' is self-intersecting. Its landmarks must be listed in ",
+        "order around the perimeter: ", paste(landmarks, collapse = ", ")
+      )
+    }
+
+    t$zones[[i]] <- polygon
     t$zones.invert[[i]] <- FALSE
   }
   return(t)
@@ -1754,13 +1783,13 @@ MultiFileReport <- function(ts){
       if(is.null(ts[[i]]$Report)){
         warning(paste("Object",i,"Does not contain any Report. omitting", sep = " "))
       }else{
-        out <- rbindlist(list(out,append(c(file = ts[[i]]$filename), ts[[i]]$Report)),use.names = TRUE, fill = TRUE,idcol = F)
+        out[[length(out) + 1L]] <- append(c(file = ts[[i]]$filename), ts[[i]]$Report)
       }
     }else{
       warning(paste("List contains an element that is not of type TrackingData:",i,".No report produced for these", sep = " "))
     }
   }
-  return(data.frame(out))
+  return(bind_report_rows(out))
 }
 
 #' Performs a specified analysis on a list() of TrackingData objects and produces a final report
@@ -2108,9 +2137,9 @@ CorrelationPlotLabels <- function(ts, include = NULL, smooth = NULL, hclust = FA
     if(!is.null(smooth)){
       i <- SmoothLabels(i, smooth)
     }
-    compare <- rbindlist(list(compare,LabelReport(i)),use.names = TRUE, fill = TRUE,idcol = F)
+    compare[[length(compare) + 1L]] <- LabelReport(i)
   }
-  compare <-as.data.frame(compare)
+  compare <- bind_report_rows(compare)
   
   if(is.null(include)){
     include <- names(compare)

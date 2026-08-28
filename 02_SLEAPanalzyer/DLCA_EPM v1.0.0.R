@@ -1,6 +1,13 @@
-# Elevated-plus-maze batch workflow (Phase 1 correctness fixes).
+#' @title DLCA_EPM v1.0.0.R
+#' @description Batch analysis for the elevated-plus-maze workflow.
+#'
+#' Configuration is read from a YAML file, not from this script:
+#'
+#'   SLEAP_ANALYZER_CONFIG=my_epm.yaml Rscript "DLCA_EPM v1.0.0.R"
+#'
+#' See config/epm.example.yaml for a documented template.
 
-required_packages <- c("sp", "imputeTS", "ggplot2", "cowplot")
+required_packages <- c("sp", "ggplot2", "cowplot", "yaml")
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
 ]
@@ -22,15 +29,10 @@ get_script_dir <- function() {
 
 script_dir <- get_script_dir()
 source(file.path(script_dir, "DLCAnalyzer_Functions_final.R"))
+source(file.path(script_dir, "core", "assay_config.R"))
 
-config <- list(
-  fps = 30,
-  batches = c("B1", "B2", "B3", "B4", "B5", "B6"),
-  behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
-  calibration_distance = 60,
-  calibration_points = c("tl", "br"),
-  zone_file = file.path(script_dir, "EPM_zoneinfo.csv")
-)
+config <- load_assay_config(resolve_config_path(assay = "EPM", script_dir = script_dir), "EPM")
+repo_dir <- dirname(script_dir)
 
 if (!file.exists(config$zone_file)) stop("EPM zone file not found: ", config$zone_file)
 zoneInfo <- utils::read.table(
@@ -40,32 +42,51 @@ zoneInfo <- utils::read.table(
 zone_points <- unique(unlist(zoneInfo, use.names = FALSE))
 zone_points <- zone_points[!is.na(zone_points) & nzchar(trimws(zone_points))]
 
-for (batch in config$batches) {
-  inputFolder <- file.path(config$behavior_root, batch, "EPM", "SLEAP", "formatted")
-  outputFolder <- file.path(config$behavior_root, batch, "EPM", "SLEAP", "output")
-  overviewPlotFolder <- file.path(config$behavior_root, batch, "EPM", "SLEAP", "OverviewPlot")
+batches <- if (is.null(config$batches)) "" else config$batches
+
+for (batch in batches) {
+  inputFolder <- if (nzchar(batch)) file.path(config$input_dir, batch) else config$input_dir
+  outputFolder <- if (nzchar(batch)) file.path(config$output_dir, batch) else config$output_dir
+  overviewPlotFolder <- file.path(outputFolder, "OverviewPlot")
   dir.create(outputFolder, recursive = TRUE, showWarnings = FALSE)
   dir.create(overviewPlotFolder, recursive = TRUE, showWarnings = FALSE)
 
   files <- list.files(inputFolder, pattern = "\\.csv$", full.names = TRUE)
+  qcList <- list()
+
   pipeline <- function(path) {
-    tracking <- ReadDLCDataFromCSV(file = path, fps = config$fps)
+    tracking <- read_tracking_csv(file = path, fps = config$fps)
     required_points <- unique(c(
-      config$calibration_points, zone_points,
+      config$arena_corner_names, zone_points,
       "headcentre", "bodycentre", "neck"
     ))
     missing_points <- setdiff(required_points, names(tracking$data))
     if (length(missing_points) > 0) {
       stop(basename(path), " is missing EPM point(s): ", paste(missing_points, collapse = ", "))
     }
+
+    # Bounded interpolation before analysis: EPM previously ran on raw
+    # coordinates, so untracked frames were scored as being outside every
+    # zone and, through the inverted-zone path, sometimes inside one.
+    tracking <- interpolate_tracking(
+      tracking,
+      landmarks = c("headcentre", "bodycentre", "neck"),
+      max_gap_s = config$max_interpolation_gap_s,
+      likelihood_cutoff = config$likelihood_cutoff
+    )
+
     tracking <- CalibrateTrackingData(
-      tracking, method = "distance", in.metric = config$calibration_distance,
-      points = config$calibration_points
+      tracking, method = "area",
+      in.metric = config$arena_width_cm * config$arena_height_cm,
+      points = config$arena_corner_names
     )
     tracking <- AddZones(tracking, zoneInfo)
     EPMAnalysis(
-      tracking, movement_cutoff = 5, integration_period = 5,
-      points = "bodycentre", nosedips = TRUE
+      tracking,
+      movement_cutoff = config$movement_cutoff_cm_s,
+      integration_period = config$integration_period_frames,
+      points = "bodycentre",
+      nosedips = isTRUE(config$nose_dips)
     )
   }
 
@@ -76,8 +97,43 @@ for (batch in config$batches) {
 
   trackingAll <- lapply(files, pipeline)
   names(trackingAll) <- basename(files)
+
+  for (tracking in trackingAll) {
+    qcReport <- tracking_qc_report(
+      tracking,
+      landmarks = c("headcentre", "bodycentre", "neck"),
+      required_landmarks = "bodycentre",
+      likelihood_cutoff = config$likelihood_cutoff,
+      max_speed = config$max_plausible_speed_cm_s
+    )
+    qcDecision <- qc_flags(
+      qcReport,
+      min_valid_fraction = config$qc_min_valid_fraction,
+      max_longest_gap_s = config$qc_max_longest_gap_s,
+      max_interpolated_fraction = config$qc_max_interpolated_fraction
+    )
+    if (!qcDecision$pass) {
+      warning(
+        tracking$filename, " failed tracking QC: ",
+        paste(qcDecision$reasons, collapse = "; "),
+        ". The result is still written; exclusion is an explicit decision."
+      )
+    }
+    qcList[[length(qcList) + 1L]] <- cbind(
+      qc_summary_row(qcReport),
+      data.frame(
+        qcPass = qcDecision$pass,
+        qcReasons = paste(qcDecision$reasons, collapse = "; "),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+
   report <- MultiFileReport(trackingAll)
   utils::write.csv(report, file.path(outputFolder, "Report.csv"), row.names = FALSE)
+  utils::write.csv(
+    do.call(rbind, qcList), file.path(outputFolder, "tracking_qc.csv"), row.names = FALSE
+  )
 
   for (i in seq_along(files)) {
     plot <- OverviewPlot(trackingAll[[i]], "bodycentre")
@@ -89,6 +145,18 @@ for (batch in config$batches) {
       filename = outputFile, plot = plot, device = "tiff",
       width = 8, height = 10
     )
+  }
+
+  if (isTRUE(config$write_manifest)) {
+    manifest <- run_manifest(
+      config = config,
+      inputs = files,
+      packages = required_packages,
+      repo_dir = repo_dir,
+      extra = list(assay = "EPM", batch = batch, files = length(files))
+    )
+    assert_reproducible_run(manifest)
+    write_run_manifest(manifest, file.path(outputFolder, "run_manifest.yaml"))
   }
   message("EPM processing complete for batch ", batch)
 }

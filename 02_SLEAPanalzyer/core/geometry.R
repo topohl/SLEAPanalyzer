@@ -135,3 +135,42 @@ rectangular_arena_geometry <- function(corners) {
                              side_lengths[2] / side_lengths[4])
   )
 }
+
+#' Whether a polygon has any pair of non-adjacent edges that cross.
+#'
+#' Listing zone corners diagonally rather than around the perimeter produces a
+#' self-intersecting shape. Point-in-polygon tests on such a shape are not
+#' wrong in an obvious way; they quietly report most interior points as
+#' outside, so occupancy is under-counted with no diagnostic.
+#'
+#' @param polygon a data frame or matrix with x and y columns
+#' @return TRUE when any two non-adjacent edges intersect
+is_self_intersecting <- function(polygon) {
+  vertices <- validate_polygon(polygon)
+  n <- nrow(vertices)
+  if (n < 4) return(FALSE)
+
+  orientation <- function(ax, ay, bx, by, cx, cy) {
+    value <- (by - ay) * (cx - bx) - (bx - ax) * (cy - by)
+    ifelse(abs(value) < 1e-12, 0, sign(value))
+  }
+  segments_cross <- function(p1, p2, p3, p4) {
+    o1 <- orientation(p1[1], p1[2], p2[1], p2[2], p3[1], p3[2])
+    o2 <- orientation(p1[1], p1[2], p2[1], p2[2], p4[1], p4[2])
+    o3 <- orientation(p3[1], p3[2], p4[1], p4[2], p1[1], p1[2])
+    o4 <- orientation(p3[1], p3[2], p4[1], p4[2], p2[1], p2[2])
+    o1 != o2 && o3 != o4
+  }
+
+  at <- function(i) c(vertices$x[i], vertices$y[i])
+  nxt <- function(i) if (i == n) 1L else i + 1L
+  for (i in seq_len(n)) {
+    for (j in seq_len(n)) {
+      if (j <= i) next
+      # Skip adjacent edges, which legitimately share a vertex.
+      if (j == i || nxt(i) == j || nxt(j) == i) next
+      if (segments_cross(at(i), at(nxt(i)), at(j), at(nxt(j)))) return(TRUE)
+    }
+  }
+  FALSE
+}

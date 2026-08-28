@@ -65,3 +65,28 @@ metadata_lookup <- function(data, code, value_column, code_column = "Code") {
   if (length(values) > 1) warning("Multiple metadata rows found for code ", code, "; using the first")
   as.character(values[1])
 }
+
+#' Row-bind report rows that may not share the same columns.
+#'
+#' Replaces an undeclared data.table::rbindlist() dependency. Missing columns
+#' are filled with NA rather than dropped, so a file that produced fewer
+#' report entries than the others still contributes a row and the gap is
+#' visible.
+#'
+#' @param rows a list of one-row lists or data frames
+#' @return a data frame with the union of all columns
+bind_report_rows <- function(rows) {
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows) == 0) return(data.frame())
+  frames <- lapply(rows, function(row) {
+    if (is.data.frame(row)) return(row)
+    as.data.frame(row, stringsAsFactors = FALSE, check.names = FALSE)
+  })
+  columns <- unique(unlist(lapply(frames, names), use.names = FALSE))
+  filled <- lapply(frames, function(frame) {
+    absent <- setdiff(columns, names(frame))
+    for (column in absent) frame[[column]] <- NA
+    frame[, columns, drop = FALSE]
+  })
+  do.call(rbind, c(filled, list(stringsAsFactors = FALSE, make.row.names = FALSE)))
+}
