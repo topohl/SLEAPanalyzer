@@ -1,5 +1,34 @@
+# ---------------------------------------------------------------------------
+# Shared behavioral core.
+#
+# The legacy DLCAnalyzer functions are being migrated onto the core modules in
+# core/. Loading the core here means every script that sources this file gets
+# the canonical geometry, interpolation and event implementations, so an assay
+# cannot accidentally use a private copy of one of them.
+# ---------------------------------------------------------------------------
+local({
+  sourced <- unlist(lapply(sys.frames(), function(frame) {
+    if (is.null(frame$ofile)) character() else as.character(frame$ofile)
+  }), use.names = FALSE)
+  sourced <- sourced[basename(sourced) == "DLCAnalyzer_Functions_final.R"]
+  root <- Sys.getenv("SLEAP_ANALYZER_REPO_ROOT")
+  base_dir <- if (length(sourced) > 0) {
+    dirname(normalizePath(tail(sourced, 1), mustWork = TRUE))
+  } else if (nzchar(root)) {
+    file.path(root, "02_SLEAPanalzyer")
+  } else {
+    getwd()
+  }
+  core_dir <- file.path(base_dir, "core")
+  if (!dir.exists(core_dir)) {
+    stop("Could not find the shared behavioral core directory: ", core_dir)
+  }
+  sys.source(file.path(core_dir, "io.R"), envir = globalenv())
+  get("source_behavior_core", envir = globalenv())(core_dir, envir = globalenv())
+})
+
 #' Reads DLC Tracking data from a csv file and returns a TrackingData object
-#' 
+#'
 #' @param file path to a DLC tracking .csv file
 #' @param fps frames per second of the recording. required to enable time resolved metrics
 #' @return An object of type TrackingData
@@ -225,36 +254,75 @@ CutTrackingData <- function(t, start = NULL, end = NULL, remove.frames = NULL, k
 #' CleanTrackingData(t, likelihoodcutoff = 0.9)
 #' CleanTrackingData(t, existence.pol = data.frame(x = c(0,100,100,0), y = c(100,100,0,0)))
 #' CleanTrackingData(t, likelihoodcutoff = 1, maxdelta = 5)
-CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL, maxdelta = NULL){
+#' @param max.gap.s longest interior gap that may be interpolated, in seconds.
+#'   Gaps longer than this, and any leading or trailing gap, are left missing
+#'   so that downstream measurements can exclude them. Passing `Inf`
+#'   reproduces the pre-v2 unbounded behavior and warns.
+CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL,
+                              maxdelta = NULL, max.gap.s = 0.5){
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
-  print(paste("interpolating points with likelihood < ", likelihoodcutoff, sep = ""))
+  if (length(max.gap.s) != 1 || !is.numeric(max.gap.s) || is.na(max.gap.s) || max.gap.s < 0) {
+    stop("max.gap.s must be one non-negative number, or Inf for legacy behavior")
+  }
+  if (is.infinite(max.gap.s)) {
+    warning(
+      "max.gap.s = Inf interpolates gaps of unlimited length and forward-fills ",
+      "leading and trailing gaps. Fabricated coordinates become ",
+      "indistinguishable from observed ones. Use a finite gap limit."
+    )
+  }
+  message("Rejecting points with likelihood < ", likelihoodcutoff)
   if(!is.null(existence.pol)){
-    print("interpolating points which are outside of the existence area")
+    message("Rejecting points outside the existence area")
   }
   if(!is.null(maxdelta)){
-    print(paste("interpolating points with a maximum delta of", maxdelta, t$distance.units,"per frame", sep = " "))
+    message("Rejecting displacements above ", maxdelta, " ", t$distance.units, " per frame")
   }
-  
+
   for(i in 1:length(t$data)){
-    process <- t$data[[i]]$likelihood < likelihoodcutoff
+    reject <- t$data[[i]]$likelihood < likelihoodcutoff
+    reject[is.na(reject)] <- TRUE
     if(!is.null(existence.pol)){
       if(is.null(existence.pol$x) | is.null(existence.pol$y)){
         warning("warning. existence.pol is invalid. polygon data needs to include variable x and variable")
       }else if(length(existence.pol$x) != length(existence.pol$y)){
         warning("invalid polygon entered. polygon data needs to include variable x and variable y of equal length")
       }else{
-        process <- process | !sp::point.in.polygon(t$data[[i]]$x,t$data[[i]]$y,existence.pol$x, existence.pol$y)
+        # Boundary points count as inside; sp returns 2 on an edge and 3 on a
+        # vertex, and an animal exactly on the arena wall is still in the arena.
+        inside <- sp::point.in.polygon(
+          t$data[[i]]$x, t$data[[i]]$y, existence.pol$x, existence.pol$y
+        ) > 0
+        reject <- reject | !inside
       }
     }
     if(!is.null(maxdelta)){
-      process <- process | (sqrt(integratevector(t$data[[i]]$x) ^2 + integratevector(t$data[[i]]$y)^2) > maxdelta)
+      displacement <- sqrt(integratevector(t$data[[i]]$x)^2 + integratevector(t$data[[i]]$y)^2)
+      reject <- reject | (!is.na(displacement) & displacement > maxdelta)
     }
-    t$data[[i]]$x[process] <- NA
-    t$data[[i]]$y[process] <- NA
-    t$data[[i]] <- imputeTS::na_interpolation(t$data[[i]])
+
+    observed <- is.finite(t$data[[i]]$x) & is.finite(t$data[[i]]$y) & !reject
+    max.gap.frames <- if (is.infinite(max.gap.s)) {
+      length(observed)
+    } else {
+      as.integer(floor(max.gap.s * t$fps))
+    }
+    filled.x <- bounded_linear_interpolation(t$data[[i]]$x, observed, max.gap.frames)
+    filled.y <- bounded_linear_interpolation(t$data[[i]]$y, observed, max.gap.frames)
+    t$data[[i]]$x <- filled.x$values
+    t$data[[i]]$y <- filled.y$values
+    # The likelihood column records model confidence and must not be
+    # interpolated; doing so erased the evidence that a frame was rejected.
+    t$data[[i]]$status <- filled.x$status
   }
+  t$cleaning <- list(
+    likelihood_cutoff = likelihoodcutoff,
+    max_delta = maxdelta,
+    max_gap_s = max.gap.s,
+    existence_polygon = !is.null(existence.pol)
+  )
   return(t)
 }
 
@@ -560,7 +628,10 @@ IsInZone <- function(t,p,z,invert = FALSE){
   zones <- t$zones[z]
   in.zone <- rep(FALSE,nrow(t$data[[p]]))
   for(i in zones){
-    in.zone <- in.zone | (sp::point.in.polygon(t$data[[p]]$x,t$data[[p]]$y,i$x,i$y) == 1)
+    # sp::point.in.polygon returns 2 on an edge and 3 on a vertex. Testing
+    # for == 1 dropped those frames, so an animal exactly on a shared zone
+    # boundary belonged to no zone at all. Boundary points count as inside.
+    in.zone <- in.zone | (sp::point.in.polygon(t$data[[p]]$x,t$data[[p]]$y,i$x,i$y) > 0)
   }
   if(invert){
     in.zone <- !in.zone
@@ -643,7 +714,7 @@ ZoneReport <- function(t,point,zones, zone.name = NULL, invert = FALSE){
   dat <- t$data[[point]]
   in.zone <- rep(FALSE,nrow(dat))
   for(i in t$zones[zones]){
-    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
+    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) > 0)
   }
   if(invert){
     in.zone <- !in.zone
@@ -1563,7 +1634,7 @@ PlotZoneSelection <- function(t,point,zones, invert = FALSE){
   dat <- t$data[[point]]
   in.zone <- rep(FALSE,nrow(dat))
   for(i in t$zones[zones]){
-    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) == 1)
+    in.zone <- in.zone | (sp::point.in.polygon(dat$x,dat$y,i$x,i$y) > 0)
   }
   if(invert){
     in.zone <- !in.zone

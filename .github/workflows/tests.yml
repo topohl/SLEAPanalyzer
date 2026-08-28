@@ -1,0 +1,55 @@
+name: tests
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+    branches: [main, v2]
+  workflow_dispatch:
+
+jobs:
+  testthat:
+    runs-on: ubuntu-latest
+    name: R ${{ matrix.r-version }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        r-version: ['4.4', 'release']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r-version }}
+          use-public-rspm: true
+
+      # Only the packages the baseline suite actually needs. Heavy optional
+      # dependencies (keras, tensorflow, mclust, openxlsx) are deliberately
+      # excluded so the baseline stays fast and does not break on unrelated
+      # upstream changes; see the motifs workflow.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::testthat
+            any::sp
+            any::dplyr
+            any::tidyr
+            any::purrr
+            any::stringr
+            any::readr
+            any::tibble
+            any::zoo
+            any::ggplot2
+            any::fs
+            any::rlang
+
+      - name: Check that every R file parses
+        run: Rscript tools/check_parse.R
+
+      - name: Run the test suite
+        run: Rscript tests/testthat.R
+
+      - name: Static repository audit
+        run: Rscript tools/audit_repo.R
