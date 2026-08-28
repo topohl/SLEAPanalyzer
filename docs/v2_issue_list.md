@@ -21,7 +21,7 @@ test is committed.
 |---|----------|--------|
 | P1-1 FIXED | core `events.R` | No validity mask, no seconds-based minimum bout, no maximum merge gap, no valid analyzed time, no median bout, no percent-valid-time. |
 | P1-2 FIXED | core `calibration.R` | Only scalar x/y scaling. No projective homography, no canonical arena frame, no reprojection error. |
-| P1-3 | core `qc.R` | Report-only. No observed/interpolated/invalid status, no gap limits in seconds, no implausible-displacement check, no frame-continuity check. |
+| P1-3 FIXED | core `qc.R` | Report-only. No observed/interpolated/invalid status, no gap limits in seconds, no implausible-displacement check, no frame-continuity check. |
 | P1-4 FIXED | `ReadDLCDataFromCSV()` | Accepts non-monotonic and non-contiguous frame numbering; `integratevector()` then treats non-adjacent frames as adjacent and inflates speed. |
 | P1-5 FIXED | `IsInZone()`, `ZoneReport()` | `sp::point.in.polygon(...) == 1` excludes boundary points, so a point on a shared zone edge belongs to no zone. Inconsistent with core `points_in_polygon()`, which includes the boundary. |
 
