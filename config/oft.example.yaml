@@ -1,0 +1,35 @@
+# Open field test run configuration.
+#
+#   SLEAP_ANALYZER_CONFIG=/path/to/my_oft.yaml Rscript "02_SLEAPanalzyer/DLCA_OFT v1.2.0.R"
+#
+# Interpretation note: OFT measurements form a behavioural profile. Reduced
+# centre occupancy is not by itself a measurement of anxiety, and must be read
+# together with locomotion and immobility.
+
+input_dir: ../example_data/OFT/formatted
+output_dir: ../example_data/OFT/output
+metadata_dir: ../example_data/OFT
+animal_id_code_file: ../example_data/OFT/animalIDCode.txt
+batches: [B1]
+
+fps: 30
+
+arena_width_cm: 49
+arena_height_cm: 49
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: 0.9
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

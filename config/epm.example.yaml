@@ -1,0 +1,39 @@
+# Elevated plus maze run configuration.
+#
+#   SLEAP_ANALYZER_CONFIG=/path/to/my_epm.yaml Rscript "02_SLEAPanalzyer/DLCA_EPM v1.0.0.R"
+
+input_dir: ../example_data/EPM/formatted
+output_dir: ../example_data/EPM/output
+batches: [B1]
+
+# Zone polygons, one column per zone, listing the tracked landmarks that form
+# its outline. Shipped alongside the analysis scripts.
+zone_file: ../02_SLEAPanalzyer/EPM_zoneinfo.csv
+
+fps: 30
+
+# The EPM is calibrated across the full maze extent between the tracked
+# corner landmarks.
+arena_width_cm: 60
+arena_height_cm: 60
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# Nose dips require the headcentre, bodycentre and neck landmarks and the
+# closed.left, closed.right and arena zones.
+nose_dips: true
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

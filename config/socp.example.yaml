@@ -1,0 +1,42 @@
+# Social preference (three-chamber) run configuration.
+#
+#   SLEAP_ANALYZER_CONFIG=/path/to/my_socp.yaml Rscript "02_SLEAPanalzyer/DLCA_SocP v.1.1.0.R"
+
+input_dir: ../example_data/SocP/formatted
+output_dir: ../example_data/SocP/output
+metadata_dir: ../example_data/SocP
+animal_id_code_file: ../example_data/SocP/animalIDCode.txt
+novel_location_file_prefix: novelLoc
+batches: [B3]
+phases: [HAB, S1, S2]
+
+fps: 30
+
+arena_width_cm: 44
+arena_height_cm: 24
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# REQUIRES VALIDATION against manually scored video for your apparatus.
+# The same detector is applied to both stimulus chambers.
+contact_distance_cm: 6
+body_exclusion_distance_cm: 1
+proximity_range_cm: [6, 10]
+# Adding a head-orientation criterion changes the established SocP definition
+# and needs its own validation, so it is off by default.
+require_orientation: false
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

@@ -1,0 +1,73 @@
+# Novel object recognition run configuration.
+#
+# Copy this file, edit the paths and thresholds for your experiment, and point
+# the pipeline at it:
+#
+#   SLEAP_ANALYZER_CONFIG=/path/to/my_nor.yaml Rscript "02_SLEAPanalzyer/DLCA_NOR v1.2.1.R"
+#
+# Relative paths are resolved against the directory holding this file.
+
+# --- Input and output -------------------------------------------------------
+input_dir: ../example_data/NOR/formatted
+output_dir: ../example_data/NOR/output
+metadata_dir: ../example_data/NOR
+animal_id_code_file: ../example_data/NOR/animalIDCode.txt
+novel_location_file: novelLoc.txt
+batches: [B1]
+
+# --- Acquisition ------------------------------------------------------------
+# fps must describe the rate of the exported tracking file, not the source
+# video, if the export was subsampled.
+fps: 30
+
+# --- Arena geometry ---------------------------------------------------------
+# Measured between the four tracked corner landmarks, in centimetres.
+arena_width_cm: 49
+arena_height_cm: 49
+arena_corner_names: [tl, tr, br, bl]
+
+# --- Tracking quality -------------------------------------------------------
+# Interior gaps up to this length are linearly interpolated and labelled.
+# Longer gaps, and any leading or trailing gap, stay missing and are excluded
+# from both the behaviour and the analysed-time denominator.
+max_interpolation_gap_s: 0.2
+# Minimum SLEAP confidence. Leave unset to accept every detection.
+likelihood_cutoff: ~
+# Displacements implying a higher speed are reported as implausible.
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+# --- Locomotion -------------------------------------------------------------
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# --- Object interaction -----------------------------------------------------
+# REQUIRES VALIDATION. These thresholds must be checked against manually
+# scored video for your object size and camera before results are published.
+#
+# contact_geometry applies the SAME detector to both objects. Do not use
+# legacy_asymmetric except to reproduce pre-v2 outputs: it scores the novel
+# object with a box and the familiar object with a circle, which biases the
+# discrimination index by construction.
+contact_geometry: radial
+contact_distance_cm: 4
+body_exclusion_distance_cm: 1
+object_box_width_cm: 9
+object_box_height_cm: 7
+# Angle between the body-to-nose vector and the object-to-nose vector.
+contact_angle_deg: [70, 290]
+proximity_range_cm: [4, 8]
+proximity_angle_deg: [90, 270]
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+# --- Experimental metrics ---------------------------------------------------
+# Spine compression is an unvalidated surrogate for rearing.
+report_rearing: true
+rearing_spine_distance_cm: 1
+
+write_manifest: true

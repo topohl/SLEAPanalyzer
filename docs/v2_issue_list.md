@@ -38,5 +38,5 @@ test is committed.
 |---|--------|
 | P3-1 | Machine-specific `S:/` and `C:/Users/...` paths in every production script. |
 | P3-2 | No configuration files; arena size, thresholds and fps are literals inside loops. |
-| P3-3 | No run manifest, commit SHA, or dependency versions in outputs. |
+| P3-3 FIXED | No run manifest, commit SHA, or dependency versions in outputs. |
 | P3-4 FIXED | `DLCA_SocP` re-implements `read_metadata_table()` / `metadata_lookup()` locally. |

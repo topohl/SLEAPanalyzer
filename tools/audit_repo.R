@@ -49,7 +49,7 @@ CHECKS <- list(
     id = "absolute_paths",
     description = "machine-specific absolute paths in production scripts",
     pattern = "\"[A-Za-z]:/|\"//|\"\\\\\\\\\\\\\\\\",
-    budget = 14
+    budget = 12
   ),
   list(
     # A call is acceptable when it passes an explicit maxgap.
@@ -64,7 +64,7 @@ CHECKS <- list(
     id = "legacy_transition_count",
     description = "CalculateTransitions() used instead of count_entries()",
     pattern = "CalculateTransitions\\(",
-    budget = 2
+    budget = 1
   ),
   list(
     id = "boundary_excluding_zone_test",
