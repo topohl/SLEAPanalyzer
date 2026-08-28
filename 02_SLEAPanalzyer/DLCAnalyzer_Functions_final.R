@@ -74,6 +74,28 @@ ReadDLCDataFromCSV <- function(file, fps = 1){
   if (anyDuplicated(frames)) {
     stop("Invalid DLC/SLEAP CSV: frame values must be unique")
   }
+  # Every downstream displacement is computed between adjacent rows, so rows
+  # must correspond to consecutive frames. Out-of-order or skipped frames
+  # would be treated as adjacent and inflate speed and distance without any
+  # diagnostic.
+  if (is.unsorted(frames, strictly = TRUE)) {
+    stop("Invalid DLC/SLEAP CSV: frame values must increase monotonically")
+  }
+  frame.steps <- unique(diff(frames))
+  if (length(frame.steps) > 1) {
+    missing.frames <- sum(diff(frames) - 1)
+    stop(
+      "Invalid DLC/SLEAP CSV: frame numbering is not contiguous (",
+      missing.frames, " frame(s) skipped). Re-export with every frame present, ",
+      "or insert the missing frames as NA rows so they are treated as untracked."
+    )
+  }
+  if (length(frame.steps) == 1 && frame.steps != 1) {
+    warning(
+      "Frame numbering increments by ", frame.steps,
+      " rather than 1. fps must describe the sampled rate, not the source video."
+    )
+  }
 
   point.columns <- seq.int(from = 2, to = ncol(raw.data), by = 3)
   point.names <- trimws(as.character(data.header[1, point.columns]))
