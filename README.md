@@ -1,105 +1,288 @@
-# **SLEAP/DLC Tracking Data Analysis with Enhanced DLCAnalyzer**
+# SLEAPanalyzer
 
-This repository hosts an extended version of the **DLCAnalyzer** R package, providing support for analyzing tracking data from both SLEAP and DLC and introducing new analysis features for various behavioral tests. These tests include the **Novel Object Recognition (NOR) Test**, **Social Preference (SocP) Test**, and **Social Interaction (SocInt) Test**.
+Behavioural analysis of SLEAP and DeepLabCut tracking data for rodent assays:
+Open Field (OFT), Elevated Plus Maze (EPM), Novel Object Recognition (NOR),
+Social Preference (SocP) and Social Interaction (SocInt).
 
-## Overview
+Built on [DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer), restructured
+in v2 around a shared, tested measurement core.
 
-[DLCAnalyzer](https://github.com/ETHZ-INS/DLCAnalyzer) is a powerful R package designed to analyze and visualize tracking data from behavioral tests like the Open Field Test, Elevated Plus Maze, and Forced Swim Test, specifically using data collected via DeepLabCut (DLC). This project builds on DLCAnalyzer to support tracking data from both [SLEAP](https://sleap.ai) and DLC, making it versatile for researchers who work with either platform.
-
-In addition to SLEAP compatibility, this extended DLCAnalyzer version enables in-depth behavioral analyses. New metrics include latencies, frequencies, and time spent in specific zones relative to designated markers, expanding the toolkit for behavioral data analysis.
-
-## Key Features
-
-### Expanded DLCAnalyzer Functionality
-- **Support for SLEAP/DLC Tracking Data**: Analyze and visualize data tracked by either SLEAP or DLC.
-- **Batch Processing and Custom Analyses**: Simplify batch processing and enable custom analysis options for your experiments.
-
-#### Novel Object Recognition Test (NOR)
-- Import experimental metadata (e.g., object location, test duration).
-- Define and assign object shapes (e.g., square, round) based on metadata.
-- Analyze head angles relative to objects and calculate time spent in proximity.
-- Compute object-oriented metrics, including:
-  - **Latency** until first interaction with objects.
-  - **Contact time** based on head angle relative to object.
-  - **Proximity-based metrics**, including time in proximity and orientation toward objects.
-  - **Distance and Speed** measures.
-- Automatically format and export results for interactions with novel and familiar objects.
-
-#### Social Preference Test (SocP)
-- Import metadata for experiment details.
-- Define **interaction** and **proximity zones** around familiar/novel stimuli.
-- Calculate metrics such as:
-  - **Time in contact** and **time in proximity** with each stimulus.
-  - **Latency** to first contact with familiar or novel stimuli.
-  - **Distance and Speed** measures.
-- Automatic export of formatted results for interactions with familiar and novel individuals.
-
-#### Social Interaction Test (SocInt) – *In Development*
-- Define thresholds for interaction metrics.
-- Analyze bidirectional interactions (e.g., **nose-to-nose**, **nose-to-body**, **nose-to-tail**).
-- Calculate metrics for **side-by-side** and **side-by-side reverse** positioning.
-- Track latencies and frequencies for each interaction type.
+> **v2 status.** The five assays run through shared import, interpolation, QC,
+> geometry and event segmentation. NOR, SocP and EPM are fully configuration
+> driven and emit provenance manifests. OFT and SocInt accept a configuration
+> overlay but have not yet been migrated onto the full schema. See
+> [docs/v2_issue_list.md](docs/v2_issue_list.md) for what remains.
 
 ---
 
-## Installation
+## What v2 changed, and why it matters for your results
 
-1. **Install SLEAP and DLCAnalyzer**:
-   - Follow the [SLEAP Installation Guide](https://sleap.ai/installation.html).
-   - Follow the [DLCAnalyzer Installation Guide](https://github.com/ETHZ-INS/DLCAnalyzer#getting-started).
+If you have results from a previous version, these changes alter numbers.
 
-2. **Download and Set Up This Extended DLCAnalyzer**:
-   - Clone or download this repository, which includes modified files needed to support SLEAP data and custom analyses.
-   - Install any additional dependencies as outlined in the DLCAnalyzer guide.
+| Change | Effect on outputs |
+|---|---|
+| NOR scored the novel object with a 9x7 cm box and the familiar object with a 4 cm radius. Those regions have different areas, so novel contact was inflated by construction. | Discrimination indices shrink toward zero. **Re-run any NOR analysis.** |
+| SocInt attributed avoidance by scalar speed, which carries no direction, so both animals were flagged whenever both moved. | Avoidance durations fall substantially. |
+| Untracked frames were scored as confident absence of behaviour and still counted in denominators. | Durations and percentages change wherever tracking dropped out. |
+| Interpolation was unbounded and forward-filled leading and trailing gaps. | Long dropouts are no longer fabricated; distance and speed change. |
+| Unobserved frames were credited to inverted zones (OFT periphery, EPM arms). | Periphery and arm times fall. |
+| Mean speed averaged n frames over n-1 real intervals. | Mean speeds rise by n/(n-1); distances unchanged. |
+| Zone `transitions` counted onsets **and** offsets. | New `entries` column is the entry count; `transitions` is retained. |
 
----
-
-## Usage Guide
-
-Follow these steps to use the extended DLCAnalyzer for analyzing your tracking data:
-
-### Step 1: Predict Animal and Arena Coordinates
-   - Use the provided Python notebook in the `SLEAPcoords` directory to predict coordinates for animals and arena objects.
-   - For SLEAP users:
-      - Extract coordinates from `.h5` files for each experiment using the experiment-specific Jupyter notebook in `SLEAPcoords`.
-   - For DLC users:
-      - DLC provides a formatted .csv file, just merge the animal and geom files.
-
-### Step 2: Merge and Format Coordinate Files
-   - With coordinates extracted, use the `DLCA_Dataform` notebook to merge and format the coordinates for animals and arena components.
-   - This notebook allows you to:
-      - Combine data files from the animal and geom file.
-      - Apply custom formatting options to standardize data across experiments.
-
-### Step 3: Analyze the Merged Data
-   - Load the merged data file into the `SLEAPanalyzer` code directory.
-   - Set up the analysis script by specifying:
-      - The path to your data files.
-      - Output directories where results will be saved.
-   - Run analyses according to your chosen behavioral test (e.g., NOR, SocP), using the modified DLCAnalyzer functions provided here.
-
-### Step 4: Customize Analysis Parameters
-   - Customize analysis parameters to fit your experimental settings. For example:
-      - Define custom angles for orientation toward objects in NOR tests.
-      - Set proximity distances for social preference interactions in SocP tests.
-      - Adjust interaction thresholds for bidirectional metrics in SocInt tests.
-   - Modify these parameters directly in the R scripts or configuration files to ensure they align with your study design.
-
-### Step 5: Export and Interpret Results
-   - Analysis results will be automatically saved in the output directory specified.
-   - Results include formatted metrics like time in proximity, latency to interact, and movement speed.
-   - Review and interpret these results based on the experimental goals for your behavioral study.
+Every change is documented with old behaviour, why it was wrong, new behaviour
+and expected effect in the commit that made it.
 
 ---
 
-## Contributing
+## Requirements
 
-Contributions are welcome! If you’d like to help improve or extend this project, please feel free to submit a pull request or open an issue with ideas, bug reports, or suggestions.
+R >= 4.4, plus:
 
-## Support
+```r
+install.packages(c(
+  "sp", "ggplot2", "cowplot", "stringr", "yaml",     # core assays
+  "dplyr", "tidyr", "purrr", "readr", "tibble", "zoo", "fs", "rlang",  # OFT, SocInt
+  "testthat"                                          # tests
+))
+```
 
-For questions or feedback, please reach out via [issues](https://github.com/topohl/SLEAPanalyzer/issues) on GitHub or email us directly.
+Optional, for the statistical layer and motif analyses: `lmerTest`, `emmeans`,
+`mclust`, `factoextra`, `keras`, `tensorflow`.
+
+Dependencies are declared, never installed at runtime.
 
 ---
 
-Feel free to reach out with questions or suggestions. This project aims to facilitate enhanced behavioral analysis and support the scientific community in generating high-quality insights from SLEAP/DLC tracking data.
+## Input format
+
+A DLC/SLEAP-style CSV with three header rows and one row per frame:
+
+```
+scorer,scorer,scorer,scorer,...
+bodyparts,nose,nose,nose,...
+coords,x,y,likelihood,...
+0,251.3,180.7,0.99,...
+```
+
+**Frame numbering must be monotonic and contiguous.** Every displacement is
+computed between adjacent rows, so a gap in the numbering would make two frames
+recorded seconds apart look adjacent. Non-contiguous files are rejected with
+the number of skipped frames; re-export with every frame present, or insert the
+missing frames as `NA` rows so they are treated as untracked.
+
+### Required landmarks
+
+| Assay | Landmarks |
+|---|---|
+| all | four arena corners, by default `tl`, `tr`, `br`, `bl` |
+| OFT | `bodycentre` |
+| EPM | `bodycentre`, `headcentre`, `neck`, plus every landmark named in the zone file |
+| NOR | `nose`, `bodycentre`, `objL`, `objR` |
+| SocP | `nose`, `bodycentre`, `socl`, `socr` |
+| SocInt | `nose_N`, `bodycentre_N`, `tailBase_N`, `leftEar_N`, `rightEar_N`, `leftSide_N`, `rightSide_N`, `tailEnd_N` for N in 1, 2 |
+
+---
+
+## Running an analysis
+
+Nothing requires editing source code. Copy an example configuration, edit it,
+and point the pipeline at it:
+
+```bash
+cp config/nor.example.yaml my_nor.yaml
+# edit paths, fps, arena size and thresholds
+
+SLEAP_ANALYZER_CONFIG=my_nor.yaml Rscript "02_SLEAPanalzyer/DLCA_NOR v1.2.1.R"
+```
+
+The same pattern works for `DLCA_SocP v.1.1.0.R`, `DLCA_EPM v1.0.0.R`,
+`DLCA_OFT v1.2.0.R` and `DLCA_SocInt v.0.0.2.r`.
+
+Configurations are validated before anything runs, and every problem is
+reported at once rather than one per attempt. Relative paths resolve against
+the directory holding the configuration file.
+
+### Outputs
+
+| File | Contents |
+|---|---|
+| `<file>_output.csv` | Per-animal measurements |
+| `combined_output.csv` | All animals in the batch |
+| `tracking_qc.csv` | Per-animal tracking quality |
+| `run_manifest.yaml` | Commit SHA, timestamp, full configuration, package versions, input file hashes |
+| `plots/` | Density paths and overview plots |
+
+The manifest is what makes a run reproducible later. It records whether the
+working tree was dirty, because a run made from uncommitted changes cannot be
+reproduced from its commit alone.
+
+---
+
+## Calibration
+
+Two mechanisms exist.
+
+**`CalibrateTrackingData()`** applies scalar x/y scaling from a known distance
+or arena area. This is what the assay scripts currently use. It is correct when
+the camera looks straight down at the arena centre.
+
+**`arena_calibration()`** solves a projective homography from four known arena
+corners and maps coordinates into a canonical frame where a rectangular arena
+spans `(0, 0)` to `(width_cm, height_cm)`. Under camera tilt the
+pixels-per-centimetre ratio varies across the image, and a scalar scale is then
+wrong by an amount that depends on where the animal is; the test suite measures
+this at over 10% for a modest perspective. It stores the transform, source and
+target corners, per-corner reprojection error and a perspective index.
+
+The homography module is tested and available. Migrating the assay scripts onto
+it is outstanding work, because it changes calibrated coordinates and so
+requires re-validation against existing results.
+
+---
+
+## Quality control
+
+`tracking_qc_report()` reports missing fraction, low-confidence fraction,
+longest invalid gap, observed versus interpolated time, implausible
+displacement, body-length abnormalities, suspected identity swaps, arena
+violations and landmark frame-count consistency.
+
+`qc_flags()` applies thresholds and returns every failing reason. **It never
+drops anything.** Excluding a recording is an explicit decision for the
+analyst, so a failure warns, records `qcPass = FALSE` with reasons, and still
+writes the result.
+
+Every output reports `validTime` alongside `totalTime`. A duration is only
+interpretable together with the valid time it came from.
+
+---
+
+## Interpreting the numbers
+
+Metrics fall into four tiers, documented per assay in
+[docs/assay_definitions.md](docs/assay_definitions.md):
+
+| Tier | Meaning |
+|---|---|
+| **Core** | Follows from calibrated coordinates and the event engine |
+| **Configurable** | Machinery is tested, but a threshold determines the result and needs assay-specific validation |
+| **Experimental** | Heuristic, not validated against manual scoring, suffixed `_experimental` |
+| **Exploratory** | Unsupervised or composite, cohort-relative or model-dependent |
+
+Thresholds shipped in the example configurations came from one laboratory's
+setup. **They are starting points, not constants.** Validate them against
+manually scored video for your apparatus before publishing. The list of what
+still needs validation is at the end of
+[docs/assay_definitions.md](docs/assay_definitions.md).
+
+Two specific cautions:
+
+* **OFT is a profile, not an anxiety score.** Reduced centre occupancy must be
+  read together with locomotion, immobility and tracking quality.
+* **SocInt following and avoidance are experimental.** They are heuristics that
+  have not been validated as behavioural categories here.
+
+---
+
+## Statistical analysis
+
+Measurement extraction and inference are separate. Extraction produces
+measurements and QC; `03_statistics/` decides how to model them, from the
+**design of the experiment**, never from which packages are installed.
+
+```r
+source("03_statistics/design.R")
+source("03_statistics/models.R")
+
+results <- analyze_responses(
+  measurements,
+  responses = c("contactNov", "contactFam", "latency"),
+  group = "treatment", animal_id = "ID", sex = "sex", batch = "batch",
+  adjust_method = "holm"
+)
+```
+
+A random intercept for animal is included only when at least one animal
+contributes more than one observation, because `(1|ID)` with one observation
+per animal is unidentifiable and `lme4` refuses it. Time bins declared with
+`within =` are not treated as independent animals. Multiplicity adjustment
+requires an explicit family label and records the family size.
+
+Nothing in this layer interprets a p-value. See
+[docs/statistical_layer.md](docs/statistical_layer.md).
+
+---
+
+## Repository layout
+
+```
+01_SLEAPcoords/        Notebooks converting SLEAP HDF5 to CSV
+02_SLEAPanalzyer/      Assay scripts and the shared core
+  core/                Measurement core (see below)
+  DLCA_*.R             Per-assay batch workflows
+03_statistics/         Experiment-level inference, separate from extraction
+config/                Documented example configurations
+docs/                  Architecture and definitions
+tests/testthat/        Automated test suite
+tools/                 Parse check and static audit, run in CI
+90_Testing/            Legacy exploratory scripts, not maintained
+99_deprecated/         Retained for provenance only
+```
+
+### The measurement core
+
+| Module | Responsibility |
+|---|---|
+| `validation.R`, `units.R` | Argument checks, unit conversion, seconds/frames |
+| `tracking_data.R` | TrackingData accessors and per-frame validity |
+| `geometry.R` | Distances, angles, polygons, self-intersection |
+| `interpolation.R` | Bounded gap filling with observed/interpolated/invalid status |
+| `homography.R` | Projective arena rectification |
+| `dyadic.R` | Inter-animal geometry and directional relative motion |
+| `events.R` | The single event/bout segmentation engine |
+| `qc.R` | Canonical quality control |
+| `config.R`, `assay_config.R` | Declarative configuration |
+| `provenance.R` | Run manifests |
+
+---
+
+## Tests
+
+```bash
+Rscript tests/testthat.R      # full suite
+Rscript tools/check_parse.R   # every R file parses
+Rscript tools/audit_repo.R    # static audit ratchet
+```
+
+The audit is a ratchet: it records a budget per problem class (absolute paths,
+unbounded interpolation, legacy transition counting, boundary-excluding zone
+tests, runtime installation) and fails when a count rises. Budgets are lowered
+as problems are fixed.
+
+Integration tests run the NOR, SocP and EPM batch scripts as subprocesses
+against synthetic tracking with analytically known answers, so the tests cover
+the real entry points rather than the library alone.
+
+CI runs the parse check, the suite and the audit on every push and pull request
+to `main` and `v2`. Optional heavy dependencies are excluded from the baseline
+so it stays fast and does not break on unrelated upstream changes.
+
+---
+
+## Limitations
+
+* Assay scripts still use scalar calibration; the homography is available but
+  not yet wired in.
+* SocInt thresholds are in pixels and specific to one camera setup.
+* No metric in this repository has been validated against manually scored video.
+* Motif analyses (PCA/GMM, autoencoder) are exploratory and have not been
+  assessed for seed sensitivity, bootstrap stability or held-out-animal
+  generalisation.
+* SLEAP HDF5 is read via the conversion notebooks in `01_SLEAPcoords/`; there
+  is no native HDF5 import, so SLEAP track identity and confidence beyond the
+  CSV columns are not carried through.
+
+## License and contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
