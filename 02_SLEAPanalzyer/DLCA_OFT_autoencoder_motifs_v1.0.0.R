@@ -119,6 +119,22 @@ config <- list(
   plot_height_double_col = 100 / 25.4
 )
 
+# Shared behavioral core: needed for the animal-level train/validation split.
+get_script_dir <- function() {
+  file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+  if (length(file_arg) > 0) {
+    script_path <- sub("^--file=", "", file_arg[1])
+    if (file.exists(script_path)) return(dirname(normalizePath(script_path)))
+  }
+  getwd()
+}
+core_dir <- file.path(get_script_dir(), "core")
+if (!dir.exists(core_dir)) stop("Could not find the shared behavioral core: ", core_dir)
+source(file.path(core_dir, "io.R"))
+source_behavior_core(core_dir, envir = environment())
+
+config <- apply_config_overlay(config, path_fields = c("behavior_root"))
+
 set.seed(config$random_seed)
 assert_tensorflow_environment()
 tensorflow::set_random_seed(config$random_seed)
@@ -427,13 +443,35 @@ message("Training autoencoder on ", nrow(x), " windows and ", ncol(x), " feature
 models <- build_autoencoder(ncol(x), config)
 
 n_windows <- nrow(x)
-n_val <- as.integer(floor(n_windows * config$validation_split))
-n_val <- max(1L, min(n_val, n_windows - 1L))
 
-set.seed(config$random_seed)
-idx <- sample.int(n_windows)
-val_idx <- idx[seq_len(n_val)]
-train_idx <- idx[(n_val + 1L):n_windows]
+# Hold out whole ANIMALS, not random windows.
+#
+# Windows from one animal share its body size, its tracking idiosyncrasies and
+# its behavioural style. A random split over windows puts windows from the same
+# animal in both training and validation, so val_loss measures memorisation of
+# animals already seen rather than generalisation to new ones. Early stopping
+# on that loss then selects an over-fitted model.
+if (!"file" %in% names(window_tbl)) {
+  stop(
+    "The window feature matrix has no 'file' column, so windows cannot be ",
+    "grouped by animal. Regenerate it with the unsupervised motif script."
+  )
+}
+animal_of_window <- window_tbl$file
+stopifnot(length(animal_of_window) == n_windows)
+
+split <- group_holdout_split(
+  animal_of_window,
+  validation_fraction = config$validation_split,
+  seed = config$random_seed
+)
+train_idx <- split$train_index
+val_idx <- split$validation_index
+
+message(
+  "Held-out validation animals: ", length(split$validation_groups), " of ",
+  split$n_groups, " (", length(val_idx), " of ", n_windows, " windows)"
+)
 
 x_train <- x[train_idx, , drop = FALSE]
 x_val <- x[val_idx, , drop = FALSE]
