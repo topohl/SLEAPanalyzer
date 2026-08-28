@@ -200,6 +200,15 @@ if (is.na(functions_path)) {
 
 source(functions_path)
 
+# Shared behavioral core: dyadic geometry, directional relative motion and the
+# canonical event engine.
+core_dir <- file.path(dirname(normalizePath(functions_path)), "core")
+if (!dir.exists(core_dir)) {
+  stop("Could not find the shared behavioral core directory: ", core_dir)
+}
+source(file.path(core_dir, "io.R"))
+source_behavior_core(core_dir, envir = environment())
+
 skip_batch <- identical(Sys.getenv("SLEAP_ANALYZER_SKIP_BATCH"), "true")
 if (!skip_batch) {
   fs::dir_create(config$output_dir)
@@ -762,39 +771,64 @@ make_event_table <- function(Tracking, config, file_id) {
     a2_to_nose1 <= config$facing_angle_deg &
     d_body_body <= config$medium_proximity_dist
 
-  # Following / avoidance.
-  # Interpretation: A1 follows if A2 was moving shortly before, A1 is moving now,
-  # and they remain spatially close. This is heuristic and should be validated visually.
+  # ---------------------------------------------------------------------
+  # Directional relative motion.
+  #
+  # Each animal's velocity is projected onto the inter-animal axis, so the
+  # observed closing speed splits into the part each animal contributed:
+  #
+  #   closing = a_closing + b_closing
+  #
+  # This is what makes "animal 1 approached animal 2" separable from
+  # "animal 2 approached animal 1". The previous rules compared each
+  # animal's *scalar* speed against a cutoff, which carries no direction:
+  # whenever both animals moved, both avoidance flags fired regardless of
+  # who actually produced the separation.
+  # ---------------------------------------------------------------------
+  body1 <- get_xy(Tracking, "bodycentre_1")
+  body2 <- get_xy(Tracking, "bodycentre_2")
+  motion <- dyadic_relative_motion(body1$x, body1$y, body2$x, body2$y, fps)
+  directed <- classify_relative_motion(motion, threshold = config$movement_cutoff)
+
+  a1_approaches_a2 <- directed$a_approaches_b & d_body_body <= config$approach_start_dist
+  a2_approaches_a1 <- directed$b_approaches_a & d_body_body <= config$approach_start_dist
+  both_approach <- directed$both_approach & d_body_body <= config$approach_start_dist
+  a1_retreats_from_a2 <- directed$a_retreats_from_b & d_body_body <= config$retreat_start_dist
+  a2_retreats_from_a1 <- directed$b_retreats_from_a & d_body_body <= config$retreat_start_dist
+  separation_led_by_a1 <- directed$separation_led_by_a & d_body_body <= config$retreat_start_dist
+  separation_led_by_a2 <- directed$separation_led_by_b & d_body_body <= config$retreat_start_dist
+
+  # Symmetric dyadic versions, kept separate from the directed measures.
+  approach_event <- directed$pair_approaching & d_body_body <= config$approach_start_dist
+  retreat_event <- directed$pair_separating & d_body_body <= config$retreat_start_dist
+
+  # ---------------------------------------------------------------------
+  # EXPERIMENTAL following / avoidance.
+  #
+  # These remain heuristics. Following now at least requires the follower to
+  # be moving toward the other animal rather than merely moving, but neither
+  # label has been validated against manually scored video in this
+  # repository. They are reported with an _experimental suffix and must not
+  # be presented as established behaviors without validation.
+  # ---------------------------------------------------------------------
   a1_following_a2 <- d_body_body <= config$follow_dist &
-    dplyr::lag(speed2, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
-    speed1 > config$movement_cutoff
+    dplyr::lag(motion$b_speed, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
+    directed$a_approaches_b
 
   a2_following_a1 <- d_body_body <= config$follow_dist &
-    dplyr::lag(speed1, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
-    speed2 > config$movement_cutoff
+    dplyr::lag(motion$a_speed, n = follow_lag_frames, default = NA_real_) > config$movement_cutoff &
+    directed$b_approaches_a
 
-  # Avoidance: close now and distance increases after lag.
+  # Avoidance: close now, and this animal is the one opening the gap.
   future_d <- dplyr::lead(d_body_body, n = avoidance_lag_frames, default = NA_real_)
 
   a1_avoidance_from_a2 <- d_body_body <= config$avoidance_start_dist &
     future_d - d_body_body >= config$avoidance_delta_dist &
-    speed1 > config$movement_cutoff
+    directed$a_retreats_from_b
 
   a2_avoidance_from_a1 <- d_body_body <= config$avoidance_start_dist &
     future_d - d_body_body >= config$avoidance_delta_dist &
-    speed2 > config$movement_cutoff
-
-  # Approach / retreat events based on change in body-centre distance over a short lag.
-  past_d_approach <- dplyr::lag(d_body_body, n = approach_lag_frames, default = NA_real_)
-  future_d_retreat <- dplyr::lead(d_body_body, n = retreat_lag_frames, default = NA_real_)
-
-  approach_event <- past_d_approach >= config$approach_start_dist &
-    past_d_approach - d_body_body >= config$approach_delta_dist &
-    (speed1 > config$movement_cutoff | speed2 > config$movement_cutoff)
-
-  retreat_event <- d_body_body <= config$retreat_start_dist &
-    future_d_retreat - d_body_body >= config$retreat_delta_dist &
-    (speed1 > config$movement_cutoff | speed2 > config$movement_cutoff)
+    directed$b_retreats_from_a
 
   # Export wide frame-level table.
   frame_tbl <- frame_tbl |>
@@ -815,6 +849,14 @@ make_event_table <- function(Tracking, config, file_id) {
       speed1 = speed1,
       speed2 = speed2,
 
+      # Directional relative motion, in coordinate units per second.
+      # a1_closing_speed is positive when animal 1 moves toward animal 2;
+      # a2_closing_speed is positive when animal 2 moves toward animal 1.
+      # Their sum is the closing speed of the pair.
+      a1_closing_speed = motion$a_closing,
+      a2_closing_speed = motion$b_closing,
+      pair_closing_speed = motion$closing_speed,
+
       a1_nose_to_nose2 = suppress_short_events(a1_nose_nose, config$min_event_duration_frames),
       a1_nose_to_body2 = suppress_short_events(a1_nose_body, config$min_event_duration_frames),
       a1_nose_to_tail2 = suppress_short_events(a1_nose_tail, config$min_event_duration_frames),
@@ -827,12 +869,26 @@ make_event_table <- function(Tracking, config, file_id) {
       close_proximity = suppress_short_events(close_proximity, config$min_event_duration_frames),
       medium_proximity = suppress_short_events(medium_proximity, config$min_event_duration_frames),
       mutually_facing = suppress_short_events(mutually_facing, config$min_event_duration_frames),
-      a1_following_a2 = suppress_short_events(a1_following_a2, config$min_event_duration_frames),
-      a2_following_a1 = suppress_short_events(a2_following_a1, config$min_event_duration_frames),
-      a1_avoidance_from_a2 = suppress_short_events(a1_avoidance_from_a2, config$min_event_duration_frames),
-      a2_avoidance_from_a1 = suppress_short_events(a2_avoidance_from_a1, config$min_event_duration_frames),
+      # Directed approach / retreat, attributed to the animal that produced
+      # the change in distance.
+      a1_approaches_a2 = suppress_short_events(a1_approaches_a2, config$min_event_duration_frames),
+      a2_approaches_a1 = suppress_short_events(a2_approaches_a1, config$min_event_duration_frames),
+      both_approach = suppress_short_events(both_approach, config$min_event_duration_frames),
+      a1_retreats_from_a2 = suppress_short_events(a1_retreats_from_a2, config$min_event_duration_frames),
+      a2_retreats_from_a1 = suppress_short_events(a2_retreats_from_a1, config$min_event_duration_frames),
+      separation_led_by_a1 = suppress_short_events(separation_led_by_a1, config$min_event_duration_frames),
+      separation_led_by_a2 = suppress_short_events(separation_led_by_a2, config$min_event_duration_frames),
+
+      # Symmetric dyadic versions.
       approach_event = suppress_short_events(approach_event, config$min_event_duration_frames),
       retreat_event = suppress_short_events(retreat_event, config$min_event_duration_frames),
+
+      # Experimental, not validated against manual scoring. See the config
+      # comment and docs/assay_definitions.md.
+      a1_following_a2_experimental = suppress_short_events(a1_following_a2, config$min_event_duration_frames),
+      a2_following_a1_experimental = suppress_short_events(a2_following_a1, config$min_event_duration_frames),
+      a1_avoidance_from_a2_experimental = suppress_short_events(a1_avoidance_from_a2, config$min_event_duration_frames),
+      a2_avoidance_from_a1_experimental = suppress_short_events(a2_avoidance_from_a1, config$min_event_duration_frames),
 
       # Combined directional investigation states.
       a1_face_investigation = a1_nose_to_nose2,
@@ -880,12 +936,19 @@ summarise_events_long <- function(frame_tbl, config) {
     "close_proximity",
     "medium_proximity",
     "mutually_facing",
-    "a1_following_a2",
-    "a2_following_a1",
-    "a1_avoidance_from_a2",
-    "a2_avoidance_from_a1",
+    "a1_approaches_a2",
+    "a2_approaches_a1",
+    "both_approach",
+    "a1_retreats_from_a2",
+    "a2_retreats_from_a1",
+    "separation_led_by_a1",
+    "separation_led_by_a2",
     "approach_event",
     "retreat_event",
+    "a1_following_a2_experimental",
+    "a2_following_a1_experimental",
+    "a1_avoidance_from_a2_experimental",
+    "a2_avoidance_from_a1_experimental",
     "a1_any_directed_contact",
     "a2_any_directed_contact",
     "mutual_directed_contact",
@@ -956,6 +1019,13 @@ make_file_summary <- function(frame_tbl, event_summary_long, qc_tbl, config) {
     filter(event_type == "retreat_event") |>
     pull(duration_s)
 
+  event_duration_of <- function(name) {
+    value <- event_summary_long |>
+      filter(event_type == name) |>
+      pull(duration_s)
+    if (length(value) == 0) NA_real_ else value[1]
+  }
+
   total_distance_moved <- sum(frame_tbl$speed1 / config$fps, na.rm = TRUE) +
     sum(frame_tbl$speed2 / config$fps, na.rm = TRUE)
 
@@ -983,6 +1053,28 @@ make_file_summary <- function(frame_tbl, event_summary_long, qc_tbl, config) {
     a2_only_directed_contact_s = a2_only_total,
     approach_event_s = approach_total,
     retreat_event_s = retreat_total,
+
+    # Directed approach / retreat, attributed by projecting each animal's
+    # velocity onto the inter-animal axis rather than thresholding its
+    # scalar speed.
+    a1_approaches_a2_s = event_duration_of("a1_approaches_a2"),
+    a2_approaches_a1_s = event_duration_of("a2_approaches_a1"),
+    both_approach_s = event_duration_of("both_approach"),
+    a1_retreats_from_a2_s = event_duration_of("a1_retreats_from_a2"),
+    a2_retreats_from_a1_s = event_duration_of("a2_retreats_from_a1"),
+    separation_led_by_a1_s = event_duration_of("separation_led_by_a1"),
+    separation_led_by_a2_s = event_duration_of("separation_led_by_a2"),
+    approach_initiation_bias_a1_minus_a2 = safe_divide(
+      event_duration_of("a1_approaches_a2") - event_duration_of("a2_approaches_a1"),
+      event_duration_of("a1_approaches_a2") + event_duration_of("a2_approaches_a1")
+    ),
+
+    # Experimental heuristics, not validated against manual scoring.
+    a1_following_a2_experimental_s = event_duration_of("a1_following_a2_experimental"),
+    a2_following_a1_experimental_s = event_duration_of("a2_following_a1_experimental"),
+    a1_avoidance_from_a2_experimental_s = event_duration_of("a1_avoidance_from_a2_experimental"),
+    a2_avoidance_from_a1_experimental_s = event_duration_of("a2_avoidance_from_a1_experimental"),
+
     total_distance_moved = total_distance_moved,
     directed_contact_per_distance_moved = safe_divide(a1_total + a2_total, total_distance_moved),
     close_proximity_per_distance_moved = safe_divide(prox_close, total_distance_moved),

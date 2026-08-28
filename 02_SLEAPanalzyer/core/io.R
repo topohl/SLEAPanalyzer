@@ -3,7 +3,7 @@
 behavior_core_files <- function() {
   c(
     "validation.R", "units.R", "tracking_data.R", "geometry.R",
-    "interpolation.R",
+    "interpolation.R", "dyadic.R",
     "calibration.R", "zones.R", "events.R", "metrics.R", "qc.R"
   )
 }
