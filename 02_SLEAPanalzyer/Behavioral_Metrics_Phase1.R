@@ -77,6 +77,41 @@ validate_assay_timing <- function(tracking, fps) {
   invisible(fps)
 }
 
+#' Score nose contact with one object.
+#'
+#' The same detector must be applied to both objects. Using a different
+#' detection region for the novel and the familiar object biases the
+#' discrimination index by construction, because the regions have different
+#' areas.
+#'
+#' @param nose nose coordinates
+#' @param object object coordinates
+#' @param geometry "radial" (nose within `radius` of the object point) or
+#'   "box" (nose inside a `width` x `height` axis-aligned footprint)
+#' @return a logical vector, NA where coordinates are missing
+object_contact_region <- function(nose, object, geometry = c("radial", "box"),
+                                  radius = NULL, width = NULL, height = NULL) {
+  geometry <- match.arg(geometry)
+  if (geometry == "radial") {
+    validate_scalar_number(radius, "contact_distance", positive = TRUE)
+    euclidean_distance(nose$x, nose$y, object$x, object$y) <= radius
+  } else {
+    validate_scalar_number(width, "object_box_width", positive = TRUE)
+    validate_scalar_number(height, "object_box_height", positive = TRUE)
+    points_in_axis_aligned_box(nose$x, nose$y, object$x, object$y, width, height)
+  }
+}
+
+#' Novel-object-recognition measurements.
+#'
+#' @param contact_geometry Detection region applied to *both* objects.
+#'   "radial" uses `contact_distance`; "box" uses `object_box_width` /
+#'   `object_box_height`. "legacy_asymmetric" reproduces the biased pre-v2
+#'   behavior and is provided only for reanalysis of existing outputs.
+#' @param valid optional per-frame validity mask; defaults to frames where
+#'   every required landmark has finite coordinates.
+#' @param min_bout_s minimum contact bout duration, in seconds.
+#' @param max_gap_s interior gap bridged before bouts are filtered, in seconds.
 compute_nor_metrics <- function(tracking, novel_location, fps,
                                 contact_distance = 4,
                                 body_exclusion_distance = 1,
@@ -85,17 +120,24 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
                                 contact_angle = c(70, 290),
                                 proximity_range = c(4, 8),
                                 proximity_angle = c(90, 270),
-                                threshold_unit = "cm") {
+                                threshold_unit = "cm",
+                                contact_geometry = c("radial", "box", "legacy_asymmetric"),
+                                valid = NULL,
+                                min_bout_s = 0,
+                                max_gap_s = 0) {
   required <- c("nose", "bodycentre", "objL", "objR")
   validate_tracking_data(tracking, required_landmarks = required)
   validate_assay_timing(tracking, fps)
   validate_threshold_unit(threshold_unit, get_tracking_unit(tracking))
+  contact_geometry <- match.arg(contact_geometry)
 
   nose <- get_point_coordinates(tracking, "nose")
   obj_left <- get_point_coordinates(tracking, "objL")
   obj_right <- get_point_coordinates(tracking, "objR")
   n <- length(get_tracking_frames(tracking))
   location <- validate_location_metadata(novel_location)
+  if (is.null(valid)) valid <- landmark_validity(tracking, required)
+  valid <- normalize_validity_mask(valid, n)
 
   distance_left <- tracking_point_distance(tracking, "objL", "nose")
   distance_right <- tracking_point_distance(tracking, "objR", "nose")
@@ -106,21 +148,46 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   oriented_left <- abs(angle_left) >= contact_angle[1] & abs(angle_left) <= contact_angle[2]
   oriented_right <- abs(angle_right) >= contact_angle[1] & abs(angle_right) <= contact_angle[2]
 
-  if (is.na(location)) {
-    contact_left <- contact_right <- rep(NA, n)
-  } else if (location == "R") {
-    contact_left <- points_in_axis_aligned_box(
-      nose$x, nose$y, obj_left$x, obj_left$y, object_box_width, object_box_height
-    ) & body_left > body_exclusion_distance & oriented_left
-    contact_right <- distance_right <= contact_distance &
-      body_right > body_exclusion_distance & oriented_right
+  if (contact_geometry == "legacy_asymmetric") {
+    warning(
+      "contact_geometry = 'legacy_asymmetric' scores the novel object with a ",
+      object_box_width, "x", object_box_height, " box and the familiar object ",
+      "with a ", contact_distance, " radius. The regions have different areas, ",
+      "so the discrimination index is biased. Use it only to reproduce ",
+      "pre-v2 outputs."
+    )
+    if (is.na(location)) {
+      region_left <- region_right <- rep(NA, n)
+    } else {
+      box_side <- if (location == "R") "left" else "right"
+      region_left <- if (box_side == "left") {
+        object_contact_region(nose, obj_left, "box",
+                              width = object_box_width, height = object_box_height)
+      } else {
+        object_contact_region(nose, obj_left, "radial", radius = contact_distance)
+      }
+      region_right <- if (box_side == "right") {
+        object_contact_region(nose, obj_right, "box",
+                              width = object_box_width, height = object_box_height)
+      } else {
+        object_contact_region(nose, obj_right, "radial", radius = contact_distance)
+      }
+    }
   } else {
-    contact_left <- distance_left <= contact_distance &
-      body_left > body_exclusion_distance & oriented_left
-    contact_right <- points_in_axis_aligned_box(
-      nose$x, nose$y, obj_right$x, obj_right$y, object_box_width, object_box_height
-    ) & body_right > body_exclusion_distance & oriented_right
+    # One detector, both objects. Contact no longer depends on the novel-location
+    # metadata, so a missing metadata row no longer discards all contact data.
+    region_left <- object_contact_region(
+      nose, obj_left, contact_geometry,
+      radius = contact_distance, width = object_box_width, height = object_box_height
+    )
+    region_right <- object_contact_region(
+      nose, obj_right, contact_geometry,
+      radius = contact_distance, width = object_box_width, height = object_box_height
+    )
   }
+
+  contact_left <- region_left & body_left > body_exclusion_distance & oriented_left
+  contact_right <- region_right & body_right > body_exclusion_distance & oriented_right
 
   proximity_left <- distance_left > proximity_range[1] & distance_left <= proximity_range[2]
   proximity_right <- distance_right > proximity_range[1] & distance_right <= proximity_range[2]
@@ -129,8 +196,15 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
   proximity_angle_right <- proximity_right &
     abs(angle_right) >= proximity_angle[1] & abs(angle_right) <= proximity_angle[2]
 
-  left <- if (is.na(location)) NULL else summarize_event_metrics(contact_left, fps)
-  right <- if (is.na(location)) NULL else summarize_event_metrics(contact_right, fps)
+  segment <- function(event) {
+    segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)
+  }
+  left <- segment(contact_left)
+  right <- segment(contact_right)
+  proximity_left_seg <- segment(proximity_left)
+  proximity_right_seg <- segment(proximity_right)
+  proximity_angle_left_seg <- segment(proximity_angle_left)
+  proximity_angle_right_seg <- segment(proximity_angle_right)
 
   # Preserve the repository's legacy assignment: metadata R maps the left side to
   # novel and metadata L maps the right side to novel. Its biological meaning must
@@ -141,36 +215,38 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
     if (novel_is_left) c(novel = left_value, familiar = right_value) else
       c(novel = right_value, familiar = left_value)
   }
-  contact_mapped <- mapped(
-    if (is.null(left)) NA_real_ else left$duration_s,
-    if (is.null(right)) NA_real_ else right$duration_s
-  )
-  proximity_mapped <- mapped(
-    frames_to_seconds(sum(proximity_left, na.rm = TRUE), fps),
-    frames_to_seconds(sum(proximity_right, na.rm = TRUE), fps)
-  )
-  latency_values <- if (is.null(left)) numeric() else c(left$latency_s, right$latency_s)
+  contact_mapped <- mapped(left$duration_s, right$duration_s)
+  proximity_mapped <- mapped(proximity_left_seg$duration_s, proximity_right_seg$duration_s)
+  latency_values <- c(left$latency_s, right$latency_s)
   latency_values <- latency_values[is.finite(latency_values)]
   first_contact_latency <- if (length(latency_values) == 0) NA_real_ else min(latency_values)
 
   summary <- data.frame(
-    contactLeft = if (is.null(left)) NA_real_ else left$duration_s,
-    contactRight = if (is.null(right)) NA_real_ else right$duration_s,
+    contactLeft = left$duration_s,
+    contactRight = right$duration_s,
     contactNov = unname(contact_mapped["novel"]),
     contactFam = unname(contact_mapped["familiar"]),
-    proxLeft = frames_to_seconds(sum(proximity_left, na.rm = TRUE), fps),
-    proxRight = frames_to_seconds(sum(proximity_right, na.rm = TRUE), fps),
+    proxLeft = proximity_left_seg$duration_s,
+    proxRight = proximity_right_seg$duration_s,
     proxNov = unname(proximity_mapped["novel"]),
     proxFam = unname(proximity_mapped["familiar"]),
-    proxLeftAngle = frames_to_seconds(sum(proximity_angle_left, na.rm = TRUE), fps),
-    proxRightAngle = frames_to_seconds(sum(proximity_angle_right, na.rm = TRUE), fps),
+    proxLeftAngle = proximity_angle_left_seg$duration_s,
+    proxRightAngle = proximity_angle_right_seg$duration_s,
     latency = first_contact_latency,
-    latencyLeft = if (is.null(left)) NA_real_ else left$latency_s,
-    latencyRight = if (is.null(right)) NA_real_ else right$latency_s,
-    frequencyL = if (is.null(left)) NA_integer_ else left$bouts,
-    frequencyR = if (is.null(right)) NA_integer_ else right$bouts,
+    latencyLeft = left$latency_s,
+    latencyRight = right$latency_s,
+    frequencyL = left$n_bouts,
+    frequencyR = right$n_bouts,
+    meanBoutLeft = left$mean_bout_s,
+    meanBoutRight = right$mean_bout_s,
+    entriesLeft = count_entries(contact_left, valid = valid),
+    entriesRight = count_entries(contact_right, valid = valid),
     totalTime = get_tracking_duration(tracking),
-    novelLoc = location
+    validTime = left$valid_time_s,
+    validFraction = left$valid_time_s / get_tracking_duration(tracking),
+    contactGeometry = contact_geometry,
+    novelLoc = location,
+    stringsAsFactors = FALSE
   )
 
   list(
@@ -179,10 +255,12 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
       contact_left = contact_left,
       contact_right = contact_right,
       proximity_left = proximity_left,
-      proximity_right = proximity_right
+      proximity_right = proximity_right,
+      valid = valid
     ),
     angles = data.frame(left = angle_left, right = angle_right),
-    distances = data.frame(left = distance_left, right = distance_right)
+    distances = data.frame(left = distance_left, right = distance_right),
+    segmentation = list(left = left, right = right)
   )
 }
 

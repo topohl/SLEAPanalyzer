@@ -98,6 +98,43 @@ set_point_coordinates <- function(tracking, point, coordinates) {
   tracking
 }
 
+#' Per-frame validity mask for a set of landmarks.
+#'
+#' A frame is valid only if every requested landmark has finite coordinates on
+#' that frame, and, when a likelihood cutoff is supplied, only if every
+#' requested landmark meets it. Frames whose coordinates were interpolated are
+#' reported as invalid when `interpolated_is_valid` is FALSE, which is the
+#' conservative default for measurements that must not rest on fabricated data.
+#'
+#' @param tracking a TrackingData object
+#' @param landmarks the landmarks a measurement depends on
+#' @param likelihood_cutoff optional minimum tracking confidence
+#' @param interpolated_is_valid whether interpolated frames count as observed
+#' @return a logical vector, one entry per frame
+landmark_validity <- function(tracking, landmarks,
+                              likelihood_cutoff = NULL,
+                              interpolated_is_valid = FALSE) {
+  validate_tracking_data(tracking, required_landmarks = landmarks)
+  if (!is.null(likelihood_cutoff)) {
+    validate_scalar_number(likelihood_cutoff, "likelihood_cutoff")
+  }
+  n <- length(get_tracking_frames(tracking))
+  valid <- rep(TRUE, n)
+  for (point in landmarks) {
+    values <- tracking$data[[point]]
+    valid <- valid & is.finite(values$x) & is.finite(values$y)
+    if (!is.null(likelihood_cutoff) && !is.null(values$likelihood)) {
+      confidence <- values$likelihood
+      confidence[is.na(confidence)] <- -Inf
+      valid <- valid & confidence >= likelihood_cutoff
+    }
+    if (!isTRUE(interpolated_is_valid) && !is.null(values$status)) {
+      valid <- valid & values$status != "interpolated"
+    }
+  }
+  valid
+}
+
 has_landmarks <- function(tracking, landmarks) {
   validate_tracking_data(tracking)
   if (!is.character(landmarks) || anyNA(landmarks)) {

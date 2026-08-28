@@ -17,13 +17,22 @@ testthat::test_that("NOR uses the corresponding object angle and frame-derived t
   testthat::expect_equal(result$summary$latencyLeft, 0)
   testthat::expect_equal(result$summary$totalTime, 2)
   testthat::expect_equal(result$angles$right, rep(0, n))
+  # Every pre-v2 column is still emitted; v2 only appends columns.
+  legacy_columns <- c(
+    "contactLeft", "contactRight", "contactNov", "contactFam", "proxLeft",
+    "proxRight", "proxNov", "proxFam", "proxLeftAngle", "proxRightAngle",
+    "latency", "latencyLeft", "latencyRight", "frequencyL", "frequencyR",
+    "totalTime", "novelLoc"
+  )
+  testthat::expect_true(all(legacy_columns %in% names(result$summary)))
   testthat::expect_named(
     result$summary,
     c(
       "contactLeft", "contactRight", "contactNov", "contactFam", "proxLeft",
       "proxRight", "proxNov", "proxFam", "proxLeftAngle", "proxRightAngle",
       "latency", "latencyLeft", "latencyRight", "frequencyL", "frequencyR",
-      "totalTime", "novelLoc"
+      "meanBoutLeft", "meanBoutRight", "entriesLeft", "entriesRight",
+      "totalTime", "validTime", "validFraction", "contactGeometry", "novelLoc"
     )
   )
 })

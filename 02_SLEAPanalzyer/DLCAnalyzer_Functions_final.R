@@ -991,6 +991,23 @@ PlotDensityPaths <- function(t, points, SDcutoff = 4, Title = "density path") {
   
   for (i in points) {
     data_plot <- t$data[[i]]
+    # Unobserved frames are dropped rather than plotted. Bounded interpolation
+    # legitimately leaves long gaps missing, and a path drawn straight across
+    # such a gap would show a trajectory that was never measured.
+    observed <- is.finite(data_plot$x) & is.finite(data_plot$y)
+    if (!any(observed)) {
+      warning("No observed coordinates for point '", i, "'; skipping density path")
+      next
+    }
+    if (any(!observed)) {
+      message(
+        sprintf(
+          "Density path for '%s' omits %d of %d unobserved frames",
+          i, sum(!observed), length(observed)
+        )
+      )
+    }
+    data_plot <- data_plot[observed, , drop = FALSE]
     xbreaks <- seq(floor(min(data_plot$x)), ceiling(max(data_plot$x)), by = 0.1)
     ybreaks <- seq(floor(min(data_plot$y)), ceiling(max(data_plot$y)), by = 0.1)
     data_plot$latbin <- xbreaks[cut(data_plot$x, breaks = xbreaks, labels = FALSE)]
