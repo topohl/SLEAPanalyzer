@@ -128,6 +128,56 @@ to the complementary zone.
 `nose.dip` counts whole onsets. It is a geometric proxy for head-dipping and
 should be validated against manual scoring before use as a primary outcome.
 
+### Calibration: distance, not arena area
+
+EPM is calibrated from a **measured distance between two landmarks**
+(`calibration_method: distance`), and that is the default:
+
+```yaml
+calibration_method: distance
+calibration_points: [tl, bl]
+calibration_distance_cm: 60
+```
+
+Pick the two landmarks on the **same edge of one arm**, so the value you
+declare is the arm-axis span you measured. `tl` and `bl` are the left corners
+of the top and bottom arms, so `tl`-`bl` runs tip to tip along the left edge of
+the vertical arm.
+
+Pairing diagonally opposite corners such as `tl`-`br` is a subtler version of
+the same mistake as the area trap below: that distance is
+`sqrt(span² + arm_width²)`, so calling it the span under-scales the maze by
+roughly `arm_width² / (2 · span²)` — about 0.3% for a 5 cm arm over 60 cm, and
+larger on a wider arm. It is small enough to survive review and large enough to
+bias a reported path length.
+
+The other assays calibrate an area against `arena_corner_names`, which is
+sound for them because `tl, tr, br, bl` really are the corners of a
+rectangular arena — on OFT, NOR and SocP the polygon through those four
+points matches their bounding box to within about 1%.
+
+**The plus maze breaks that assumption.** There, `tl`/`tr` and `bl`/`br` are
+the outer corners of the two *opposing arms*, so the quadrilateral through
+them is a narrow corridor along one arm axis, not the maze. On a maze whose
+arms are 5 cm wide and span 60 cm, that polygon covers roughly a *ninth* of
+the plus outline's bounding box. Equating it to `arena_width_cm *
+arena_height_cm` therefore understates the pixel area, and since
+`px.to.cm = sqrt(metric_area / pixel_area)`, it inflates the scale — by about
+3.4x on the reference Batch-1 recordings. Every distance, speed and the
+`movement_cutoff_cm_s` threshold is wrong by that factor, and nothing in the
+output reveals it: occupancy times and entry counts are unaffected, so the
+run looks healthy.
+
+If you do calibrate an area on EPM, pass the full maze outline via
+`calibration_points` **in perimeter order** (the `arena` column of
+`EPM_zoneinfo.csv` is exactly that order) and set
+`arena_width_cm * arena_height_cm` to the true area of the plus — which is
+`2 * arm_width * tip_to_tip - arm_width^2`, not the bounding square.
+
+A useful sanity check on any calibration: multiply a known short landmark
+distance, such as the arm width `tl`-`tr`, by the resulting `px.to.cm` and
+confirm it returns the measured width.
+
 ---
 
 ## Novel Object Recognition (NOR)

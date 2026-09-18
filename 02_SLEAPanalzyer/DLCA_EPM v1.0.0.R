@@ -42,6 +42,40 @@ zoneInfo <- utils::read.table(
 zone_points <- unique(unlist(zoneInfo, use.names = FALSE))
 zone_points <- zone_points[!is.na(zone_points) & nzchar(trimws(zone_points))]
 
+# Resolve the calibration once, so a misconfigured run fails before any file
+# is read rather than part way through a batch.
+#
+# `distance` is the documented EPM default because the maze is a plus, not a
+# rectangle: see the note in core/assay_config.R. `area` stays available for
+# configurations that deliberately supply a polygon enclosing a known area,
+# in which case `calibration_points` must trace that polygon in order around
+# its perimeter -- listing them diagonally yields a self-intersecting shape
+# whose area is meaningless.
+calibration <- list(
+  method = if (is.null(config$calibration_method)) "distance" else config$calibration_method
+)
+if (calibration$method == "distance") {
+  calibration$points <- if (is.null(config$calibration_points)) {
+    stop("calibration_method = 'distance' requires calibration_points (two landmarks)")
+  } else config$calibration_points
+  if (length(calibration$points) != 2) {
+    stop("calibration_method = 'distance' requires exactly two calibration_points, got ",
+         length(calibration$points))
+  }
+  if (is.null(config$calibration_distance_cm)) {
+    stop("calibration_method = 'distance' requires calibration_distance_cm")
+  }
+  calibration$in.metric <- config$calibration_distance_cm
+} else {
+  calibration$points <- if (is.null(config$calibration_points)) {
+    config$arena_corner_names
+  } else config$calibration_points
+  if (length(calibration$points) < 3) {
+    stop("calibration_method = 'area' requires at least three calibration_points")
+  }
+  calibration$in.metric <- config$arena_width_cm * config$arena_height_cm
+}
+
 batches <- if (is.null(config$batches)) "" else config$batches
 
 for (batch in batches) {
@@ -57,7 +91,7 @@ for (batch in batches) {
   pipeline <- function(path) {
     tracking <- read_tracking_csv(file = path, fps = config$fps)
     required_points <- unique(c(
-      config$arena_corner_names, zone_points,
+      calibration$points, zone_points,
       "headcentre", "bodycentre", "neck"
     ))
     missing_points <- setdiff(required_points, names(tracking$data))
@@ -76,9 +110,9 @@ for (batch in batches) {
     )
 
     tracking <- CalibrateTrackingData(
-      tracking, method = "area",
-      in.metric = config$arena_width_cm * config$arena_height_cm,
-      points = config$arena_corner_names
+      tracking, method = calibration$method,
+      in.metric = calibration$in.metric,
+      points = calibration$points
     )
     tracking <- AddZones(tracking, zoneInfo)
     EPMAnalysis(

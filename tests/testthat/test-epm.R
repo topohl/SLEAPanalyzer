@@ -183,3 +183,110 @@ test_that("EPM distance and speed are reported in calibrated units", {
   expect_equal(result$Report$bodycentre.raw.distance, 18)
   expect_equal(result$Report$bodycentre.raw.speed, 20)
 })
+
+# --- Calibration -------------------------------------------------------------
+#
+# A plus maze is not a rectangle, so calibrating an area against the four
+# "corner" landmarks measures an arm corridor instead of the maze. These tests
+# pin the correct behaviour and document the size of the error, using a
+# synthetic maze whose true scale is known exactly.
+
+epm_plus_landmarks_px <- function(arm_width_cm = 5, tip_to_tip_cm = 60,
+                                  px_to_cm = 0.05) {
+  half <- arm_width_cm / 2
+  mid <- tip_to_tip_cm / 2
+  # Perimeter order, matching the `arena` column of EPM_zoneinfo.csv.
+  cm <- rbind(
+    tl  = c(mid - half, tip_to_tip_cm), tr  = c(mid + half, tip_to_tip_cm),
+    ctr = c(mid + half, mid + half),    rt  = c(tip_to_tip_cm, mid + half),
+    rb  = c(tip_to_tip_cm, mid - half), cbr = c(mid + half, mid - half),
+    br  = c(mid + half, 0),             bl  = c(mid - half, 0),
+    cbl = c(mid - half, mid - half),    lb  = c(0, mid - half),
+    lt  = c(0, mid + half),             ctl = c(mid - half, mid + half)
+  )
+  px <- cm / px_to_cm
+  stats::setNames(
+    lapply(seq_len(nrow(px)), function(i) {
+      cbind(x = rep(px[i, 1], 2), y = rep(px[i, 2], 2))
+    }),
+    rownames(px)
+  )
+}
+
+test_that("distance calibration along one arm edge recovers the true EPM scale", {
+  w <- 5; e <- 60; true_scale <- 0.05
+  pts <- epm_plus_landmarks_px(w, e, true_scale)
+  tracking <- make_tracking(frames = 0:1, fps = 10, points = pts)
+
+  # tl and bl are the left corners of the two opposing arms, so tl-bl is the
+  # tip-to-tip span along one edge -- the length actually measured on the maze.
+  calibrated <- CalibrateTrackingData(
+    tracking, method = "distance", in.metric = e, points = c("tl", "bl")
+  )
+  expect_equal(calibrated$px.to.cm, true_scale, tolerance = 1e-9)
+})
+
+test_that("calibrating the tl-br diagonal as if it were the span under-scales", {
+  w <- 5; e <- 60; true_scale <- 0.05
+  pts <- epm_plus_landmarks_px(w, e, true_scale)
+  tracking <- make_tracking(frames = 0:1, fps = 10, points = pts)
+
+  # The diagonal is sqrt(span^2 + width^2), so declaring it to be the span
+  # makes every pixel look shorter than it is. Small, one-directional, and
+  # invisible in occupancy times -- hence a test rather than a comment.
+  calibrated <- CalibrateTrackingData(
+    tracking, method = "distance", in.metric = e, points = c("tl", "br")
+  )
+  expect_equal(calibrated$px.to.cm, true_scale * e / sqrt(e^2 + w^2),
+               tolerance = 1e-9)
+  expect_lt(calibrated$px.to.cm, true_scale)
+  # Declaring the diagonal's real length instead is also correct.
+  tracking2 <- make_tracking(frames = 0:1, fps = 10, points = pts)
+  expect_equal(
+    CalibrateTrackingData(tracking2, method = "distance",
+                          in.metric = sqrt(e^2 + w^2),
+                          points = c("tl", "br"))$px.to.cm,
+    true_scale, tolerance = 1e-9)
+})
+
+test_that("area calibration over the full outline also recovers the scale", {
+  w <- 5; e <- 60; true_scale <- 0.05
+  pts <- epm_plus_landmarks_px(w, e, true_scale)
+  tracking <- make_tracking(frames = 0:1, fps = 10, points = pts)
+
+  # The true area of a plus, not the area of its bounding square.
+  plus_area_cm2 <- 2 * w * e - w^2
+  outline <- c("tl", "tr", "ctr", "rt", "rb", "cbr",
+               "br", "bl", "cbl", "lb", "lt", "ctl")
+  calibrated <- CalibrateTrackingData(
+    tracking, method = "area", in.metric = plus_area_cm2, points = outline
+  )
+  expect_equal(calibrated$px.to.cm, true_scale, tolerance = 1e-9)
+})
+
+test_that("area calibration over tl/tr/br/bl inflates the EPM scale severalfold", {
+  w <- 5; e <- 60; true_scale <- 0.05
+  pts <- epm_plus_landmarks_px(w, e, true_scale)
+  tracking <- make_tracking(frames = 0:1, fps = 10, points = pts)
+
+  # This is the trap: those four landmarks enclose one arm corridor of
+  # w x e, so equating it to a 60 x 60 arena overstates the scale.
+  calibrated <- CalibrateTrackingData(
+    tracking, method = "area", in.metric = e * e,
+    points = c("tl", "tr", "br", "bl")
+  )
+  expect_gt(calibrated$px.to.cm / true_scale, 3)
+  expect_equal(calibrated$px.to.cm, sqrt((e * e) / (w * e / true_scale^2)),
+               tolerance = 1e-9)
+})
+
+test_that("EPM schema accepts the calibration fields and rejects bad methods", {
+  testthat::skip_if_not_installed("yaml")
+  schema <- assay_schema("EPM")
+  expect_true(all(c("calibration_method", "calibration_points",
+                    "calibration_distance_cm") %in% names(schema)))
+  # Optional, so configurations predating the fields still validate.
+  expect_false(schema$calibration_method$required)
+  expect_equal(schema$calibration_method$choices, c("distance", "area"))
+  expect_false(schema$calibration_distance_cm$required)
+})

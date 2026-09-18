@@ -44,6 +44,13 @@ make_epm_fixture <- function(root, fps = 10) {
     paste0("output_dir: ", file.path(root, "output")),
     paste0("zone_file: ", file.path(repo_root, "02_SLEAPanalzyer", "EPM_zoneinfo.csv")),
     paste0("fps: ", fps),
+    # tl (250, 600) and bl (250, 0) are the left corners of the two opposing
+    # arms, so tl-bl is the 600 px / 60 cm tip-to-tip span along one edge --
+    # not the tl-br diagonal, which is sqrt(60^2 + 10^2) cm.
+    "calibration_method: distance",
+    "calibration_points: [tl, bl]",
+    "calibration_distance_cm: 60",
+    # Unused under distance calibration, but required by the common schema.
     "arena_width_cm: 60",
     "arena_height_cm: 60",
     "arena_corner_names: [tl, tr, br, bl]",
@@ -93,6 +100,12 @@ test_that("the EPM batch script runs end to end and assigns arms correctly", {
   # observed onset.
   expect_equal(report$bodycentre.open.entries, 1)
   expect_equal(report$bodycentre.closed.entries, 0)
+
+  # Pin the calibration, not just the occupancy. Arm assignment and entry
+  # counts are scale-invariant, so they pass even when px.to.cm is wrong by a
+  # factor of several; only a distance can catch that. The body path is
+  # 180 + 200 + 200 = 580 px at 10 px per cm.
+  expect_equal(report$bodycentre.raw.distance, 58, tolerance = 1e-6)
 
   expect_true(file.exists(file.path(fixture$output, "tracking_qc.csv")))
   manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))

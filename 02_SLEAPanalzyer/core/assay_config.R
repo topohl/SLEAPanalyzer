@@ -67,7 +67,22 @@ assay_schema <- function(assay) {
     OFT = list(),
     EPM = list(
       zone_file = config_field("path"),
-      nose_dips = config_field("logical", required = FALSE)
+      nose_dips = config_field("logical", required = FALSE),
+
+      # The plus maze is not a rectangle, so `arena_corner_names` does not
+      # bound the apparatus: tl/tr and bl/br are the ends of the two opposing
+      # arms, and the polygon through them is a narrow corridor rather than
+      # the maze. Calibrating an area against it understates the pixel area
+      # and inflates every distance and speed. EPM therefore takes its own
+      # calibration, defaulting to a measured distance between two landmarks.
+      # See docs/assay_definitions.md.
+      calibration_method = config_field(
+        "string", choices = c("distance", "area"), required = FALSE
+      ),
+      calibration_points = config_field("string_vector", required = FALSE),
+      calibration_distance_cm = config_field(
+        "number", positive = TRUE, required = FALSE
+      )
     ),
     NOR = list(
       novel_location_file = config_field("string"),

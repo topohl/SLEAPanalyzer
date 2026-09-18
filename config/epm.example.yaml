@@ -12,8 +12,36 @@ zone_file: ../02_SLEAPanalzyer/EPM_zoneinfo.csv
 
 fps: 30
 
-# The EPM is calibrated across the full maze extent between the tracked
-# corner landmarks.
+# --- Calibration ------------------------------------------------------------
+# The plus maze is NOT a rectangle, so it is calibrated from a measured
+# distance between two tracked landmarks rather than from an arena area.
+#
+# Use two landmarks on the SAME EDGE of one arm, so the distance you declare
+# is the arm-axis span you actually measured with a ruler. tl and bl are the
+# left corners of the top and bottom arms, so tl-bl runs tip to tip along the
+# left edge of the vertical arm: that length is the maze's tip-to-tip extent.
+#
+# Do NOT pair diagonally opposite corners such as tl-br. That distance is the
+# hypotenuse of the span and the arm width, sqrt(span^2 + width^2), so
+# declaring it to be the span silently under-scales the maze by
+# width^2 / (2 * span^2) -- about 0.3% for a 5 cm arm over 60 cm, and more on
+# a wider arm. A useful check: multiply the resulting cm/px by the tl-tr arm
+# width and confirm it returns the width you measured.
+#
+# Do NOT calibrate an area against arena_corner_names on this assay. tl, tr,
+# br and bl are arm ends, not arena corners: the polygon through them is a
+# narrow corridor covering a small fraction of the maze, so equating it to
+# arena_width_cm * arena_height_cm understates the pixel area and inflates
+# every distance, speed and movement threshold by several fold.
+calibration_method: distance
+calibration_points: [tl, bl]
+calibration_distance_cm: 60
+
+# arena_width_cm, arena_height_cm and arena_corner_names are required by the
+# common schema but are unused when calibration_method is "distance". They
+# take effect only under calibration_method: area, where calibration_points
+# must trace the polygon enclosing arena_width_cm * arena_height_cm in order
+# around its perimeter.
 arena_width_cm: 60
 arena_height_cm: 60
 arena_corner_names: [tl, tr, br, bl]
@@ -30,7 +58,8 @@ movement_cutoff_cm_s: 5
 integration_period_frames: 5
 
 # Nose dips require the headcentre, bodycentre and neck landmarks and the
-# closed.left, closed.right and arena zones.
+# closed.left, closed.right and arena zones. If your skeleton names the
+# neck landmark differently, add an alias column rather than disabling this.
 nose_dips: true
 
 min_bout_s: 0.0
