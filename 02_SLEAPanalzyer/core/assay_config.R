@@ -82,6 +82,14 @@ assay_schema <- function(assay) {
       calibration_points = config_field("string_vector", required = FALSE),
       calibration_distance_cm = config_field(
         "number", positive = TRUE, required = FALSE
+      ),
+
+      # Nose-dip smoothing, separate from integration_period_frames because
+      # the two calibrate against different things: one sets the
+      # moving/stationary split, the other how long a head must stay over the
+      # edge to count as one dip. Defaults to integration_period_frames.
+      nosedip_integration_period_frames = config_field(
+        "integer", required = FALSE
       )
     ),
     NOR = list(

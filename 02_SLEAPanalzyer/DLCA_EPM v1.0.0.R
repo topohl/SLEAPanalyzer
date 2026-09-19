@@ -120,7 +120,12 @@ for (batch in batches) {
       movement_cutoff = config$movement_cutoff_cm_s,
       integration_period = config$integration_period_frames,
       points = "bodycentre",
-      nosedips = isTRUE(config$nose_dips)
+      nosedips = isTRUE(config$nose_dips),
+      nosedip_integration_period = if (is.null(config$nosedip_integration_period_frames)) {
+        config$integration_period_frames
+      } else {
+        config$nosedip_integration_period_frames
+      }
     )
   }
 

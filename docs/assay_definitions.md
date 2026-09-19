@@ -128,6 +128,47 @@ to the complementary zone.
 `nose.dip` counts whole onsets. It is a geometric proxy for head-dipping and
 should be validated against manual scoring before use as a primary outcome.
 
+### Nose dips over-count at the default smoothing window
+
+That validation has now been done once, against the manually scored Exp9
+Batch 1 (n = 20 — the only batch with manual nose-dip scoring).
+
+The detector has no threshold: a frame is a dip when the head is outside the
+arena outline, the body is inside it, and the neck is not in a closed arm. The
+only lever is the half-width of the majority filter applied before onsets are
+counted, `nosedip_integration_period`, which decides how long a head must stay
+over the edge to count as one dip rather than several.
+
+| window (frames) | SLEAP / manual | Lin's CCC | Spearman rho |
+|---|---|---|---|
+| 1 | 2.46 | 0.27 | 0.82 |
+| **5 (default)** | **1.96** | **0.42** | **0.84** |
+| 10 | 1.71 | 0.54 | 0.83 |
+| 15 | 1.43 | 0.70 | 0.82 |
+| **20** | **1.13** | **0.82** | **0.86** |
+| 30 | 0.76 | 0.68 | 0.82 |
+| 45 | 0.49 | 0.40 | 0.76 |
+
+At the shipped default the detector reports **twice** as many dips as a human
+scorer. A window of 20 frames (±0.67 s at 30 fps) brings it to within 13% and
+roughly doubles concordance. Rank agreement is flat across the whole sweep, so
+the window trades count magnitude, not ordering: `nose.dip` is usable as a
+ranked measure at any setting, and as an absolute count only near 20.
+
+**The default is deliberately unchanged.** One cohort, one apparatus and one
+scorer is thin ground for changing a shipped default, and the right window
+depends on frame rate and on how the scorer segments dips. Set it explicitly:
+
+```yaml
+integration_period_frames: 5           # locomotion: moving/stationary split
+nosedip_integration_period_frames: 20  # dips: calibrated against manual scoring
+```
+
+The two were a single parameter before, which made this untunable — widening
+the dip window also blurred the moving/stationary split. They are now separate,
+and `nosedip_integration_period_frames` defaults to `integration_period_frames`
+so existing configurations are unaffected.
+
 ### Calibration: distance, not arena area
 
 EPM is calibrated from a **measured distance between two landmarks**

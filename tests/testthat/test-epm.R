@@ -290,3 +290,44 @@ test_that("EPM schema accepts the calibration fields and rejects bad methods", {
   expect_equal(schema$calibration_method$choices, c("distance", "area"))
   expect_false(schema$calibration_distance_cm$required)
 })
+
+# --- Nose-dip smoothing is separable from locomotion smoothing --------------
+
+test_that("nosedip_integration_period defaults to integration_period", {
+  fn <- formals(EPMAnalysis)
+  expect_true("nosedip_integration_period" %in% names(fn))
+  expect_equal(as.character(fn$nosedip_integration_period), "integration_period")
+})
+
+test_that("widening only the nose-dip window merges dips without touching movement", {
+  # The body sits on the open top arm throughout. The head flicks off the maze
+  # four times in quick succession: four dips to a narrow majority filter, one
+  # to a human scorer, which is the over-counting seen against Batch 1.
+  n <- 60
+  body_x <- rep(50, n)
+  body_y <- rep(80, n)
+  head_x <- rep(50, n)
+  head_y <- rep(80, n)
+  for (k in c(11, 17, 23, 29)) head_x[k:(k + 1)] <- 150  # clear of the maze
+  tracking <- epm_tracking(body_x, body_y, fps = 10,
+                           head_x = head_x, head_y = head_y)
+
+  narrow <- EPMAnalysis(tracking, movement_cutoff = 5, integration_period = 1,
+                        points = "bodycentre", nosedips = TRUE,
+                        nosedip_integration_period = 1)
+  wide <- EPMAnalysis(tracking, movement_cutoff = 5, integration_period = 1,
+                      points = "bodycentre", nosedips = TRUE,
+                      nosedip_integration_period = 12)
+
+  expect_gt(narrow$Report$nose.dip, wide$Report$nose.dip)
+
+  # Locomotion is driven by integration_period, identical in both calls, so
+  # retuning the dip window must leave it untouched. That separation is the
+  # whole point of the argument.
+  expect_equal(narrow$Report$bodycentre.raw.distance,
+               wide$Report$bodycentre.raw.distance)
+  expect_equal(narrow$Report$bodycentre.time.moving,
+               wide$Report$bodycentre.time.moving)
+  expect_equal(narrow$Report$bodycentre.total.time,
+               wide$Report$bodycentre.total.time)
+})

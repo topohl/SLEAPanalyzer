@@ -609,10 +609,21 @@ OFTAnalysis <- function(t, movement_cutoff,integration_period, points){
 #' @param movement_cutoff a numeric value that denotes the cutoff point above which an animal is considered moving
 #' @param integration_period a numeric value that denotes the duration over which metrics are smoothed.
 #' @param points a string or vector of strings that denotes the name of points which will be analysed
+#' @param nosedip_integration_period half-width, in frames, of the majority
+#'   filter applied to the nose-dip boolean before onsets are counted. Defaults
+#'   to integration_period, which is what this function used to use for both.
+#'   They are separable because they calibrate against different things:
+#'   integration_period smooths speed for the moving/stationary split, while
+#'   this one decides how long a head must stay over the edge to count as one
+#'   dip rather than several. Against the Batch-1 manual scoring, the shipped
+#'   value of 5 over-counts dips 2.0x (CCC 0.42); 20 gives a ratio of 1.13 and
+#'   CCC 0.82, while rank agreement is flat across the whole range. See
+#'   11_recalibrate_nosedips.R in the correlate_sleap_boris analysis.
 #' @return a TrackingData object
 #' @examples
 #' EPMAnalysis(t, 5,5,"bodycentre")
-EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips = FALSE){
+EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips = FALSE,
+                        nosedip_integration_period = integration_period){
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
@@ -639,7 +650,7 @@ EPMAnalysis <- function(t, movement_cutoff,integration_period, points,nosedips =
       # IsInZone() already reports FALSE for unobserved frames; negating the
       # head test would otherwise turn a dropout into a nose dip.
       nosedip <- nosedip & nosedip.observed
-      t$labels$automatic.nosedip <- as.logical(avgbool(nosedip, integration_period))
+      t$labels$automatic.nosedip <- as.logical(avgbool(nosedip, nosedip_integration_period))
       # Counting onsets directly. The previous CalculateTransitions(...) / 2
       # counted onsets plus offsets and halved them, which returns a
       # half-integer whenever a dip is still in progress on the last frame.
