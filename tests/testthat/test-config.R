@@ -150,11 +150,20 @@ test_that("the OFT example only sets keys the OFT script accepts", {
   expect_lt(merged$max_jump_cm, 50)
 })
 
-test_that("the NOR example does not default to the biased legacy detector", {
+test_that("the NOR example defaults to the symmetric detector", {
   skip_if_no_yaml()
+  # A symmetric detector is the right DEFAULT for a shipped example: it is
+  # correct whenever the two objects are interchangeable, and it cannot
+  # silently encode one apparatus's object dimensions into everyone's config.
+  #
+  # It is not automatically the right choice for a given rig. Where the two
+  # objects are physically different, matching the detector to each recovers
+  # contact time better and reduces D2 bias -- on the Exp9 apparatus
+  # `legacy_asymmetric` beats `radial` (D2 CCC 0.84 vs 0.72, bias +0.009 vs
+  # -0.058). See docs/assay_definitions.md; the choice must be settled against
+  # manually scored video per apparatus, not by this default.
   config <- load_assay_config(file.path(repo_root, "config", "nor.example.yaml"), "NOR")
   expect_equal(config$contact_geometry, "radial")
-  expect_false(identical(config$contact_geometry, "legacy_asymmetric"))
 })
 
 test_that("an invalid assay configuration is rejected", {

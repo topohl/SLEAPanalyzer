@@ -243,9 +243,39 @@ objects:
 
 Before v2, the novel object was always scored with the 9x7 cm box and the
 familiar object with the 4 cm radius. Those regions have different areas
-(63 vs 50.3 cm²), so novel contact time was inflated by construction and the
-discrimination index was biased independently of any behaviour. Do not use
-`legacy_asymmetric` except to reproduce old outputs.
+(63 vs 50.3 cm²), so on an apparatus where the two objects are physically
+**identical** the asymmetric detector inflates novel contact time by
+construction and biases the discrimination index independently of behaviour.
+
+### But validate it: on Exp9 the shape-matched detector wins
+
+That argument assumes the objects are interchangeable. On the Exp9 apparatus
+they are not — one is round and small, the other rectangular — and the
+pre-v2 dimensions describe the real objects. Scored against the manually
+scored Batch 1 (n = 20, the only batch with manual NOR scoring):
+
+| detector | novel ratio | familiar ratio | D2 r | D2 CCC | D2 bias |
+|---|---|---|---|---|---|
+| `radial`, 4 cm | 0.93 | 1.01 | 0.740 | 0.715 | **−0.058** |
+| `radial`, 5 cm | 1.11 | 1.18 | 0.800 | 0.791 | −0.022 |
+| **`legacy_asymmetric` 9x7 / r4** | **1.02** | **1.01** | 0.845 | 0.842 | **+0.009** |
+| 9x7 box / area-matched r4.48 | 1.02 | 1.10 | **0.860** | **0.848** | −0.032 |
+
+A single radius applied to both **under-detects the larger object** (0.93
+against 1.01), and that asymmetry is itself a D2 bias — a bigger one
+(−0.058) than the area difference it was meant to avoid (+0.009). Matching
+the detector to each object recovers contact time for both at ~1.0 and nearly
+doubles the reduction in D2 bias.
+
+So `legacy_asymmetric` is the validated choice **for this apparatus**, and the
+name is misleading: it is shape-matching, not a legacy quirk. The warning it
+emits should be read as "confirm this matches your objects", not "do not use".
+
+The general rule stands: **the detector must match the apparatus, and which
+detector that is can only be settled against manually scored video.** Identical
+objects → one detector. Physically different objects → match each, and check
+that both recover contact time at a ratio near 1, because an uneven recovery
+is what actually biases D2.
 
 ### Orientation convention
 
