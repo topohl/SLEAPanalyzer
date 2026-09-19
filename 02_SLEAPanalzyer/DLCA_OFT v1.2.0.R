@@ -302,7 +302,10 @@ make_frame_table <- function(tracking, file_id, batch, code, config) {
     Batch = batch,
     Code = code,
     frame = body$frame,
-    frame_index = dplyr::row_number(),
+    # seq_along(), not dplyr::row_number(): the latter is a data-masking verb
+    # and has no mask to read inside tibble(), so it aborts with "Must only be
+    # used inside data-masking verbs". That failed every file on dplyr 1.2.1.
+    frame_index = seq_along(body$frame),
     time_s = (frame_index - 1) / config$fps,
     x = body$x,
     y = body$y,
@@ -1000,7 +1003,11 @@ for (batch in config$batches) {
     batch_summaries_scored <- add_center_exploration_score(batch_summaries)
       batch_enhanced_scored <- batch_enhanced %>%
         left_join(
-          batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score_cohort_z_experimental, oft_center_exploration_cohort_n),
+          # qc_flag must come across too: the mutate() below reads it, and
+          # batch_enhanced does not carry it. Omitting it aborted the run at
+          # the end of the first batch, so no batch after B1 was ever reached.
+          # The all-batches aggregation further down selects it correctly.
+          batch_summaries_scored %>% select(file, Batch, Code, starts_with("z_"), oft_center_exploration_score_cohort_z_experimental, oft_center_exploration_cohort_n, qc_flag),
           by = c("file", "Batch", "Code")
         ) %>%
         mutate(

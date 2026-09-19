@@ -89,11 +89,12 @@ test_that("a missing configuration file is reported clearly", {
 
 test_that("the bundled example configurations load and validate", {
   skip_if_no_yaml()
+  # OFT is deliberately absent: it does not use the common assay schema. It is
+  # covered by its own test below, against the surface it actually consumes.
   assays <- list(
     NOR = "nor.example.yaml",
     SocP = "socp.example.yaml",
-    EPM = "epm.example.yaml",
-    OFT = "oft.example.yaml"
+    EPM = "epm.example.yaml"
   )
   for (assay in names(assays)) {
     path <- file.path(repo_root, "config", assays[[assay]])
@@ -103,6 +104,50 @@ test_that("the bundled example configurations load and validate", {
     expect_gt(config$fps, 0)
     expect_equal(length(config$arena_corner_names), 4L, info = assay)
   }
+})
+
+# Read the `config <- list(...)` block out of an assay script without running
+# the script, so a test can see the keys it actually accepts.
+script_default_config <- function(script_path) {
+  src <- readLines(script_path, warn = FALSE)
+  start <- grep("^config <- list\\(", src)[1]
+  if (is.na(start)) stop("no 'config <- list(' block in ", basename(script_path))
+  depth <- 0L
+  end <- NA_integer_
+  for (i in seq(start, length(src))) {
+    opens <- lengths(regmatches(src[i], gregexpr("(", src[i], fixed = TRUE)))
+    closes <- lengths(regmatches(src[i], gregexpr(")", src[i], fixed = TRUE)))
+    depth <- depth + opens - closes
+    if (depth == 0L) { end <- i; break }
+  }
+  if (is.na(end)) stop("unterminated config block in ", basename(script_path))
+  eval(parse(text = paste(src[seq(start, end)], collapse = "\n")))
+}
+
+test_that("the OFT example only sets keys the OFT script accepts", {
+  skip_if_no_yaml()
+  # DLCA_OFT overlays YAML onto its own internal list via apply_config_overlay(),
+  # which aborts on any key that list does not define. An example written to
+  # the common assay schema therefore parses fine and still cannot be run --
+  # which is exactly what shipped before. Check the real contract.
+  script <- file.path(repo_root, "02_SLEAPanalzyer", "DLCA_OFT v1.2.0.R")
+  skip_if_not(file.exists(script))
+  defaults <- script_default_config(script)
+  example <- yaml::yaml.load_file(file.path(repo_root, "config", "oft.example.yaml"))
+
+  unknown <- setdiff(names(example), names(defaults))
+  expect_equal(
+    unknown, character(0),
+    info = paste("keys the OFT script would reject:", paste(unknown, collapse = ", "))
+  )
+
+  merged <- utils::modifyList(defaults, example)
+  expect_true(is.numeric(merged$fps) && merged$fps > 0)
+  expect_equal(length(merged$corner_points), 4L)
+  expect_true(is.numeric(merged$arena_size_cm) && merged$arena_size_cm > 0)
+  # Per-frame displacement, not a speed: a large value silently disables the
+  # jump filter, so the shipped example must not carry one.
+  expect_lt(merged$max_jump_cm, 50)
 })
 
 test_that("the NOR example does not default to the biased legacy detector", {

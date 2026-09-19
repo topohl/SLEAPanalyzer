@@ -2,34 +2,79 @@
 #
 #   SLEAP_ANALYZER_CONFIG=/path/to/my_oft.yaml Rscript "02_SLEAPanalzyer/DLCA_OFT v1.2.0.R"
 #
+# IMPORTANT: OFT does not use the common assay schema that EPM, NOR and SocP
+# share. It overlays this file onto its own internal configuration list via
+# apply_config_overlay(), which REJECTS any key it does not already define.
+# Keys such as input_dir, output_dir, arena_width_cm, arena_corner_names or
+# max_interpolation_gap_s are not accepted here and will abort the run; the
+# equivalents are input_subdir, output_subdir, arena_size_cm and corner_points.
+# Every key below is one the script actually defines.
+#
+# Paths are composed as behavior_root/<batch>/<input_subdir>, and likewise for
+# the output, so both live under the same root.
+#
+# WARNING: as shipped, behavior_root points at the real data tree, so running
+# this file unedited WRITES OUTPUT INTO Raw Data/ -- and overwrite_outputs is
+# TRUE, so it replaces any previous run in place. Copy this file and repoint
+# behavior_root before running it. Unlike the other assays there is no separate
+# output_dir to redirect: input and output share behavior_root.
+#
 # Interpretation note: OFT measurements form a behavioural profile. Reduced
 # centre occupancy is not by itself a measurement of anxiety, and must be read
 # together with locomotion and immobility.
 
-input_dir: ../example_data/OFT/formatted
-output_dir: ../example_data/OFT/output
-metadata_dir: ../example_data/OFT
-animal_id_code_file: ../example_data/OFT/animalIDCode.txt
+behavior_root: S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior
+input_subdir: OFT/SLEAP/formatted
+output_subdir: OFT/SLEAP/output_v1.2.0
+animal_id_code_file: S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt
 batches: [B1]
 
 fps: 30
 
-arena_width_cm: 49
-arena_height_cm: 49
-arena_corner_names: [tl, tr, br, bl]
+# Which files to read, and how the animal code is taken from the file name.
+# code_regex is the OFT-only escape hatch for exports that do not lead with
+# the code; the other assays hard-code the leading four characters.
+csv_pattern: "[.]csv$"
+code_regex: "^[A-Za-z0-9]{4}"
 
-max_interpolation_gap_s: 0.2
-likelihood_cutoff: 0.9
-max_plausible_speed_cm_s: 100
+# --- Arena ------------------------------------------------------------------
+# Square arena, calibrated by area against the four corner landmarks. That is
+# sound here because tl/tr/br/bl really are the arena corners -- unlike EPM,
+# where the same four points are arm ends. See docs/assay_definitions.md.
+arena_size_cm: 49
+corner_points: [tl, tr, br, bl]
+center_scale: 0.5
+periphery_scale: 0.8
+corner_scale: 0.4
 
-qc_min_valid_fraction: 0.8
-qc_max_longest_gap_s: 5.0
-qc_max_interpolated_fraction: 0.2
+# --- Tracking quality -------------------------------------------------------
+likelihood_cutoff: 0.90
+# Per-FRAME displacement, in cm -- not a speed. At 30 fps, 15 cm/frame already
+# allows 450 cm/s, so raising this effectively disables the jump filter.
+max_jump_cm: 15
+high_missing_fraction: 0.20
+high_low_likelihood_fraction: 0.20
+min_valid_frames_fraction: 0.70
+min_track_duration_s: 60
+strict_qc_stop: false
 
+# --- Locomotion and bouts ---------------------------------------------------
 movement_cutoff_cm_s: 5
 integration_period_frames: 5
+immobility_min_duration_s: 1.0
+speed_low_cm_s: 2
+speed_high_cm_s: 10
 
-min_bout_s: 0.0
-max_gap_s: 0.0
+# --- Time structure ---------------------------------------------------------
+bin_size_s: 60
+epoch_duration_s: 300
 
-write_manifest: true
+# --- Spatial occupancy ------------------------------------------------------
+occupancy_grid_n: 10
+occupancy_use_arena_coordinates: true
+wall_thresholds_cm: [5, 10]
+
+overwrite_outputs: true
+recursive_input_search: false
+save_plots: true
+save_enhanced_plots: true
