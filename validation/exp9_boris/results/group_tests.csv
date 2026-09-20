@@ -1,0 +1,19 @@
+"grouping","metric","groups","p","p_BH"
+"Condition","EPM open time","CON(n=4) SIS(n=16)",0.570750388058175,0.68490046566981
+"Condition","EPM centre time","CON(n=4) SIS(n=16)",0.0376353137873143,0.176345164066077
+"Condition","EPM SAP","CON(n=4) SIS(n=16)",0.058781721355359,0.176345164066077
+"Condition","NOR D2","CON(n=4) SIS(n=16)",0.130570018115735,0.234563582639468
+"Condition","SocP S1 preference","CON(n=4) SIS(n=16)",0.156375721759645,0.234563582639468
+"Condition","SocP S2 preference","CON(n=4) SIS(n=16)",0.924719037486778,0.924719037486778
+"Phenotype (curated)","EPM open time","CON(n=4) RES(n=4) SUS(n=7)",0.870756541615077,0.870756541615077
+"Phenotype (curated)","EPM centre time","CON(n=4) RES(n=4) SUS(n=7)",0.277442144133161,0.583854880434434
+"Phenotype (curated)","EPM SAP","CON(n=4) RES(n=4) SUS(n=7)",0.291927440217217,0.583854880434434
+"Phenotype (curated)","NOR D2","CON(n=4) RES(n=4) SUS(n=7)",0.00885488748431751,0.053129324905905
+"Phenotype (curated)","SocP S1 preference","CON(n=4) RES(n=4) SUS(n=7)",0.498807158275566,0.748210737413348
+"Phenotype (curated)","SocP S2 preference","CON(n=4) RES(n=4) SUS(n=7)",0.702175835379945,0.842611002455933
+"Phenotype (batch-corrected)","EPM open time","CON(n=4) RES(n=6) SUS(n=10)",0.525788024425778,0.525788024425778
+"Phenotype (batch-corrected)","EPM centre time","CON(n=4) RES(n=6) SUS(n=10)",0.0831867942535655,0.249560382760697
+"Phenotype (batch-corrected)","EPM SAP","CON(n=4) RES(n=6) SUS(n=10)",0.167517632153906,0.335035264307813
+"Phenotype (batch-corrected)","NOR D2","CON(n=4) RES(n=6) SUS(n=10)",0.00130205756449737,0.00781234538698424
+"Phenotype (batch-corrected)","SocP S1 preference","CON(n=4) RES(n=6) SUS(n=10)",0.366044634804017,0.43925356176482
+"Phenotype (batch-corrected)","SocP S2 preference","CON(n=4) RES(n=6) SUS(n=10)",0.22954259520836,0.344313892812541

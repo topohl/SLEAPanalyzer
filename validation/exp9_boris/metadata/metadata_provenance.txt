@@ -1,0 +1,24 @@
+Exp9 Batch-1 manual-tracking metadata - provenance
+generated: 2026-09-18 15:12:47
+R: R version 4.5.1 (2025-06-13 ucrt)
+
+Sources (key | path | size bytes | last modified):
+  id_code   s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt | 1430 | 2024-06-03 11:14:01
+  assign    s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc/animal_group_sex_assignment_qc.csv | 4935 | 2026-08-27 17:03:56
+  phenotype s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc/cross_scale_identity_expected_phenotype_from_preprocessed.csv | 1081 | 2026-08-26 16:21:46
+  sus       s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/sus_animals.csv | 269 | 2024-10-04 11:20:16
+  sus_bc    s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/sus_animals_batchCorrected.csv | 296 | 2024-10-30 15:47:19
+  con       s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/con_animals.csv | 168 | 2024-06-10 11:14:54
+  nor       C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/NOR.xlsx | 11372 | 2026-09-18 11:55:35
+  socp      C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/SocP.xlsx | 10454 | 2026-09-18 11:57:40
+  epm       C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/SISB1_EPMdata.tsv | 51003 | 2025-11-18 17:31:20
+  epm_grp   C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/SISB1_EPMdataGrouped.tsv | 10574 | 2025-11-18 17:31:20
+
+cohort: 20 animals (union of EPM and NOR subjects)
+phenotype resolved: 15/20
+phenotype conflicts (primary vs batch-corrected): 1
+condition conflicts (assay sheet vs phenotype-implied): 0
+
+Note: the curated RFID table Group column encodes phenotype (CON/RES/SUS),
+not experimental condition. Condition here comes from the assay scoring sheets.
+Original NOR.xlsx / SocP.xlsx / *.tsv files were read only, never written.

@@ -1,0 +1,46 @@
+# Exp9 social preference, all six batches, S1 and S2.
+#
+# HAB is omitted: there is no manual habituation scoring to compare against.
+# Add "HAB" to phases to analyse it.
+#
+# metadata_dir is deliberately NOT set. DLCA_SocP falls back to the per-phase
+# input directory when it is absent, which is what makes the per-batch
+# novelLocS1/S2.txt files resolve correctly; setting it would force one
+# batch's novel-side table onto all six.
+#
+# The chamber aspect ratio is 1.826-1.831 in every batch against 44/24 =
+# 1.833 expected, so 44 x 24 cm applies throughout.
+
+input_dir: C:/Users/topohl/Documents/exp9_sleap_staging/SocP
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output_all/SocP
+animal_id_code_file: C:/Users/topohl/Documents/exp9_sleap_staging/animalIDCode.txt
+novel_location_file_prefix: novelLoc
+phases: [S1, S2]
+batches: [B1, B2, B3, B4, B5, B6]
+
+fps: 30
+
+arena_width_cm: 44
+arena_height_cm: 24
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+contact_distance_cm: 6
+body_exclusion_distance_cm: 1
+proximity_range_cm: [6, 10]
+require_orientation: false
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

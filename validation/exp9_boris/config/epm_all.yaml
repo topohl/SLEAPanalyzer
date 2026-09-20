@@ -1,0 +1,50 @@
+# Exp9 EPM, all six batches. See config/epm_b1.yaml for the calibration
+# rationale: tl-bl is the 60 cm tip-to-tip span along one arm edge, NOT the
+# tl-br diagonal, and NOT an area over [tl,tr,br,bl].
+#
+# Calibration is per file, so the ~10% pixel-scale difference between batches
+# (tl-bl spans 872-965 px, B5 vs B2) needs no per-batch configuration. The
+# 60 cm figure was checked in every batch by 07_audit_batches.R: the derived
+# scale reads the tl-tr arm width back as 4.79-5.01 cm throughout.
+#
+# Inputs are the staged copies from 08_stage_all_batches.R, which carry the
+# neck alias and a canonical <CODE>.csv name.
+
+input_dir: C:/Users/topohl/Documents/exp9_sleap_staging/EPM
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output_all/EPM
+zone_file: C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/02_SLEAPanalzyer/EPM_zoneinfo.csv
+batches: [B1, B2, B3, B4, B5, B6]
+
+fps: 30
+
+calibration_method: distance
+calibration_points: [tl, bl]
+calibration_distance_cm: 60
+
+arena_width_cm: 60
+arena_height_cm: 60
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# Nose dips only. Calibrated against the Batch-1 manual scoring by
+# 11_recalibrate_nosedips.R: the default of 5 over-counts dips 2.0x (CCC 0.42),
+# 20 gives a ratio of 1.13 and CCC 0.82. Separate from the locomotion window
+# above, which is left at 5.
+nosedip_integration_period_frames: 20
+
+nose_dips: true
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

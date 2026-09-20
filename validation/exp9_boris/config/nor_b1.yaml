@@ -1,0 +1,67 @@
+# Exp9 Batch-1 NOR run. Values follow config/nor.example.yaml from the
+# SLEAPanalyzer v2 repo; only the paths and the batch layout differ.
+#
+# Calibration check: the [tl,tr,br,bl] corner polygon (591841 px2) matches the
+# bounding box of those corners to within 1%, so the arena really is the
+# rectangle the area method assumes. 49 x 49 cm gives 0.0637 cm/px.
+#
+# NOVEL/FAMILIAR WARNING: the pipeline maps metadata "R" to a novel LEFT side
+# (Behavioral_Metrics_Phase1.R:212), which is the inverse of the manual BORIS
+# sheet, where novelloc == "L" means nov_BORIS == intLeft_BORIS. novelLoc.txt
+# below holds the TRUE novel side as scored. Therefore contactNov / contactFam
+# in this output are swapped relative to nov_BORIS / fam_BORIS. Correlate the
+# side-based columns (contactLeft / contactRight) instead, or recompute the
+# discrimination index from them; 05_correlate.R does the latter.
+
+input_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_input/NOR
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output/NOR
+metadata_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/metadata
+animal_id_code_file: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/metadata/animalIDCode.txt
+novel_location_file: novelLoc.txt
+
+fps: 30
+
+arena_width_cm: 49
+arena_height_cm: 49
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# Symmetric detector for both objects. legacy_asymmetric would bias the
+# discrimination index by construction and is deliberately not used.
+# Shape-matched, validated against the Batch-1 manual scoring by
+# 13_compare_nor_detectors.R. The objects are physically different -- one
+# round, one rectangular -- and the pre-v2 dimensions (9x7 cm box on the
+# novel object, 4 cm radius on the familiar one) recover contact time for
+# BOTH at ratio ~1.02/1.01, against 0.93/1.01 for a single 4 cm radius.
+# D2 concordance 0.842 vs 0.715, and D2 bias +0.009 vs -0.058.
+#
+# v2 deprecates this as biased "by construction" because the regions differ
+# in area (63 vs 50.3 cm2). That reasoning is sound in the abstract and wrong
+# here: applying one radius to both UNDER-detects the larger object, which is
+# itself a D2 bias, and a larger one.
+contact_geometry: legacy_asymmetric
+contact_distance_cm: 4
+body_exclusion_distance_cm: 1
+object_box_width_cm: 9
+object_box_height_cm: 7
+contact_angle_deg: [70, 290]
+proximity_range_cm: [4, 8]
+proximity_angle_deg: [90, 270]
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+report_rearing: true
+rearing_spine_distance_cm: 1
+
+write_manifest: true

@@ -1,0 +1,36 @@
+# Exp9 open field, all six batches.
+#
+# NOTE: DLCA_OFT v1.2.0 does NOT use the common assay schema. It overlays YAML
+# onto its own internal config list via apply_config_overlay(), which rejects
+# any key it does not already define. The shipped config/oft.example.yaml sets
+# 14 keys this script does not accept (input_dir, arena_width_cm,
+# arena_corner_names, ...) and therefore fails immediately; this file uses the
+# script's real key names instead.
+#
+# Both input and output hang off behavior_root/<batch>/, so OFT output lands
+# in the staging tree rather than the project; 09 collects its tables.
+
+behavior_root: C:/Users/topohl/Documents/exp9_sleap_staging/OFT
+input_subdir: "."
+output_subdir: output_v1.2.0
+animal_id_code_file: C:/Users/topohl/Documents/exp9_sleap_staging/animalIDCode.txt
+batches: [B1, B2, B3, B4, B5, B6]
+
+fps: 30
+code_regex: "^[A-Za-z0-9]{4}"
+csv_pattern: "[.]csv$"
+
+arena_size_cm: 49
+corner_points: [tl, tr, br, bl]
+
+likelihood_cutoff: 0.9
+# Per-FRAME displacement in cm, not a speed. The script default is 15, which
+# at 30 fps already permits 450 cm/s. This file previously set 100, which
+# disabled the jump filter altogether; the B1-B6 run was redone with 15.
+max_jump_cm: 15
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+min_track_duration_s: 60
+
+overwrite_outputs: true
+strict_qc_stop: false

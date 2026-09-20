@@ -1,0 +1,64 @@
+# Exp9 NOR, all six batches, novel-object trials only.
+#
+# B2-B6 keep habituation and novel-object trials in one folder; only _NOV
+# files were staged, so pointing at the staged tree cannot mix them.
+#
+# The arena is square in every batch (corner-polygon aspect 0.998-1.003), so
+# 49 x 49 cm applies throughout and area calibration is valid. Pixel size
+# varies 740-797 px between batches and is handled per file.
+#
+# NOVEL/FAMILIAR: metadata "R" maps to a novel LEFT side. That is correct for
+# image-consistent sides -- see README.md; contactNov/contactFam are the
+# columns to use.
+
+input_dir: C:/Users/topohl/Documents/exp9_sleap_staging/NOR
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output_all/NOR
+metadata_dir: C:/Users/topohl/Documents/exp9_sleap_staging/NOR_meta
+animal_id_code_file: C:/Users/topohl/Documents/exp9_sleap_staging/animalIDCode.txt
+novel_location_file: novelLoc.txt
+batches: [B1, B2, B3, B4, B5, B6]
+
+fps: 30
+
+arena_width_cm: 49
+arena_height_cm: 49
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# Shape-matched, validated against the Batch-1 manual scoring by
+# 13_compare_nor_detectors.R. The objects are physically different -- one
+# round, one rectangular -- and the pre-v2 dimensions (9x7 cm box on the
+# novel object, 4 cm radius on the familiar one) recover contact time for
+# BOTH at ratio ~1.02/1.01, against 0.93/1.01 for a single 4 cm radius.
+# D2 concordance 0.842 vs 0.715, and D2 bias +0.009 vs -0.058.
+#
+# v2 deprecates this as biased "by construction" because the regions differ
+# in area (63 vs 50.3 cm2). That reasoning is sound in the abstract and wrong
+# here: applying one radius to both UNDER-detects the larger object, which is
+# itself a D2 bias, and a larger one.
+contact_geometry: legacy_asymmetric
+contact_distance_cm: 4
+body_exclusion_distance_cm: 1
+object_box_width_cm: 9
+object_box_height_cm: 7
+contact_angle_deg: [70, 290]
+proximity_range_cm: [4, 8]
+proximity_angle_deg: [90, 270]
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+report_rearing: true
+rearing_spine_distance_cm: 1
+
+write_manifest: true

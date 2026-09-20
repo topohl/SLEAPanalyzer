@@ -1,0 +1,6 @@
+
+# Exp9 validation study: bulk SLEAP tracking input/output (~4.8 GB) is never
+# versioned. Only the scripts, derived tables and figures are kept.
+validation/*/sleap_input/
+validation/*/sleap_output/
+validation/*/sleap_output_all/

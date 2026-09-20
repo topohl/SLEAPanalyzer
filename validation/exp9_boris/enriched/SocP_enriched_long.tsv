@@ -1,0 +1,41 @@
+Code	ID	ID_sheet	Batch	Sex	Condition	Phenotype	Group_sheet	Side	S1Total duration (s)	S2Total duration (s)	Phenotype_source	Phenotype_batchCorrected	Phenotype_bc_complement	Phenotype_conflict
+A1L9	OQ752	752	B1		SIS		SIS	novel	168.735	16.121	unresolved	RES	TRUE	FALSE
+A1L9	OQ752	752	B1		SIS		SIS	familiar	21.406	164.523	unresolved	RES	TRUE	FALSE
+C2P4	OQ771	771	B1	Male	SIS	SUS	SIS	novel	195.416	192.079	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+C2P4	OQ771	771	B1	Male	SIS	SUS	SIS	familiar	16.256	42.488	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+C7E2	OQ761	761	B1	Male	CON	CON	CON	novel	200.949	125.401	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+C7E2	OQ761	761	B1	Male	CON	CON	CON	familiar	56.301	44.005	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+F2I1	OQ770	770	B1	Male	SIS	SUS	SIS	novel	181.803	98.903	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+F2I1	OQ770	770	B1	Male	SIS	SUS	SIS	familiar	23.565	86.049	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+F9L3	OQ751	751	B1		SIS		SIS	novel	137.973	70.5	unresolved	RES	TRUE	FALSE
+F9L3	OQ751	751	B1		SIS		SIS	familiar	55.706	92.848	unresolved	RES	TRUE	FALSE
+H9J5	OQ772	772	B1	Male	SIS	RES	SIS	novel	319.674	281.379	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE
+H9J5	OQ772	772	B1	Male	SIS	RES	SIS	familiar	26.487	98.556	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE
+K4T2	OQ750	750	B1		SIS		SIS	novel	195.944	152.947	unresolved	SUS	FALSE	FALSE
+K4T2	OQ750	750	B1		SIS		SIS	familiar	16.991	58.239	unresolved	SUS	FALSE	FALSE
+L2H0	OQ760	760	B1	Male	CON	CON	CON	novel	108.559	103.678	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+L2H0	OQ760	760	B1	Male	CON	CON	CON	familiar	41.993	65.041	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+M1M3	0003	3	B1	Male	SIS	RES	SIS	novel	178.388	144.452	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE
+M1M3	0003	3	B1	Male	SIS	RES	SIS	familiar	54.242	64.964	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE
+M8P3	OQ763	763	B1	Male	CON	CON	CON	novel	227.805	60.71	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+M8P3	OQ763	763	B1	Male	CON	CON	CON	familiar	30.028	33.748	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+P9X0	OQ755	755	B1	Male	SIS	SUS	SIS	novel	121.801	163.35	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+P9X0	OQ755	755	B1	Male	SIS	SUS	SIS	familiar	24.976	28.483	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+R8K7	OQ754	754	B1	Male	SIS	SUS	SIS	novel	188.946	117.714	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+R8K7	OQ754	754	B1	Male	SIS	SUS	SIS	familiar	30.235	123.466	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+R8O3	OQ764	764	B1	Male	SIS	SUS	SIS	novel	263.057	265.897	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+R8O3	OQ764	764	B1	Male	SIS	SUS	SIS	familiar	24.977	61.536	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+S7I3	0004	4	B1	Male	SIS	SUS	SIS	novel	179.927	170.872	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+S7I3	0004	4	B1	Male	SIS	SUS	SIS	familiar	32.827	64.479	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE
+T2H7	OQ762	762	B1	Male	SIS	RES	SIS	novel	216.966	100.634	rfid_animal_group_sex_assignment_qc	SUS	FALSE	TRUE
+T2H7	OQ762	762	B1	Male	SIS	RES	SIS	familiar	33.625	49.603	rfid_animal_group_sex_assignment_qc	SUS	FALSE	TRUE
+U5P3	OQ765	765	B1	Male	CON	CON	CON	novel	246.371	139.208	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+U5P3	OQ765	765	B1	Male	CON	CON	CON	familiar	35.984	69.729	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE
+V2P0	0002	2	B1		SIS		SIS	novel	298.839	153.874	unresolved	RES	TRUE	FALSE
+V2P0	0002	2	B1		SIS		SIS	familiar	25.032	169.778	unresolved	RES	TRUE	FALSE
+X1H0	0001	1	B1		SIS		SIS	novel	202.054	114.459	unresolved	SUS	FALSE	FALSE
+X1H0	0001	1	B1		SIS		SIS	familiar	17.486	91.72	unresolved	SUS	FALSE	FALSE
+Y0F3	OQ753	753	B1		SIS	SUS	SIS	novel	220.919	103.451	Analysis/sus_animals.csv	SUS	FALSE	FALSE
+Y0F3	OQ753	753	B1		SIS	SUS	SIS	familiar	32.357	51.039	Analysis/sus_animals.csv	SUS	FALSE	FALSE
+Y6V5	OQ773	773	B1	Male	SIS	RES	SIS	novel	296.582	185.496	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE
+Y6V5	OQ773	773	B1	Male	SIS	RES	SIS	familiar	31.727	118.711	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE

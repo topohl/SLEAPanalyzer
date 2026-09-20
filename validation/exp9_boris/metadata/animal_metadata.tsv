@@ -1,0 +1,21 @@
+Code	ID	Batch	Sex	Condition	Phenotype	Phenotype_source	Phenotype_batchCorrected	Phenotype_bc_complement	Phenotype_conflict	Condition_NOR	Condition_SocP	Condition_implied	Condition_conflict	Pheno_expected	RefGroup	has_NOR	has_EPM	has_SocP
+A1L9	OQ752	B1		SIS		unresolved	RES	TRUE	FALSE	SIS	SIS		FALSE			TRUE	TRUE	TRUE
+C2P4	OQ771	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+C7E2	OQ761	B1	Male	CON	CON	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE	CON	CON	CON	FALSE	CON	CON	TRUE	TRUE	TRUE
+F2I1	OQ770	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+F9L3	OQ751	B1		SIS		unresolved	RES	TRUE	FALSE	SIS	SIS		FALSE			TRUE	TRUE	TRUE
+H9J5	OQ772	B1	Male	SIS	RES	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE	SIS	SIS	SIS	FALSE	RES	RES	TRUE	TRUE	TRUE
+K4T2	OQ750	B1		SIS		unresolved	SUS	FALSE	FALSE	SIS	SIS		FALSE			TRUE	TRUE	TRUE
+L2H0	OQ760	B1	Male	CON	CON	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE	CON	CON	CON	FALSE	CON	CON	TRUE	TRUE	TRUE
+M1M3	0003	B1	Male	SIS	RES	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE	SIS	SIS	SIS	FALSE	RES	RES	TRUE	TRUE	TRUE
+M8P3	OQ763	B1	Male	CON	CON	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE	CON	CON	CON	FALSE	CON	CON	TRUE	TRUE	TRUE
+P9X0	OQ755	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+R8K7	OQ754	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+R8O3	OQ764	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+S7I3	0004	B1	Male	SIS	SUS	rfid_animal_group_sex_assignment_qc	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE	SUS	SUS	TRUE	TRUE	TRUE
+T2H7	OQ762	B1	Male	SIS	RES	rfid_animal_group_sex_assignment_qc	SUS	FALSE	TRUE	SIS	SIS	SIS	FALSE	RES	RES	TRUE	TRUE	TRUE
+U5P3	OQ765	B1	Male	CON	CON	rfid_animal_group_sex_assignment_qc	CON	FALSE	FALSE	CON	CON	CON	FALSE	CON	CON	TRUE	TRUE	TRUE
+V2P0	0002	B1		SIS		unresolved	RES	TRUE	FALSE	SIS	SIS		FALSE			TRUE	TRUE	TRUE
+X1H0	0001	B1		SIS		unresolved	SUS	FALSE	FALSE	SIS	SIS		FALSE			TRUE	TRUE	TRUE
+Y0F3	OQ753	B1		SIS	SUS	Analysis/sus_animals.csv	SUS	FALSE	FALSE	SIS	SIS	SIS	FALSE			TRUE	TRUE	TRUE
+Y6V5	OQ773	B1	Male	SIS	RES	rfid_animal_group_sex_assignment_qc	RES	TRUE	FALSE	SIS	SIS	SIS	FALSE	RES	RES	TRUE	TRUE	TRUE

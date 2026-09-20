@@ -1,0 +1,67 @@
+# Exp9 Batch-1 EPM run.
+#
+# CALIBRATION: 60 cm tip-to-tip, measured along one edge of the vertical arm.
+#
+# tl and bl are the LEFT corners of the top and bottom arms, so tl-bl is the
+# arm-axis span (median 930.0 px across the 20 animals) -> 0.064517 cm/px,
+# which makes the tl-tr arm width read 4.92 cm against a 5 cm arm.
+#
+# The original Exp9 definition (SLEAPanalyzer commit 02fdfdb) used
+# points = c("tl","br"). That is the DIAGONAL across the vertical arm
+# (932.5 px) = sqrt(span^2 + arm_width^2), so declaring it to be 60 cm implies
+# a true span of only 59.84 cm and under-scales every distance and speed by
+# 0.27%. Measured tl_br / tl_bl = 1.00271 against 1.00347 predicted for a 5 cm
+# arm over 60 cm, so that excess is the arm-width offset. Corrected here, so
+# this run deliberately does NOT reproduce the old Report.csv exactly:
+# distances are 0.271% larger. Occupancy times and entries are unaffected.
+#
+# Do NOT calibrate an area against [tl, tr, br, bl] here: on a plus maze those
+# are arm ends, and the resulting scale is 0.2231 cm/px, 3.4x too large.
+#
+# Caveat no single scale can fix: the vertical arm images 5.6% longer than the
+# horizontal arm (930 vs 878 px between corresponding corners), so an isotropic
+# px-to-cm factor is good to a few percent at best. core/homography.R would be
+# the route to a perspective correction if that ever matters.
+#
+# `neck` is supplied by 03_prepare_sleap_inputs.R as an alias of spine1; the
+# EPM skeleton's edges run head_center -- spine_1 -- center, so spine_1 is the
+# neck/shoulder landmark the nose-dip test expects.
+
+input_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_input/EPM
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output/EPM
+zone_file: C:/Users/topohl/Documents/GitHub/SLEAPanalyzer/02_SLEAPanalzyer/EPM_zoneinfo.csv
+
+fps: 30
+
+calibration_method: distance
+calibration_points: [tl, bl]
+calibration_distance_cm: 60
+
+# Unused under distance calibration; required by the common schema.
+arena_width_cm: 60
+arena_height_cm: 60
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+# nosedip_integration_period_frames is deliberately NOT set here. The window
+# was chosen using this very cohort (11_recalibrate_nosedips.R), so reporting
+# agreement against the same 20 animals at the tuned value would be circular.
+# 05_correlate.R therefore reports the shipped detector as it ships.
+
+# Nose dips are correlated against the manual OpenND / CenterND scoring.
+nose_dips: true
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true

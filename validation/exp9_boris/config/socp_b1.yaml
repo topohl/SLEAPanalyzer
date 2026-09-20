@@ -1,0 +1,47 @@
+# Exp9 Batch-1 social preference run, S1 and S2 only.
+#
+# HAB is omitted because there is no manual BORIS habituation scoring to
+# correlate against; add it back to `phases` to analyse it.
+#
+# Calibration check: the [tl,tr,br,bl] corner polygon (287902 px2) matches the
+# bounding box of those corners to within 1%, so 44 x 24 cm is applied to the
+# actual arena rectangle and gives 0.0606 cm/px.
+#
+# NOVEL/FAMILIAR WARNING: as for NOR, the pipeline treats metadata "R" as a
+# novel LEFT side. novelLocS1.txt / novelLocS2.txt hold the TRUE novel side
+# (they are exact complements of each other, as expected when the novel mouse
+# moves to the opposite chamber in S2). Prefer the side-based columns.
+
+input_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_input/SocP
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output/SocP
+metadata_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/metadata
+animal_id_code_file: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/metadata/animalIDCode.txt
+novel_location_file_prefix: novelLoc
+phases: [S1, S2]
+
+fps: 30
+
+arena_width_cm: 44
+arena_height_cm: 24
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+contact_distance_cm: 6
+body_exclusion_distance_cm: 1
+proximity_range_cm: [6, 10]
+require_orientation: false
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+write_manifest: true
