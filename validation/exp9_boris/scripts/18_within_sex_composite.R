@@ -41,7 +41,17 @@ suppressMessages({
   library(ggplot2)
 })
 
-PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 SISD <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/SIS_Analysis"
 ANA  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis"
 RES  <- file.path(PROJ, "results"); FIG <- file.path(PROJ, "figures")
@@ -157,8 +167,6 @@ cat("\nThese assays are not in the classifier, so this is a fair comparison of\n
 write.csv(cmp, file.path(RES, "within_sex_outcome_comparison.csv"), row.names = FALSE)
 
 # --- Figure -----------------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
 pl <- bind_rows(
   data.frame(component = SIX, share = vshare(sis, "m"), Sex = "male", w = "current"),
   data.frame(component = SIX, share = vshare(eq, "m"),  Sex = "male", w = "within-sex equalised"),
@@ -168,27 +176,14 @@ pl <- bind_rows(
 p <- ggplot(pl, aes(share, component, fill = Sex)) +
   geom_col(position = position_dodge(width = 0.7), width = 0.62) +
   geom_vline(xintercept = 100 / 6, colour = AXIS, linetype = "22", linewidth = 0.5) +
-  scale_fill_manual(values = c(male = "#2a78d6", female = "#eb6834"), name = NULL) +
+  scale_fill_manual(values = c(male = PAL[["Male"]], female = PAL[["Female"]]), name = NULL) +
   facet_wrap(~ w) +
   labs(title = "What each component contributes to the susceptibility score",
        subtitle = "Variance share within each sex. Dashed line is equal weight (1/6).",
        x = "share of composite variance (%)", y = NULL,
        caption = "Before equalising, NOR drives a third of the male score and a twentieth of the female one -- the same label meaning different things.") +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.minor = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        strip.text = element_text(colour = INK, face = "bold", size = 9),
-        legend.position = "top")
-ggsave(file.path(FIG, "fig12_within_sex_weighting.png"), p,
-       width = 10, height = 4.4, dpi = 200, bg = SURFACE)
+  theme_exp9(grid = "x") +
+  theme(panel.grid.major.y = element_blank(), panel.grid.major.x = element_line(colour = GRID, linewidth = 0.3), legend.position = "top")
+save_fig(p, "fig12_within_sex_weighting", W2, MM(81))
 
 cat("\nwrote:", file.path(RES, "within_sex_composite_labels.csv"), "\n")

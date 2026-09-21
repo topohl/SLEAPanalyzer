@@ -4,12 +4,18 @@ The evidence behind several parameter choices that ship in `config/`. Run agains
 Exp9 chronic social-defeat cohort — 117 animals, six cohorts, four assays (EPM, OFT,
 NOR, social preference) — with manual BORIS scoring as the comparator.
 
-> **These scripts are not runnable from this repository.** Their inputs are ~4.8 GB of
-> SLEAP tracking output (`sleap_input/`, `sleap_output/`, `sleap_output_all/`) which is
-> deliberately not versioned, and their paths still point at the working directory they
-> were written in. What is preserved here is the **code, the derived tables and the
-> figures** — the audit trail for the numbers quoted below. Treat them as a record, not
-> as a pipeline.
+> **Runnable, with one exception.** Paths resolve from each script's own location, and
+> the derived tables in `enriched/` are versioned, so every figure regenerates from this
+> checkout:
+>
+> ```bash
+> Rscript scripts/05_correlate.R        # and 10-18
+> ```
+>
+> The ~4.8 GB of SLEAP tracking output those tables were built from (`sleap_input/`,
+> `sleap_output/`, `sleap_output_all/`) is deliberately not versioned, so scripts
+> `01`-`04` and `07`-`09` — which consume it — cannot be re-run here. Their outputs are
+> preserved instead.
 
 ---
 
@@ -74,3 +80,29 @@ detector was *calibrated* to match manual scoring (that is what `12` does), so
 r = 0.995 on NOR D2 demonstrates that one fixed parameter set reproduces manual scoring
 consistently across all six cohorts. That is a reproducibility claim, and a useful one —
 but it is not independent validation, and should not be reported as such.
+
+## Figure style
+
+All figures use `scripts/00_theme.R`, which is deliberately identical to `theme_exp9()`
+in `SISanalyzer/exp9_publication/R/00_setup.R` — same palette, type size, gridline
+convention and output widths — so the validation and publication sets read as one.
+
+| | |
+|---|---|
+| Palette | navy `#3F4576` / grey `#C2C2C2` / coral `#F4636E`; series extend with teal and mauve |
+| Type | 7 pt sans-serif |
+| Widths | 183 mm double-column, 120 mm, 89 mm single |
+| Output | vector PDF for submission + 600 dpi PNG preview, from one `save_fig()` call |
+| Non-data ink | no panel borders, no axis lines, no tick marks; gridlines on the value axis only |
+
+Navy and coral differ in hue *and* lightness, so they stay separable under deuteranopia
+and protanopia (where the coral reads as tan), with grey between them.
+
+### `fig5_all_batches_matrix.png` is an orphan
+
+No script in `scripts/` produces it — it came from a figure block that was removed
+from the code before this study was archived. It is the only figure here that cannot be
+regenerated, and it is the only one still at the old style and size. Kept because the
+cross-cohort correlation structure it shows is quoted in the analysis record; treat its
+provenance as unverified.
+

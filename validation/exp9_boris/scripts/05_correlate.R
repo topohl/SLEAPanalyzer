@@ -27,12 +27,22 @@ suppressMessages({
   library(writexl)
 })
 
-PROJ   <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ   <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 ENRICH <- file.path(PROJ, "enriched")
 FIG    <- file.path(PROJ, "figures")
 RES    <- file.path(PROJ, "results")
 dir.create(FIG, showWarnings = FALSE, recursive = TRUE)
 dir.create(RES, showWarnings = FALSE, recursive = TRUE)
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 
 boris <- read.delim(file.path(ENRICH, "analysis_ready_wide.tsv"),
                     stringsAsFactors = FALSE, na.strings = "")
@@ -45,33 +55,6 @@ dat <- inner_join(sleap, boris %>% select(-c(ID, Batch, Sex, Condition, Phenotyp
                   by = "Code")
 stopifnot(nrow(dat) == 20)
 
-# --- Theme ------------------------------------------------------------------
-# Values from the data-viz reference palette, used unchanged.
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
-SER1 <- "#2a78d6"; SER2 <- "#eb6834"; SER3 <- "#1baf7a"
-DIV_NEG <- "#2a78d6"; DIV_MID <- "#f0efec"; DIV_POS <- "#d03b3b"
-
-theme_viz <- function(base_size = 10) {
-  theme_minimal(base_size = base_size) +
-    theme(
-      plot.background   = element_rect(fill = SURFACE, colour = NA),
-      panel.background  = element_rect(fill = SURFACE, colour = NA),
-      panel.grid.major  = element_line(colour = GRID, linewidth = 0.3),
-      panel.grid.minor  = element_blank(),
-      axis.line         = element_line(colour = AXIS, linewidth = 0.4),
-      axis.text         = element_text(colour = MUTED, size = base_size - 2),
-      axis.title        = element_text(colour = INK2, size = base_size - 1),
-      plot.title        = element_text(colour = INK, face = "bold", size = base_size + 2),
-      plot.subtitle     = element_text(colour = INK2, size = base_size - 1),
-      plot.caption      = element_text(colour = MUTED, size = base_size - 2, hjust = 0),
-      strip.text        = element_text(colour = INK, face = "bold", size = base_size - 1),
-      strip.background  = element_blank(),
-      legend.text       = element_text(colour = INK2, size = base_size - 2),
-      legend.title      = element_text(colour = INK2, size = base_size - 1),
-      plot.margin       = margin(10, 14, 10, 10)
-    )
-}
 
 # --- Agreement statistics ---------------------------------------------------
 # Lin's concordance correlation coefficient: Pearson r penalised by any shift
@@ -166,27 +149,27 @@ lab <- agree %>%
 p1 <- ggplot(long, aes(boris, sleap)) +
   # Identity line first, so it reads as the reference the points are judged
   # against rather than as a fitted trend.
-  geom_abline(slope = 1, intercept = 0, colour = AXIS, linetype = "22", linewidth = 0.5) +
+  geom_abline(slope = 1, intercept = 0, colour = RULE, linetype = "22",
+              linewidth = 0.35) +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
-              colour = SER2, linewidth = 0.7) +
-  geom_point(colour = SER1, fill = SURFACE, shape = 21, stroke = 0.6, size = 2.4) +
+              colour = SER2, linewidth = 0.5) +
+  geom_point(colour = SER1, size = 1.5, alpha = 0.7, stroke = 0, shape = 16) +
   geom_text(data = lab, aes(x = -Inf, y = Inf, label = txt),
-            hjust = -0.12, vjust = 1.15, size = 2.7, colour = INK2,
-            lineheight = 0.95, inherit.aes = FALSE) +
+            hjust = -0.14, vjust = 1.2, size = 1.9, colour = INK,
+            lineheight = 1.05, inherit.aes = FALSE) +
   facet_wrap(~ metric, scales = "free", ncol = 5) +
   labs(
     title = "SLEAPanalyzer v2 against manual BORIS scoring",
-    subtitle = "Exp9 Batch 1, n = 20. Dashed line is identity; orange is the least-squares fit.",
+    subtitle = paste("Exp9 cohort 1, n = 20. Dashed grey is identity;",
+                     "<span style='color:#F4636E'>**coral**</span> is the least-squares fit."),
     x = "Manual BORIS", y = "SLEAP",
     caption = paste(
       "CCC is Lin's concordance: it penalises bias, so a high r with a low CCC means the same ranking at a different value.",
       "NOR novel/familiar use contactNov/contactFam, which compensate for the left/right mirror between the two sources.",
       sep = "\n")
   ) +
-  theme_viz()
-ggsave(file.path(FIG, "fig1_method_agreement.png"), p1,
-       width = 13, height = 7.2, dpi = 200, bg = SURFACE)
-ggsave(file.path(FIG, "fig1_method_agreement.pdf"), p1, width = 13, height = 7.2)
+  theme_exp9(grid = "both")
+save_fig(p1, "fig1_method_agreement", W2, MM(105))
 
 # --- Figure 2: Bland-Altman for the same-unit metrics -----------------------
 ba <- long %>%
@@ -199,21 +182,22 @@ ba_lines <- ba %>%
             hi = mean(diff_val) + 1.96 * sd(diff_val), .groups = "drop")
 
 p2 <- ggplot(ba, aes(mean_val, diff_val)) +
-  geom_hline(yintercept = 0, colour = AXIS, linewidth = 0.4) +
-  geom_hline(data = ba_lines, aes(yintercept = bias), colour = SER2, linewidth = 0.6) +
-  geom_hline(data = ba_lines, aes(yintercept = lo), colour = MUTED,
-             linetype = "22", linewidth = 0.4) +
-  geom_hline(data = ba_lines, aes(yintercept = hi), colour = MUTED,
-             linetype = "22", linewidth = 0.4) +
-  geom_point(colour = SER1, fill = SURFACE, shape = 21, stroke = 0.6, size = 2.4) +
+  geom_hline(yintercept = 0, colour = RULE, linewidth = 0.35) +
+  geom_hline(data = ba_lines, aes(yintercept = bias), colour = SER2, linewidth = 0.5) +
+  geom_hline(data = ba_lines, aes(yintercept = lo), colour = RULE,
+             linetype = "22", linewidth = 0.35) +
+  geom_hline(data = ba_lines, aes(yintercept = hi), colour = RULE,
+             linetype = "22", linewidth = 0.35) +
+  geom_point(colour = SER1, size = 1.5, alpha = 0.7, stroke = 0, shape = 16) +
   facet_wrap(~ metric, scales = "free", ncol = 5) +
   labs(title = "Bland-Altman: where the two methods disagree",
-       subtitle = "Seconds-valued metrics only. Orange is mean difference, dashed are 95% limits of agreement.",
+       subtitle = paste("Seconds-valued metrics only.",
+                        "<span style='color:#F4636E'>**Coral**</span> is the mean difference;",
+                        "dashed are the 95% limits of agreement."),
        x = "Mean of the two methods (s)", y = "SLEAP - BORIS (s)",
        caption = "A sloped cloud means the disagreement grows with the value; an offset orange line means constant bias.") +
-  theme_viz()
-ggsave(file.path(FIG, "fig2_bland_altman.png"), p2,
-       width = 13, height = 5.6, dpi = 200, bg = SURFACE)
+  theme_exp9(grid = "both")
+save_fig(p2, "fig2_bland_altman", W2, MM(82))
 
 # --- 2. Cross-assay correlation matrix --------------------------------------
 # Manual measures only, so the structure reported is not an artefact of the
@@ -271,10 +255,10 @@ p3 <- ggplot(cm %>% filter(x != y) %>%
   # The diagonal is dropped: rho = 1 by construction carries no information,
   # and rendering it at full saturation pulls the eye to the one part of the
   # matrix that cannot say anything.
-  geom_tile(colour = SURFACE, linewidth = 1.2) +
+  geom_tile(colour = "white", linewidth = 0.9) +
   geom_text(aes(label = ifelse(is.na(p_BH) | p_BH >= 0.05, "",
                                sprintf("%.2f", rho))),
-            size = 2.6, colour = INK) +
+            size = 1.9, colour = INK) +
   scale_fill_gradient2(low = DIV_NEG, mid = DIV_MID, high = DIV_POS,
                        midpoint = 0, limits = c(-1, 1),
                        name = "Spearman\nrho") +
@@ -282,12 +266,14 @@ p3 <- ggplot(cm %>% filter(x != y) %>%
   labs(title = "Cross-assay correlations among the manual measures",
        subtitle = "Exp9 Batch 1, n = 20. Values shown only where Benjamini-Hochberg q < 0.05.",
        x = NULL, y = NULL,
-       caption = "Blank cells are not null results: at n = 20 only very large effects clear correction. See results/cross_assay_spearman.csv for every estimate.") +
-  theme_viz() +
+       caption = paste("Blank cells are not null results: at n = 20 only very large<br>",
+                       "effects clear correction. Every estimate is in<br>",
+                       "results/cross_assay_spearman.csv.")) +
+  theme_exp9(grid = "none") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        panel.grid.major = element_blank(), axis.line = element_blank())
-ggsave(file.path(FIG, "fig3_cross_assay_matrix.png"), p3,
-       width = 8.4, height = 7.6, dpi = 200, bg = SURFACE)
+        legend.position = "right", legend.key.width = unit(5, "pt"),
+        legend.key.height = unit(22, "pt"))
+save_fig(p3, "fig3_cross_assay_matrix", W15, MM(112))
 
 # --- 3. Group comparisons under both phenotype definitions ------------------
 group_vars <- c("EPM open time" = "EPM_OpenTime_dur",
@@ -349,24 +335,30 @@ p4 <- ggplot(group_long %>% filter(group != "unknown") %>% mutate(group = drople
              aes(group, value, colour = group)) +
   # A bare median line, not a crossbar: the box of a crossbar reads as an
   # interval it does not represent.
+  geom_jitter(width = 0.18, height = 0, size = 1.4, alpha = 0.62,
+              stroke = 0, shape = 16) +
   stat_summary(fun = median, fun.min = median, fun.max = median,
-               geom = "errorbar", width = 0.5, linewidth = 0.6, colour = INK2) +
-  geom_jitter(width = 0.14, height = 0, size = 2.2, alpha = 0.9) +
-  scale_colour_manual(values = c(CON = SER1, SIS = SER2, RES = SER3, SUS = "#4a3aa7"),
+               geom = "errorbar", width = 0.55, linewidth = 0.6,
+               colour = INK, show.legend = FALSE) +
+  scale_colour_manual(values = c(CON = PAL[["CON"]], SIS = PAL[["SIS"]],
+                                 RES = PAL[["RES"]], SUS = PAL[["SUS"]]),
                       guide = "none") +
   # scales = "free" in facet_grid frees x per column and y per row, so each
   # grouping shows only its own groups while a metric keeps one y scale
   # across all three groupings.
   facet_grid(metric ~ grouping, scales = "free", switch = "y") +
   labs(title = "Group differences are reported under both phenotype definitions",
-       subtitle = "Bar is the group median. The curated and batch-corrected calls disagree for T2H7, and the curated call is missing for 5 animals.",
+       subtitle = paste("Bar is the group median.", colour_key(c("CON", "RES", "SUS")),
+                        "<br>The curated and batch-corrected calls disagree for T2H7;",
+                        "the curated call is missing for 5 animals."),
        x = NULL, y = NULL,
        caption = "Groups are identified by position, not colour alone. With 4 CON animals these comparisons are severely underpowered; see results/group_tests.csv.") +
-  theme_viz() +
+  theme_exp9() +
   theme(strip.placement = "outside",
-        strip.text.y.left = element_text(angle = 0, hjust = 1))
-ggsave(file.path(FIG, "fig4_group_differences.png"), p4,
-       width = 9.5, height = 11, dpi = 200, bg = SURFACE)
+        strip.text.y.left = element_markdown(angle = 0, hjust = 1, size = 6,
+                                             face = "plain"),
+        strip.text.x = element_markdown(hjust = 0.5, size = 7.5))
+save_fig(p4, "fig4_group_differences", W15, MM(175))
 
 # --- Per-animal discrepancies -----------------------------------------------
 # Which animal x metric combinations disagree most between the two methods,

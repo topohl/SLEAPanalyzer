@@ -37,7 +37,17 @@ suppressMessages({
   library(ggplot2)
 })
 
-PROJ  <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 REPO  <- "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer"
 BORIS <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/BORIS"
 RES   <- file.path(PROJ, "results")
@@ -189,33 +199,19 @@ cat(sprintf("best D2 concordance:           %s (CCC %.3f)\n",
             best_d, max(score$ccc_D2)))
 
 # --- Figure -----------------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
 pl <- score %>%
   select(design, `novel object` = nov_ratio, `familiar object` = fam_ratio) %>%
   tidyr::pivot_longer(-design, names_to = "object", values_to = "ratio")
 p <- ggplot(pl, aes(ratio, design, colour = object)) +
   geom_vline(xintercept = 1, colour = AXIS, linetype = "22", linewidth = 0.5) +
   geom_point(size = 2.6, position = position_dodge(width = 0.4)) +
-  scale_colour_manual(values = c("#2a78d6", "#eb6834"), name = NULL) +
+  scale_colour_manual(values = c(SER1, SER2), name = NULL) +
   labs(title = "Does shape-matching the NOR detector help?",
        subtitle = "SLEAP / manual contact-time ratio per object, Exp9 Batch 1, n = 20. 1.0 is perfect.",
        x = "SLEAP contact time / manual contact time", y = NULL,
        caption = "A design that lands one object on 1.0 and the other off it recovers contact time unevenly, which biases D2.") +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.minor = element_blank(),
-        panel.grid.major.y = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        legend.position = "top")
-ggsave(file.path(FIG, "fig9_nor_detector_designs.png"), p,
-       width = 9, height = 4, dpi = 200, bg = SURFACE)
+  theme_exp9(grid = "x") +
+  theme(panel.grid.major.y = element_blank(), legend.position = "top")
+save_fig(p, "fig9_nor_detector_designs", W2, MM(81))
 
 cat("\nwrote:", file.path(RES, "nor_detector_comparison.csv"), "\n")

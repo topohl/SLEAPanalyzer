@@ -38,7 +38,17 @@ suppressMessages({
   library(writexl)
 })
 
-PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 RES  <- file.path(PROJ, "results"); FIG <- file.path(PROJ, "figures")
 
 dat <- read.delim(file.path(PROJ, "enriched", "sleap_all_batches_wide.tsv"),
@@ -148,8 +158,6 @@ print(cmp %>% mutate(across(starts_with("d_"), ~round(., 2)),
         arrange(`p_yours`) %>% head(8) %>% as.data.frame(), row.names = FALSE)
 
 # --- Figure -----------------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
 pl <- res %>% filter(scheme == PRIMARY) %>%
   mutate(kind = factor(kind, levels = c("independent", "shares measurement", "defining")),
          label = factor(label, levels = rev(METRICS$label)),
@@ -158,9 +166,9 @@ p <- ggplot(pl, aes(d, label, colour = kind)) +
   geom_vline(xintercept = 0, colour = AXIS, linewidth = 0.5) +
   geom_linerange(aes(xmin = lo, xmax = hi), linewidth = 0.5) +
   geom_point(size = 2) +
-  scale_colour_manual(values = c(independent = "#2a78d6",
-                                 `shares measurement` = "#eda100",
-                                 defining = "#e34948"), name = NULL) +
+  scale_colour_manual(values = c(independent = SER1,
+                                 `shares measurement` = SER4,
+                                 defining = SER2), name = NULL) +
   facet_wrap(~ contrast) +
   labs(title = "CON, RES and SUS across every assay",
        subtitle = "Batch-adjusted standardised difference with 95% CI. Positive = the first-named group scores higher.",
@@ -169,21 +177,9 @@ p <- ggplot(pl, aes(d, label, colour = kind)) +
          "Red: a component of the classifier -- RES and SUS differ on it by construction, so it describes the groups rather than testing them.",
          "Amber: a different measure from the same recordings as a component. Blue: played no part in the classification, so these carry the evidence.",
          sep = "\n")) +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        strip.text = element_text(colour = INK, face = "bold", size = 9),
-        legend.position = "top")
-ggsave(file.path(FIG, "fig11_con_res_sus.png"), p,
-       width = 11, height = 6, dpi = 200, bg = SURFACE)
+  theme_exp9(grid = "x") +
+  theme(legend.position = "top")
+save_fig(p, "fig11_con_res_sus", W2, MM(100))
 
 write_xlsx(list(comparisons = res), file.path(RES, "con_res_sus.xlsx"))
 cat("\nwrote:", file.path(RES, "con_res_sus_comparisons.csv"), "\n")

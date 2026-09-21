@@ -29,7 +29,17 @@ suppressMessages({
   library(ggplot2)
 })
 
-PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 SIS  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/SIS_Analysis"
 ANA  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis"
 RES  <- file.path(PROJ, "results"); FIG <- file.path(PROJ, "figures")
@@ -47,7 +57,13 @@ comp <- suppressMessages(read_excel(file.path(SIS, "E9_Behavior_Data.xlsx"),
          key = canon(ID), Batch = paste0("B", Batch))
 
 sus_orig <- canon(trimws(readLines(file.path(ANA, "sus_animals.txt"), warn = FALSE)))
-sus_bc   <- canon(trimws(readLines(file.path(ANA, "sus_animals_batchCorrected.txt"), warn = FALSE)))
+# The batch-corrected list was retired in the 2026-09-20 consolidation; the
+# canonical pair is now sus_animals.csv|.txt + con_animals.csv. This script
+# exists to compare the two schemes that were shipped at the time, so it reads
+# the archived copy. Historical comparison only -- do not use for new work.
+sus_bc   <- canon(trimws(readLines(
+  file.path(ANA, "_archive_animal_lists", "sus_animals_batchCorrected.txt"),
+  warn = FALSE)))
 
 # --- z-scoring machinery ----------------------------------------------------
 # Centre on each batch's OWN control mean -- that is the batch effect being
@@ -200,34 +216,21 @@ print(oth_rows %>% filter(batch_in_model, scheme %in% SCHEMES[c("L_orig", "L_z_p
         select(scheme, metric, n, d, p) %>% as.data.frame(), row.names = FALSE)
 
 # --- Figure: stability ------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
 pl <- sis %>%
   select(z6_batch, `per-batch SD (n=4)` = flip_batch, `pooled within-sex SD (n=12)` = flip_pooled) %>%
   pivot_longer(-z6_batch, names_to = "reference", values_to = "flip")
 p <- ggplot(pl, aes(z6_batch, flip, colour = reference)) +
   geom_vline(xintercept = CUT, colour = AXIS, linetype = "22", linewidth = 0.5) +
   geom_point(size = 1.6, alpha = 0.8) +
-  scale_colour_manual(values = c("#eb6834", "#2a78d6"), name = NULL) +
+  scale_colour_manual(values = c(SER2, SER1), name = NULL) +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "How reliable is each animal's SUS/RES label?",
        subtitle = sprintf("%d bootstraps of the control reference. Dashed line is the classification threshold.", B),
        x = "susceptibility composite (batch z-scored)",
        y = "how often the label flips",
        caption = "Animals near the threshold flip most. Widening the control reference from 4 to 12 animals is what reduces it.") +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.minor = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        legend.position = "top")
-ggsave(file.path(FIG, "fig10_label_stability.png"), p,
-       width = 9, height = 4.6, dpi = 200, bg = SURFACE)
+  theme_exp9() +
+  theme(legend.position = "top")
+save_fig(p, "fig10_label_stability", W2, MM(94))
 
 cat("\nwrote:", file.path(RES, "phenotype_scheme_labels.csv"), "\n")

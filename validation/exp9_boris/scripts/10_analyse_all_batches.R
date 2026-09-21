@@ -43,7 +43,17 @@ suppressMessages({
   library(writexl)
 })
 
-PROJ   <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 ENRICH <- file.path(PROJ, "enriched")
 FIG    <- file.path(PROJ, "figures")
 RES    <- file.path(PROJ, "results")
@@ -54,29 +64,6 @@ dat <- read.delim(file.path(ENRICH, "sleap_all_batches_wide.tsv"),
                   stringsAsFactors = FALSE, na.strings = "")
 cat(sprintf("cohort: %d animals\n", nrow(dat)))
 
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
-SER1 <- "#2a78d6"; SER2 <- "#eb6834"; SER3 <- "#1baf7a"
-DIV_NEG <- "#2a78d6"; DIV_MID <- "#f0efec"; DIV_POS <- "#d03b3b"
-
-theme_viz <- function(base_size = 10) {
-  theme_minimal(base_size = base_size) +
-    theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-          panel.background = element_rect(fill = SURFACE, colour = NA),
-          panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-          panel.grid.minor = element_blank(),
-          axis.line = element_line(colour = AXIS, linewidth = 0.4),
-          axis.text = element_text(colour = MUTED, size = base_size - 2),
-          axis.title = element_text(colour = INK2, size = base_size - 1),
-          plot.title = element_text(colour = INK, face = "bold", size = base_size + 2),
-          plot.subtitle = element_text(colour = INK2, size = base_size - 1),
-          plot.caption = element_text(colour = MUTED, size = base_size - 2, hjust = 0),
-          strip.text = element_text(colour = INK, face = "bold", size = base_size - 1),
-          strip.background = element_blank(),
-          legend.text = element_text(colour = INK2, size = base_size - 2),
-          legend.title = element_text(colour = INK2, size = base_size - 1),
-          plot.margin = margin(10, 14, 10, 10))
-}
 
 METRICS <- c(
   "EPM open-arm fraction" = "sleap_EPM_open_frac",
@@ -231,7 +218,7 @@ p1 <- ggplot(fp, aes(d, metric, colour = stratum)) +
   geom_linerange(aes(xmin = d_lo, xmax = d_hi),
                  position = position_dodge(width = 0.65), linewidth = 0.5) +
   geom_point(position = position_dodge(width = 0.65), size = 1.9) +
-  scale_colour_manual(values = c(pooled = SER1, Male = SER2, Female = SER3),
+  scale_colour_manual(values = c(pooled = SER1, Male = PAL[["Male"]], Female = PAL[["Female"]]),
                       name = NULL) +
   facet_wrap(~ contrast, scales = "free_x") +
   labs(title = "Effect sizes, not just p-values",
@@ -240,10 +227,9 @@ p1 <- ggplot(fp, aes(d, metric, colour = stratum)) +
        caption = paste(
          "Sex is nested in batch, so no sex main effect is estimable; the strata are shown because pooling cancels opposite-signed effects.",
          "A CI crossing zero is an inconclusive result, not a demonstrated absence of effect.", sep = "\n")) +
-  theme_viz() +
+  theme_exp9() +
   theme(legend.position = "top", panel.grid.major.y = element_blank())
-ggsave(file.path(FIG, "fig6_effect_sizes.png"), p1,
-       width = 11, height = 6, dpi = 200, bg = SURFACE)
+save_fig(p1, "fig6_effect_sizes", W2, MM(100))
 
 write_xlsx(list(effects = est, primary = primary, sex_interaction = inter),
            file.path(RES, "all_batches_results.xlsx"))

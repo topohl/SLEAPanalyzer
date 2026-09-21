@@ -27,7 +27,17 @@ suppressMessages({
   library(ggplot2)
 })
 
-PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 REPO <- "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer"
 RES  <- file.path(PROJ, "results")
 FIG  <- file.path(PROJ, "figures")
@@ -116,8 +126,6 @@ cat("\nRank agreement is roughly flat across the sweep, so the window trades\n",
     "not a bug fix, and the shipped default is left alone.\n", sep = "")
 
 # --- Figure -----------------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"; SER1 <- "#2a78d6"; SER2 <- "#eb6834"
 
 long <- sweep %>%
   select(window, ratio, ccc, r) %>%
@@ -135,27 +143,15 @@ p <- ggplot(long, aes(window, value)) +
   geom_vline(xintercept = cfg$integration_period_frames, colour = MUTED,
              linetype = "22", linewidth = 0.5) +
   geom_line(colour = SER1, linewidth = 0.7) +
-  geom_point(colour = SER1, fill = SURFACE, shape = 21, stroke = 0.6, size = 2.4) +
+  geom_point(colour = SER1, fill = "white", shape = 21, stroke = 0.6, size = 2.4) +
   facet_wrap(~ stat, scales = "free_y") +
   labs(title = "Nose dips: the smoothing window sets the count, not the ranking",
        subtitle = "Exp9 Batch 1, n = 20. Grey line is the shipped default of 5 frames; dashed line on the left panel is perfect agreement.",
        x = "integration_period (frames, half-width of the majority filter)",
        y = NULL,
        caption = "Batch 1 is the only batch with manual nose-dip scoring, so this cannot be checked anywhere else.") +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.minor = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        strip.text = element_text(colour = INK, face = "bold", size = 9),
-        plot.margin = margin(10, 14, 10, 10))
-ggsave(file.path(FIG, "fig7_nosedip_sweep.png"), p,
-       width = 10, height = 4, dpi = 200, bg = SURFACE)
+  theme_exp9() +
+  theme(plot.margin = margin(10, 14, 10, 10))
+save_fig(p, "fig7_nosedip_sweep", W2, MM(73))
 
 cat("\nwrote:", file.path(RES, "nosedip_window_sweep.csv"), "\n")

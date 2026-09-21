@@ -25,7 +25,17 @@ suppressMessages({
   library(ggplot2)
 })
 
-PROJ  <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+# Resolve paths from this script's own location, so the study runs from any
+# checkout of the repository.
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+
+# Shared Nature-style theme, identical to the publication figure set.
+source(file.path(SCRIPTS, "00_theme.R"))
 REPO  <- "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer"
 BORIS <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/BORIS"
 RES   <- file.path(PROJ, "results")
@@ -140,8 +150,6 @@ cat(sprintf("closest to unbiased (%.1f cm, %s): ratio %.2f, CCC %.3f\n",
             unb$radius_cm, unb$angle, unb$ratio, unb$ccc))
 
 # --- Figure -----------------------------------------------------------------
-SURFACE <- "#fcfcfb"; INK <- "#0b0b0b"; INK2 <- "#52514e"; MUTED <- "#898781"
-GRID <- "#e1e0d9"; AXIS <- "#c3c2b7"
 p <- sweep %>%
   tidyr::pivot_longer(c(ratio, ccc), names_to = "stat", values_to = "value") %>%
   mutate(stat = recode(stat, ratio = "SLEAP / manual contact time",
@@ -153,26 +161,14 @@ p <- sweep %>%
   geom_vline(xintercept = cfg$contact_distance_cm, colour = MUTED,
              linetype = "22", linewidth = 0.5) +
   geom_line(linewidth = 0.7) + geom_point(size = 1.8) +
-  scale_colour_manual(values = c("#2a78d6", "#eb6834", "#1baf7a", "#4a3aa7"), name = NULL) +
+  scale_colour_manual(values = c(SER1, SER2, SER3, SER4), name = NULL) +
   facet_wrap(~ stat, scales = "free_y") +
   labs(title = "NOR contact detector, calibrated against manual scoring",
        subtitle = "Exp9 Batch 1, 20 animals / 40 object sides. Grey line is the shipped 4 cm; dashed is perfect agreement.",
        x = "contact_distance_cm (radial)", y = NULL,
        caption = "Ground truth is the raw BORIS export, not NOR.xlsx. Batch 1 is the only batch with manual NOR scoring.") +
-  theme_minimal(base_size = 10) +
-  theme(plot.background = element_rect(fill = SURFACE, colour = NA),
-        panel.background = element_rect(fill = SURFACE, colour = NA),
-        panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
-        panel.grid.minor = element_blank(),
-        axis.line = element_line(colour = AXIS, linewidth = 0.4),
-        axis.text = element_text(colour = MUTED, size = 8),
-        axis.title = element_text(colour = INK2, size = 9),
-        plot.title = element_text(colour = INK, face = "bold", size = 12),
-        plot.subtitle = element_text(colour = INK2, size = 9),
-        plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
-        strip.text = element_text(colour = INK, face = "bold", size = 9),
-        legend.position = "top")
-ggsave(file.path(FIG, "fig8_nor_contact_sweep.png"), p,
-       width = 10, height = 4.4, dpi = 200, bg = SURFACE)
+  theme_exp9() +
+  theme(legend.position = "top")
+save_fig(p, "fig8_nor_contact_sweep", W2, MM(81))
 
 cat("\nwrote:", file.path(RES, "nor_contact_sweep.csv"), "\n")
