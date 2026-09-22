@@ -13,9 +13,32 @@ NOR, social preference) — with manual BORIS scoring as the comparator.
 > ```
 >
 > The ~4.8 GB of SLEAP tracking output those tables were built from (`sleap_input/`,
-> `sleap_output/`, `sleap_output_all/`) is deliberately not versioned, so scripts
-> `01`-`04` and `07`-`09` — which consume it — cannot be re-run here. Their outputs are
-> preserved instead.
+> `sleap_output/`, `sleap_output_all/`) is deliberately not versioned. Scripts `01`-`04`
+> therefore cannot be re-run from a clone alone. Scripts `07`-`10` can be run against
+> the external Exp9 inputs through the release builder below.
+
+## Canonical all-batch release bundle
+
+From the repository root in PowerShell, build a new dated, non-overwriting release with:
+
+```powershell
+Set-Location 'C:\Users\topohl\Documents\GitHub\SLEAPanalyzer'
+.\tools\build_exp9_behavior_bundle.ps1 `
+  -ReleaseName '2026-09-22_exp9_all-batches_canonical'
+```
+
+The default destination is:
+
+```text
+S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Analysis\Behavior\SLEAPanalyzer_v2\releases\<release-name>
+```
+
+Each release contains canonical all-animal, male (B1/B2/B5), and female
+(B3/B4/B6) tables; pooled and sex-stratified batch-adjusted statistics; figures;
+compact assay summaries; QC; exact scripts/configs; stage logs; source and bundle
+SHA-256 manifests; and Git/R provenance. Bulk coordinate files, per-animal plots,
+and EPM TIFFs remain in their recorded source locations. The builder refuses to
+overwrite an existing release name.
 
 ---
 

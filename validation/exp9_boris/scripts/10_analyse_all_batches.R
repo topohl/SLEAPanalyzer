@@ -43,20 +43,22 @@ suppressMessages({
   library(writexl)
 })
 
-# Resolve paths from this script's own location, so the study runs from any
-# checkout of the repository.
+# Resolve code from this script's own location. Data and outputs default to the
+# validation study beside it, but a release builder can redirect them together
+# with EXP9_SLEAP_RUN_ROOT and the more specific directory variables below.
 SCRIPTS <- local({
   a <- commandArgs(trailingOnly = FALSE)
   p <- sub("^--file=", "", a[grep("^--file=", a)])
   normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
 })
-PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+DEFAULT_ROOT <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
+RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = DEFAULT_ROOT)
 
 # Shared Nature-style theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
-ENRICH <- file.path(PROJ, "enriched")
-FIG    <- file.path(PROJ, "figures")
-RES    <- file.path(PROJ, "results")
+ENRICH <- Sys.getenv("EXP9_SLEAP_DATA_DIR", unset = file.path(RUN_ROOT, "enriched"))
+FIG <- Sys.getenv("EXP9_SLEAP_FIGURES_DIR", unset = file.path(RUN_ROOT, "figures"))
+RES <- Sys.getenv("EXP9_SLEAP_RESULTS_DIR", unset = file.path(RUN_ROOT, "results"))
 dir.create(FIG, showWarnings = FALSE, recursive = TRUE)
 dir.create(RES, showWarnings = FALSE, recursive = TRUE)
 
@@ -147,6 +149,21 @@ primary <- est %>%
 
 write.csv(est, file.path(RES, "all_batches_effects.csv"), row.names = FALSE)
 write.csv(primary, file.path(RES, "all_batches_primary.csv"), row.names = FALSE)
+write.csv(
+  est %>% filter(stratum == "pooled"),
+  file.path(RES, "exp9_sleap_effects_all_animals_batch_adjusted.csv"),
+  row.names = FALSE
+)
+write.csv(
+  est %>% filter(stratum == "Male"),
+  file.path(RES, "exp9_sleap_effects_males_B1-B2-B5_batch_adjusted.csv"),
+  row.names = FALSE
+)
+write.csv(
+  est %>% filter(stratum == "Female"),
+  file.path(RES, "exp9_sleap_effects_females_B3-B4-B6_batch_adjusted.csv"),
+  row.names = FALSE
+)
 
 # --- Reporting --------------------------------------------------------------
 fmt <- function(x) x %>%

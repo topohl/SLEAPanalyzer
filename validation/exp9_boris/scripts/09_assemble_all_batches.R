@@ -9,10 +9,9 @@
 # same rules to every animal that appears in any SLEAP output, so the cohort
 # is defined by the tracking data rather than by the manual scoring.
 #
-# The phenotype asymmetry carried over from 01 still applies: the curated call
-# is left NA where the RFID table has no row, while the batch-corrected call
-# fills RES by complement within SIS. Both columns are kept, and
-# Phenotype_bc_complement marks which RES calls rest on that assumption.
+# Phenotype uses only the corrected canonical lists in Analysis/: controls are
+# named by con_animals.csv, susceptible animals by sus_animals.txt, and RES is
+# the complement among SIS animals. Archived alternative rosters are excluded.
 # ============================================================================
 
 suppressMessages({
@@ -21,14 +20,25 @@ suppressMessages({
   library(writexl)
 })
 
-EXP9   <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress"
-PROJ   <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
-STAGE  <- "C:/Users/topohl/Documents/exp9_sleap_staging"
-OUT    <- file.path(PROJ, "sleap_output_all")
-ENRICH <- file.path(PROJ, "enriched")
-META   <- file.path(PROJ, "metadata")
+EXP9 <- Sys.getenv(
+  "EXP9_ROOT",
+  unset = "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress"
+)
+LEGACY_PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
+RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = LEGACY_PROJ)
+STAGE <- Sys.getenv(
+  "EXP9_SLEAP_STAGE_ROOT",
+  unset = "C:/Users/topohl/Documents/exp9_sleap_staging"
+)
+OUT <- Sys.getenv(
+  "EXP9_SLEAP_ASSAY_OUTPUT_ROOT",
+  unset = file.path(LEGACY_PROJ, "sleap_output_all")
+)
+ENRICH <- Sys.getenv("EXP9_SLEAP_DATA_DIR", unset = file.path(RUN_ROOT, "enriched"))
+META <- Sys.getenv("EXP9_SLEAP_METADATA_DIR", unset = file.path(RUN_ROOT, "metadata"))
 BATCHES <- paste0("B", 1:6)
 dir.create(ENRICH, showWarnings = FALSE, recursive = TRUE)
+dir.create(META, showWarnings = FALSE, recursive = TRUE)
 
 # --- Metadata for the whole cohort -----------------------------------------
 id_code <- read.delim(file.path(EXP9, "Planning/animalIDCode.txt"),
@@ -69,11 +79,11 @@ read_list <- function(p) {
   v <- trimws(readLines(p, warn = FALSE))
   canon(v[nzchar(v)])
 }
-# sus_animals.txt is the authoritative SUS list: it names every susceptible
-# animal, and RES is the complement within SIS. .csv holds the same 39 animals
-# with different zero-padding, which canon() makes irrelevant.
+# sus_animals.txt is the authoritative, corrected SUS list: it names every
+# susceptible animal, and RES is the complement within SIS. The historical
+# batch-corrected alternative was archived on 2026-09-20 as non-canonical and
+# must not be silently reintroduced here.
 sus_plain <- read_list(file.path(EXP9, "Analysis/sus_animals.txt"))
-sus_bc    <- read_list(file.path(EXP9, "Analysis/sus_animals_batchCorrected.txt"))
 con_list  <- read_list(file.path(EXP9, "Analysis/con_animals.csv"))
 
 # Sex is a property of the batch: B1, B2 and B5 are male, B3, B4 and B6 female.
@@ -174,11 +184,6 @@ meta <- id_code %>%
                           TRUE               ~ "RES"),
     Phenotype_source = "Analysis/{con_animals.csv, sus_animals.txt}, RES by complement",
 
-    Phenotype_batchCorrected = case_when(Condition == "CON" ~ "CON",
-                                         key %in% sus_bc    ~ "SUS",
-                                         TRUE               ~ "RES"),
-    Phenotype_conflict = Phenotype != Phenotype_batchCorrected,
-
     # The RFID QC table is an independent third source. It is NOT used to
     # assign anything -- it cross-checks the rosters, and disagreements are
     # reported rather than silently preferred either way.
@@ -190,8 +195,8 @@ meta <- id_code %>%
     Sex = unname(SEX_BY_BATCH[Batch]),
     Sex_rfid_agrees = ifelse(is.na(Sex_rfid), NA, Sex_rfid == Sex)) %>%
   select(Code, ID, Batch, Batch_ref, Sex, Sex_rfid, Sex_rfid_agrees,
-         Condition, Phenotype, Phenotype_source, Phenotype_batchCorrected,
-         Phenotype_conflict, Pheno_rfid, Phenotype_rfid_agrees)
+         Condition, Phenotype, Phenotype_source,
+         Pheno_rfid, Phenotype_rfid_agrees)
 
 oft_wide <- if (is.null(oft)) NULL else
   oft %>%
@@ -242,13 +247,10 @@ cat("\n=== metadata coverage ===\n")
 cat(sprintf("  Sex known            : %d / %d\n", sum(!is.na(master$Sex)), nrow(master)))
 cat(sprintf("  Condition known      : %d / %d\n", sum(!is.na(master$Condition)), nrow(master)))
 cat(sprintf("  Phenotype (curated)  : %d / %d\n", sum(!is.na(master$Phenotype)), nrow(master)))
-cat(sprintf("  Phenotype (batch-cor): %d / %d\n", sum(!is.na(master$Phenotype_batchCorrected)), nrow(master)))
-cat(sprintf("  curated/bc conflicts : %d\n", sum(master$Phenotype_conflict, na.rm = TRUE)))
 
 cat("\n=== group sizes ===\n")
 cat("Condition:\n");                  print(table(master$Condition, useNA = "ifany"))
 cat("Phenotype (curated):\n");        print(table(master$Phenotype, useNA = "ifany"))
-cat("Phenotype (batch-corrected):\n");print(table(master$Phenotype_batchCorrected, useNA = "ifany"))
 cat("Sex x Condition:\n");            print(table(master$Sex, master$Condition, useNA = "ifany"))
 
 cat("\nwrote:", file.path(ENRICH, "sleap_all_batches_wide.tsv"), "\n")

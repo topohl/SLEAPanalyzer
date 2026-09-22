@@ -1,118 +1,118 @@
-Code	ID	Batch	Batch_ref	Sex	Sex_rfid	Sex_rfid_agrees	Condition	Phenotype	Phenotype_source	Phenotype_batchCorrected	Phenotype_conflict	Pheno_rfid	Phenotype_rfid_agrees
-A1L9	OQ752	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE		
-C2P4	OQ771	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-C7E2	OQ761	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-F2I1	OQ770	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-F9L3	OQ751	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE		
-H9J5	OQ772	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-K4T2	OQ750	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE		
-L2H0	OQ760	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-M1M3	0003	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-M8P3	OQ763	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-P9X0	OQ755	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-R8K7	OQ754	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-R8O3	OQ764	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-S7I3	0004	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-T2H7	OQ762	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-U5P3	OQ765	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-V2P0	0002	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE		
-X1H0	0001	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE		
-Y0F3	OQ753	B1		Male			SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE		
-Y6V5	OQ773	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-N4W8	OR104	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-L5O6	OR105	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-M4P5	OR106	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-K1U8	OR111	B2	B2	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-S1C1	OR112	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-F9M6	OR113	B2	B2	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-P9E2	OR120	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-H0U6	OR122	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-O9D3	OR126	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-Z8S9	OR127	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-T4W6	OR128	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-R9Y3	OR129	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-N4U1	OR130	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-G6K2	OR131	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-S2Q1	OR134	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-Q6Q6	OR135	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-W2N9	OR138	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-R0T0	OR139	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-V4F5	OR140	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-A0S5	OR141	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-B6B2	OR413	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-P8P4	OR414	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-Z1O0	OR415	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-N5I6	OR416	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-Y8G0	OR419	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-G0N2	OR420	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-K9X2	OR424	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-S6R5	OR425	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-D9Q7	OR426	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-E7A6	OR428	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-Y8Y4	OR429	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-I1E6	OR430	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE	SUS	TRUE
-U5E6	OR432	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-E0E7	OR433	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-L9X0	OR434	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-X6G3	OR436	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE	SUS	TRUE
-R7N6	OR437	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-B3N2	1545	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-U0G5	1546	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-H3S7	1547	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-O3S1	OR529	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-T8X2	OR530	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE	RES	TRUE
-B4Y7	OR531	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-X7G7	OR537	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-L9K1	OR538	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-C1U2	OR539	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-Q5M7	OR540	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-V2Q0	OR550	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-V6G1	OR551	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-D9U8	OR552	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-A0I4	OR553	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-N5M8	OR554	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE	SUS	TRUE
-U3X0	OR555	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-M8L2	OR556	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-I4O9	OR559	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-J8F5	OR560	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-I2N8	OR561	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-K9K9	OR562	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-B7C9	OR568	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-V3D2	OR620	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-B0M3	OR621	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-X7M1	OR622	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-I6Q4	OR623	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-V5Q6	OR624	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-M2F1	OR625	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-Q4Q2	OR628	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-Z6Q4	OR629	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-W6Q1	OR630	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-M8G1	00303	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-V1E8	00304	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-M7X3	00310	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-M3O4	00313	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-M2L3	00314	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-H1E2	00317	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-F8O9	00318	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-Q3B3	00319	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-M5G6	13856	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE	SUS	TRUE
-W9Y5	13857	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-L3C1	OR639	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-D3U7	OR643	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-M1K4	OR644	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-L7F8	OR645	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	FALSE	CON	TRUE
-U9P0	OR646	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-V4Z2	OR647	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-K4A5	00654	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-A3R3	00656	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-R8I2	00662	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE	SUS	TRUE
-R6D7	00663	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	FALSE	SUS	TRUE
-Z3N9	00675	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-C3P0	00676	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-A2C8	00690	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-R9K0	00691	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-F6C2	00692	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-U6H9	00693	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-N9F6	00694	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-B4Z1	00695	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
-F2V2	00696	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	FALSE	RES	TRUE
+Code	ID	Batch	Batch_ref	Sex	Sex_rfid	Sex_rfid_agrees	Condition	Phenotype	Phenotype_source	Pheno_rfid	Phenotype_rfid_agrees
+A1L9	OQ752	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+C2P4	OQ771	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+C7E2	OQ761	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+F2I1	OQ770	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+F9L3	OQ751	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+H9J5	OQ772	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+K4T2	OQ750	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+L2H0	OQ760	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+M1M3	0003	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+M8P3	OQ763	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+P9X0	OQ755	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+R8K7	OQ754	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+R8O3	OQ764	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+S7I3	0004	B1	B1	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+T2H7	OQ762	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+U5P3	OQ765	B1	B1	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+V2P0	0002	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+X1H0	0001	B1		Male			SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+Y0F3	OQ753	B1		Male			SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement		
+Y6V5	OQ773	B1	B1	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+N4W8	OR104	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+L5O6	OR105	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+M4P5	OR106	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+K1U8	OR111	B2	B2	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+S1C1	OR112	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+F9M6	OR113	B2	B2	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+P9E2	OR120	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+H0U6	OR122	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+O9D3	OR126	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+Z8S9	OR127	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+T4W6	OR128	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+R9Y3	OR129	B2	B2	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+N4U1	OR130	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+G6K2	OR131	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+S2Q1	OR134	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+Q6Q6	OR135	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+W2N9	OR138	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+R0T0	OR139	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+V4F5	OR140	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+A0S5	OR141	B2	B2	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+B6B2	OR413	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+P8P4	OR414	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+Z1O0	OR415	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+N5I6	OR416	B3	B3	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+Y8G0	OR419	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+G0N2	OR420	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+K9X2	OR424	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+S6R5	OR425	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+D9Q7	OR426	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+E7A6	OR428	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+Y8Y4	OR429	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+I1E6	OR430	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+U5E6	OR432	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+E0E7	OR433	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+L9X0	OR434	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+X6G3	OR436	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+R7N6	OR437	B3	B3	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+B3N2	1545	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+U0G5	1546	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+H3S7	1547	B3	B3	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+O3S1	OR529	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+T8X2	OR530	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+B4Y7	OR531	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+X7G7	OR537	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+L9K1	OR538	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+C1U2	OR539	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+Q5M7	OR540	B4	B4	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+V2Q0	OR550	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+V6G1	OR551	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+D9U8	OR552	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+A0I4	OR553	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+N5M8	OR554	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+U3X0	OR555	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+M8L2	OR556	B4	B4	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+I4O9	OR559	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+J8F5	OR560	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+I2N8	OR561	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+K9K9	OR562	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+B7C9	OR568	B4	B4	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+V3D2	OR620	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+B0M3	OR621	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+X7M1	OR622	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+I6Q4	OR623	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+V5Q6	OR624	B5	B5	Male	Male	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+M2F1	OR625	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+Q4Q2	OR628	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+Z6Q4	OR629	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+W6Q1	OR630	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+M8G1	00303	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+V1E8	00304	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+M7X3	00310	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+M3O4	00313	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+M2L3	00314	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+H1E2	00317	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+F8O9	00318	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+Q3B3	00319	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+M5G6	13856	B5	B5	Male	Male	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+W9Y5	13857	B5	B5	Male	Male	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+L3C1	OR639	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+D3U7	OR643	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+M1K4	OR644	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+L7F8	OR645	B6	B6	Female	Female	TRUE	CON	CON	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	CON	TRUE
+U9P0	OR646	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+V4Z2	OR647	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+K4A5	00654	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+A3R3	00656	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+R8I2	00662	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+R6D7	00663	B6	B6	Female	Female	TRUE	SIS	SUS	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	SUS	TRUE
+Z3N9	00675	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+C3P0	00676	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+A2C8	00690	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+R9K0	00691	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+F6C2	00692	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+U6H9	00693	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+N9F6	00694	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+B4Z1	00695	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
+F2V2	00696	B6	B6	Female	Female	TRUE	SIS	RES	Analysis/{con_animals.csv, sus_animals.txt}, RES by complement	RES	TRUE
