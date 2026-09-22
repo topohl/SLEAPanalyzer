@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import re
 import sys
 from itertools import combinations
@@ -222,12 +223,24 @@ def process_one(geom_path: Path, animal_path: Path, dst: Path,
     with open(dst, "w", newline="") as fh:
         for row in dlc_header(bodyparts):
             fh.write(",".join(row) + LINE_TERM)
-        body.to_csv(fh, index=False, header=False, lineterminator=LINE_TERM)
+        # pandas < 1.5 calls this argument ``line_terminator``; newer releases
+        # renamed it to ``lineterminator`` and pandas 2 removed the old alias.
+        # Select by capability so the SLEAP Python 3.7 environment (pandas
+        # 1.3.5) and current environments produce the same bytes.
+        terminator_arg = (
+            "lineterminator"
+            if "lineterminator" in inspect.signature(body.to_csv).parameters
+            else "line_terminator"
+        )
+        body.to_csv(
+            fh, index=False, header=False, **{terminator_arg: LINE_TERM}
+        )
 
     # Read the row count back. On a network share a write can be visible
     # before it is complete, and a short read is how a 12 MB file silently
     # became 1 kB.
-    written = sum(1 for _ in open(dst, "rb")) - 3
+    with open(dst, "rb") as fh:
+        written = sum(1 for _ in fh) - 3
     if written != len(merged):
         raise IOError(
             f"{dst.name}: wrote {len(merged)} rows but {written} readable back; "
