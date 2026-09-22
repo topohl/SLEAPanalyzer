@@ -4,3 +4,8 @@
 validation/*/sleap_input/
 validation/*/sleap_output/
 validation/*/sleap_output_all/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
