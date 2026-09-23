@@ -5,6 +5,9 @@ param(
     [string]$AssayOutputRoot = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris\sleap_output_all',
     [string]$StageRoot = 'C:\Users\topohl\Documents\exp9_sleap_staging',
     [string]$HistoricalProjectRoot = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris',
+    [string]$EpmCalibrationInput = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris\sleap_input\EPM',
+    [string]$NorCalibrationInput = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris\sleap_input\NOR',
+    [string]$BorisNorRoot = 'S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior\B1\NOR\BORIS',
     [string]$Rscript = 'C:\Users\topohl\AppData\Local\Programs\R\R-4.5.1\bin\x64\Rscript.exe'
 )
 
@@ -17,7 +20,15 @@ if ($ReleaseName -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[A-Za-z0-9._-]+$') {
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $releaseRoot = Join-Path (Join-Path $BundleRoot 'releases') $ReleaseName
 
-foreach ($required in @($Rscript, $AssayOutputRoot, $StageRoot, $HistoricalProjectRoot)) {
+foreach ($required in @(
+    $Rscript,
+    $AssayOutputRoot,
+    $StageRoot,
+    $HistoricalProjectRoot,
+    $EpmCalibrationInput,
+    $NorCalibrationInput,
+    $BorisNorRoot
+)) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "Required path does not exist: $required"
     }
@@ -34,16 +45,20 @@ $dirs = @(
     (Join-Path $releaseRoot 'statistics'),
     (Join-Path $releaseRoot 'figures'),
     (Join-Path $releaseRoot 'qc'),
+    (Join-Path $releaseRoot 'source_data\validation'),
+    (Join-Path $releaseRoot 'source_data\validation\boris_nor'),
     (Join-Path $releaseRoot 'provenance'),
     (Join-Path $releaseRoot 'provenance\configs'),
     (Join-Path $releaseRoot 'provenance\logs'),
-    (Join-Path $releaseRoot 'provenance\scripts')
+    (Join-Path $releaseRoot 'provenance\scripts'),
+    (Join-Path $releaseRoot 'provenance\scripts\analysis_core')
 )
 foreach ($dir in $dirs) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
 
 $sourceCopies = [System.Collections.Generic.List[object]]::new()
+$externalInputs = [System.Collections.Generic.List[object]]::new()
 function Copy-RecordedFile {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
@@ -68,6 +83,22 @@ function Copy-RecordedFile {
     })
 }
 
+function Add-ExternalInput {
+    param(
+        [Parameter(Mandatory = $true)][string]$Role,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Required external input is missing: $Path"
+    }
+    $externalInputs.Add([pscustomobject]@{
+        role = $Role
+        source = $Path
+        bytes = (Get-Item -LiteralPath $Path).Length
+        sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    })
+}
+
 function Invoke-RScriptLogged {
     param(
         [Parameter(Mandatory = $true)][string]$ScriptPath,
@@ -88,8 +119,13 @@ $environmentUpdates = @{
     EXP9_SLEAP_METADATA_DIR = (Join-Path $releaseRoot 'metadata')
     EXP9_SLEAP_RESULTS_DIR = (Join-Path $releaseRoot 'statistics')
     EXP9_SLEAP_FIGURES_DIR = (Join-Path $releaseRoot 'figures')
+    EXP9_SLEAP_SOURCE_DATA_DIR = (Join-Path $releaseRoot 'source_data\validation')
     EXP9_SLEAP_ASSAY_OUTPUT_ROOT = $AssayOutputRoot
     EXP9_SLEAP_STAGE_ROOT = $StageRoot
+    EXP9_BORIS_NOR_DIR = $BorisNorRoot
+    EXP9_EPM_CALIBRATION_INPUT = $EpmCalibrationInput
+    EXP9_NOR_CALIBRATION_INPUT = $NorCalibrationInput
+    SLEAPANALYZER_ROOT = $repoRoot
 }
 
 try {
@@ -98,10 +134,19 @@ try {
         [Environment]::SetEnvironmentVariable($name, $environmentUpdates[$name], 'Process')
     }
 
-    $assemble = Join-Path $repoRoot 'validation\exp9_boris\scripts\09_assemble_all_batches.R'
-    $analyse = Join-Path $repoRoot 'validation\exp9_boris\scripts\10_analyse_all_batches.R'
-    $finalise = Join-Path $repoRoot 'validation\exp9_boris\scripts\11_finalize_output_bundle.R'
+    $scriptRoot = Join-Path $repoRoot 'validation\exp9_boris\scripts'
+    $correlate = Join-Path $scriptRoot '05_correlate.R'
+    $noseDipCalibration = Join-Path $scriptRoot '11_recalibrate_nosedips.R'
+    $norContactCalibration = Join-Path $scriptRoot '12_calibrate_nor_contact.R'
+    $norDetectorComparison = Join-Path $scriptRoot '13_compare_nor_detectors.R'
+    $assemble = Join-Path $scriptRoot '09_assemble_all_batches.R'
+    $analyse = Join-Path $scriptRoot '10_analyse_all_batches.R'
+    $finalise = Join-Path $scriptRoot '11_finalize_output_bundle.R'
 
+    Invoke-RScriptLogged -ScriptPath $correlate -LogName '05_correlate.log'
+    Invoke-RScriptLogged -ScriptPath $noseDipCalibration -LogName '11_recalibrate_nosedips.log'
+    Invoke-RScriptLogged -ScriptPath $norContactCalibration -LogName '12_calibrate_nor_contact.log'
+    Invoke-RScriptLogged -ScriptPath $norDetectorComparison -LogName '13_compare_nor_detectors.log'
     Invoke-RScriptLogged -ScriptPath $assemble -LogName '09_assemble_all_batches.log'
     Invoke-RScriptLogged -ScriptPath $analyse -LogName '10_analyse_all_batches.log'
     Invoke-RScriptLogged -ScriptPath $finalise -LogName '11_finalize_output_bundle.log'
@@ -140,12 +185,12 @@ try {
     }
 
     $configDir = Join-Path $repoRoot 'validation\exp9_boris\config'
-    foreach ($name in 'epm_all.yaml','nor_all.yaml','socp_all.yaml','oft_all.yaml') {
+    foreach ($name in 'epm_all.yaml','nor_all.yaml','socp_all.yaml','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
         Copy-RecordedFile `
             -Source (Join-Path $configDir $name) `
             -Destination (Join-Path $releaseRoot "provenance\configs\$name")
     }
-    foreach ($name in '00_theme.R','08_stage_all_batches.R','09_assemble_all_batches.R','10_analyse_all_batches.R','11_finalize_output_bundle.R') {
+    foreach ($name in '00_theme.R','05_correlate.R','08_stage_all_batches.R','09_assemble_all_batches.R','10_analyse_all_batches.R','11_finalize_output_bundle.R','11_recalibrate_nosedips.R','12_calibrate_nor_contact.R','13_compare_nor_detectors.R') {
         Copy-RecordedFile `
             -Source (Join-Path $repoRoot "validation\exp9_boris\scripts\$name") `
             -Destination (Join-Path $releaseRoot "provenance\scripts\$name")
@@ -153,6 +198,50 @@ try {
     Copy-RecordedFile `
         -Source $PSCommandPath `
         -Destination (Join-Path $releaseRoot 'provenance\scripts\build_exp9_behavior_bundle.ps1')
+
+    $validationRoot = Join-Path $repoRoot 'validation\exp9_boris'
+    Copy-RecordedFile `
+        -Source (Join-Path $validationRoot 'metadata\novelLoc.txt') `
+        -Destination (Join-Path $releaseRoot 'source_data\validation\novelLoc.txt')
+    Get-ChildItem -LiteralPath $BorisNorRoot -File -Filter '*_nov.tsv' | Sort-Object Name | ForEach-Object {
+        Copy-RecordedFile `
+            -Source $_.FullName `
+            -Destination (Join-Path $releaseRoot "source_data\validation\boris_nor\$($_.Name)")
+    }
+
+    $analysisCode = @(
+        '02_SLEAPanalzyer\DLCAnalyzer_Functions_final.R',
+        '02_SLEAPanalzyer\Behavioral_Metrics_Phase1.R',
+        '02_SLEAPanalzyer\core\events.R',
+        '02_SLEAPanalzyer\core\geometry.R',
+        '02_SLEAPanalzyer\core\interpolation.R',
+        '02_SLEAPanalzyer\core\io.R',
+        '02_SLEAPanalzyer\core\validation.R'
+    )
+    foreach ($relative in $analysisCode) {
+        Copy-RecordedFile `
+            -Source (Join-Path $repoRoot $relative) `
+            -Destination (Join-Path $releaseRoot "provenance\scripts\analysis_core\$(Split-Path -Leaf $relative)")
+    }
+    Copy-RecordedFile `
+        -Source (Join-Path $repoRoot '02_SLEAPanalzyer\EPM_zoneinfo.csv') `
+        -Destination (Join-Path $releaseRoot 'source_data\validation\EPM_zoneinfo.csv')
+
+    Add-ExternalInput `
+        -Role 'Method validation manual source table' `
+        -Path (Join-Path $validationRoot 'enriched\analysis_ready_wide.tsv')
+    Add-ExternalInput `
+        -Role 'Method validation SLEAP source table' `
+        -Path (Join-Path $validationRoot 'enriched\sleap_wide.tsv')
+    Get-ChildItem -LiteralPath $EpmCalibrationInput -File -Filter '*.csv' | Sort-Object Name | ForEach-Object {
+        Add-ExternalInput -Role 'EPM calibration coordinates' -Path $_.FullName
+    }
+    Get-ChildItem -LiteralPath $NorCalibrationInput -File -Filter '*.csv' | Sort-Object Name | ForEach-Object {
+        Add-ExternalInput -Role 'NOR calibration coordinates' -Path $_.FullName
+    }
+    $externalInputs | Export-Csv `
+        -LiteralPath (Join-Path $releaseRoot 'provenance\external_input_manifest.tsv') `
+        -Delimiter "`t" -NoTypeInformation -Encoding utf8
 
     $sourceCopies | Export-Csv `
         -LiteralPath (Join-Path $releaseRoot 'provenance\source_copy_manifest.tsv') `
@@ -175,6 +264,9 @@ try {
         "assay_output_root=$AssayOutputRoot",
         "stage_root=$StageRoot",
         "historical_project_root=$HistoricalProjectRoot",
+        "epm_calibration_input=$EpmCalibrationInput",
+        "nor_calibration_input=$NorCalibrationInput",
+        "boris_nor_root=$BorisNorRoot",
         "rscript=$Rscript"
     )
     [System.IO.File]::WriteAllLines(

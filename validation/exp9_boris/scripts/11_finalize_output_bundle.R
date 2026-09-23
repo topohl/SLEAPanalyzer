@@ -19,9 +19,11 @@ if (!nzchar(RUN_ROOT)) {
 DATA_DIR <- Sys.getenv("EXP9_SLEAP_DATA_DIR", unset = file.path(RUN_ROOT, "data"))
 META_DIR <- Sys.getenv("EXP9_SLEAP_METADATA_DIR", unset = file.path(RUN_ROOT, "metadata"))
 QC_DIR <- file.path(RUN_ROOT, "qc")
+FIG_DIR <- Sys.getenv("EXP9_SLEAP_FIGURES_DIR", unset = file.path(RUN_ROOT, "figures"))
 dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(META_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(QC_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
 
 assembled_tsv <- file.path(DATA_DIR, "sleap_all_batches_wide.tsv")
 assembled_xlsx <- file.path(DATA_DIR, "sleap_all_batches_wide.xlsx")
@@ -37,7 +39,9 @@ if (length(missing_required)) {
   stop("Assembled table is missing required columns: ",
        paste(missing_required, collapse = ", "))
 }
-forbidden <- c("Phenotype_batchCorrected", "Phenotype_conflict")
+forbidden <- c(
+  "Phenotype_batchCorrected", "Phenotype_bc_complement", "Phenotype_conflict"
+)
 present_forbidden <- intersect(forbidden, names(dat))
 if (length(present_forbidden)) {
   stop("Canonical bundle must not contain deprecated phenotype columns: ",
@@ -137,6 +141,74 @@ write.csv(coverage, file.path(QC_DIR, "assay_coverage_by_batch.csv"), row.names 
 write.csv(missing, file.path(QC_DIR, "missing_assay_records.csv"), row.names = FALSE)
 write.csv(cohort, file.path(QC_DIR, "cohort_counts.csv"), row.names = FALSE)
 
+validation_source_path <- file.path(
+  RUN_ROOT, "source_data", "validation", "method_validation_matched_data.tsv"
+)
+if (!file.exists(validation_source_path)) {
+  stop("Canonical validation source table is missing: ", validation_source_path)
+}
+validation_source <- read.delim(validation_source_path, stringsAsFactors = FALSE,
+                                na.strings = "")
+validation_forbidden <- intersect(forbidden, names(validation_source))
+if (length(validation_forbidden)) {
+  stop("Validation source contains deprecated phenotype columns: ",
+       paste(validation_forbidden, collapse = ", "))
+}
+if (nrow(validation_source) != 20L || any(is.na(validation_source$Phenotype))) {
+  stop("Expected 20 validation animals with complete canonical phenotypes.")
+}
+for (name in c("group_summaries.csv", "group_tests.csv")) {
+  path <- file.path(RUN_ROOT, "statistics", name)
+  if (!file.exists(path)) stop("Required validation result is missing: ", path)
+  result <- read.csv(path, stringsAsFactors = FALSE)
+  if (any(grepl("batch-corrected", result$grouping, fixed = TRUE))) {
+    stop(name, " contains the deprecated batch-corrected phenotype grouping.")
+  }
+}
+
+figure_contract <- c(
+  fig1_method_agreement = "05_correlate.R; method validation",
+  fig2_bland_altman = "05_correlate.R; method validation",
+  fig3_cross_assay_matrix = "05_correlate.R; method validation",
+  fig4_group_differences = "05_correlate.R; method validation",
+  fig6_effect_sizes = "10_analyse_all_batches.R; canonical all-batch analysis",
+  fig7_nosedip_sweep = "11_recalibrate_nosedips.R; EPM calibration",
+  fig8_nor_contact_sweep = "12_calibrate_nor_contact.R; NOR calibration",
+  fig9_nor_detector_designs = "13_compare_nor_detectors.R; NOR calibration"
+)
+expected_figure_files <- unlist(lapply(names(figure_contract), function(stem) {
+  paste0(stem, c(".pdf", ".png"))
+}))
+missing_figures <- expected_figure_files[
+  !file.exists(file.path(FIG_DIR, expected_figure_files))
+]
+if (length(missing_figures)) {
+  stop("Required regenerated figures are missing: ",
+       paste(missing_figures, collapse = ", "))
+}
+
+figure_readme <- c(
+  "# Figure inventory",
+  "",
+  "All PDF and PNG files in this directory were regenerated during this release.",
+  "",
+  "## Included canonical figures",
+  "",
+  unname(sprintf("- `%s.pdf` and `%s.png`: %s",
+                 names(figure_contract), names(figure_contract), figure_contract)),
+  "",
+  "## Deliberate exclusions",
+  "",
+  "- `fig5_all_batches_matrix.png` is excluded because no script generates it;",
+  "  its provenance is unverified.",
+  "- `fig10_label_stability`, `fig11_con_res_sus`, and",
+  "  `fig12_within_sex_weighting` are excluded because scripts 14-22 are",
+  "  superseded phenotype analyses that use the older susceptible roster.",
+  "",
+  "See `../provenance/logs/` for the generating-stage logs."
+)
+writeLines(figure_readme, file.path(FIG_DIR, "README.md"))
+
 readme <- c(
   "# Exp9 SLEAPanalyzer v2 all-batch release",
   "",
@@ -162,13 +234,16 @@ readme <- c(
   "- data/: canonical all-animal table, explicit male/female tables, workbook.",
   "- metadata/: animal identity and experimental-group metadata.",
   "- assay_summaries/: compact per-batch assay tables, QC and run manifests.",
-  "- statistics/: pooled and sex-stratified effect tables/workbook.",
-  "- figures/: figures generated from this release's assembled table.",
+  "- statistics/: validation/calibration plus pooled and sex-stratified results.",
+  "- figures/: eight regenerated canonical figure pairs plus producer map.",
   "- qc/: cohort counts, assay coverage and missing-record register.",
+  "- source_data/: compact validation inputs and raw BORIS summaries.",
   "- provenance/: exact configs/scripts, source-copy map, Git/R records and hashes.",
   "",
   "Bulk formatted coordinates, per-animal plots and EPM TIFF overview images",
   "are intentionally excluded. They remain in the recorded source locations.",
+  "The orphan Figure 5 and superseded phenotype Figures 10-12 are also",
+  "excluded; figures/README.md records the reasons.",
   "",
   "## Primary handoff files",
   "",

@@ -48,10 +48,16 @@ PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 
 # Shared Nature-style theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
-REPO  <- "C:/Users/topohl/Documents/GitHub/SLEAPanalyzer"
-BORIS <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/BORIS"
-RES   <- file.path(PROJ, "results")
-FIG   <- file.path(PROJ, "figures")
+REPO <- Sys.getenv("SLEAPANALYZER_ROOT", unset = normalizePath(file.path(PROJ, "..", ".."), winslash = "/"))
+BORIS <- Sys.getenv(
+  "EXP9_BORIS_NOR_DIR",
+  unset = "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior/B1/NOR/BORIS"
+)
+RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = PROJ)
+RES <- Sys.getenv("EXP9_SLEAP_RESULTS_DIR", unset = file.path(RUN_ROOT, "results"))
+FIG <- Sys.getenv("EXP9_SLEAP_FIGURES_DIR", unset = file.path(RUN_ROOT, "figures"))
+dir.create(RES, showWarnings = FALSE, recursive = TRUE)
+dir.create(FIG, showWarnings = FALSE, recursive = TRUE)
 
 source(file.path(REPO, "02_SLEAPanalzyer", "DLCAnalyzer_Functions_final.R"))
 source(file.path(REPO, "02_SLEAPanalzyer", "Behavioral_Metrics_Phase1.R"))
@@ -59,6 +65,7 @@ for (f in c("io", "events", "interpolation", "geometry", "validation"))
   try(source(file.path(REPO, "02_SLEAPanalzyer", "core", paste0(f, ".R"))), silent = TRUE)
 
 cfg <- yaml::read_yaml(file.path(PROJ, "config", "nor_b1.yaml"))
+input_dir <- Sys.getenv("EXP9_NOR_CALIBRATION_INPUT", unset = cfg$input_dir)
 novelLoc <- read.delim(file.path(PROJ, "metadata", "novelLoc.txt"), stringsAsFactors = FALSE)
 
 BOX_W <- 9; BOX_H <- 7            # novel object, from the pre-v2 definition
@@ -78,7 +85,7 @@ raw <- bind_rows(lapply(list.files(BORIS, pattern = "_nov[.]tsv$", full.names = 
 }))
 
 # --- Per-frame geometry, once per animal ------------------------------------
-files <- list.files(cfg$input_dir, pattern = "[.]csv$", full.names = TRUE)
+files <- list.files(input_dir, pattern = "[.]csv$", full.names = TRUE)
 cat(sprintf("reading %d Batch-1 NOR files\n", length(files)))
 geo <- lapply(files, function(p) {
   t <- ReadDLCDataFromCSV(file = p, fps = cfg$fps)

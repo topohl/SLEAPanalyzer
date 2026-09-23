@@ -34,11 +34,14 @@ S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Analysis\Behavior\SLEAPanalyze
 ```
 
 Each release contains canonical all-animal, male (B1/B2/B5), and female
-(B3/B4/B6) tables; pooled and sex-stratified batch-adjusted statistics; figures;
-compact assay summaries; QC; exact scripts/configs; stage logs; source and bundle
-SHA-256 manifests; and Git/R provenance. Bulk coordinate files, per-animal plots,
-and EPM TIFFs remain in their recorded source locations. The builder refuses to
-overwrite an existing release name.
+(B3/B4/B6) tables; pooled and sex-stratified batch-adjusted statistics; eight
+regenerated figure pairs (Figures 1-4, 6, and 7-9); compact assay summaries;
+QC; exact scripts/configs; stage logs; source and bundle SHA-256 manifests; and
+Git/R provenance. Figure 5 is excluded because it has no generating script.
+Figures 10-12 are excluded because they are produced by the superseded phenotype
+scripts 14-22. Bulk coordinate files, per-animal plots, and EPM TIFFs remain in
+their recorded source locations. The builder refuses to overwrite an existing
+release name.
 
 ---
 

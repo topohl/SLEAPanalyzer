@@ -92,7 +92,7 @@ theme_exp9 <- function(base = 7, grid = c("y", "x", "both", "none")) {
 # A visible separator, not repeated spaces: markdown collapses whitespace runs.
 colour_key <- function(groups = c("CON", "RES", "SUS"))
   paste(sprintf("<span style='color:%s'>**%s**</span>", PAL_DARK[groups], groups),
-        collapse = " <span style='color:#C8C8C8'>·</span> ")
+        collapse = " <span style='color:#C8C8C8'>|</span> ")
 
 # Vector for the journal, raster for quick viewing, from one call.
 save_fig <- function(plot, name, width, height, dir = FIG) {

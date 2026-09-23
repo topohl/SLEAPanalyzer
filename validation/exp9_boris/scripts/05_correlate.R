@@ -12,9 +12,8 @@
 #      other? Spearman, because n = 20 and several metrics are skewed, with
 #      Benjamini-Hochberg correction across the reported matrix.
 #
-#   3. GROUP DIFFERENCES, reported under BOTH phenotype definitions, because
-#      the curated and batch-corrected calls disagree for T2H7 and the curated
-#      call is missing for five animals.
+#   3. GROUP DIFFERENCES, reported for Condition and the current canonical
+#      phenotype. Deprecated batch-corrected calls are neither read nor used.
 #
 # n = 20 (4 CON / 16 SIS). Every correlation here has a 95% CI roughly +/- 0.4
 # wide, so these are estimates with wide uncertainty, not confirmations.
@@ -36,24 +35,66 @@ SCRIPTS <- local({
 })
 PROJ   <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 ENRICH <- file.path(PROJ, "enriched")
-FIG    <- file.path(PROJ, "figures")
-RES    <- file.path(PROJ, "results")
+RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = PROJ)
+FIG <- Sys.getenv("EXP9_SLEAP_FIGURES_DIR", unset = file.path(RUN_ROOT, "figures"))
+RES <- Sys.getenv("EXP9_SLEAP_RESULTS_DIR", unset = file.path(RUN_ROOT, "results"))
+SOURCE_DATA <- Sys.getenv(
+  "EXP9_SLEAP_SOURCE_DATA_DIR",
+  unset = file.path(RUN_ROOT, "source_data", "validation")
+)
+EXP9 <- Sys.getenv(
+  "EXP9_ROOT",
+  unset = "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress"
+)
 dir.create(FIG, showWarnings = FALSE, recursive = TRUE)
 dir.create(RES, showWarnings = FALSE, recursive = TRUE)
+dir.create(SOURCE_DATA, showWarnings = FALSE, recursive = TRUE)
 
 # Shared Nature-style theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
 
 boris <- read.delim(file.path(ENRICH, "analysis_ready_wide.tsv"),
                     stringsAsFactors = FALSE, na.strings = "")
+forbidden_phenotype_columns <- c(
+  "Phenotype_batchCorrected", "Phenotype_bc_complement", "Phenotype_conflict"
+)
 sleap <- read.delim(file.path(ENRICH, "sleap_wide.tsv"),
-                    stringsAsFactors = FALSE, na.strings = "")
+                    stringsAsFactors = FALSE, na.strings = "") %>%
+  select(-any_of(forbidden_phenotype_columns))
 dat <- inner_join(sleap, boris %>% select(-c(ID, Batch, Sex, Condition, Phenotype,
                                              Phenotype_batchCorrected,
                                              Phenotype_bc_complement,
                                              Phenotype_conflict)),
                   by = "Code")
 stopifnot(nrow(dat) == 20)
+
+canon <- function(x) {
+  x <- toupper(trimws(as.character(x)))
+  ifelse(grepl("^[0-9]+$", x), sub("^0+(?=[0-9])", "", x, perl = TRUE), x)
+}
+read_list <- function(path) {
+  values <- trimws(readLines(path, warn = FALSE))
+  canon(values[nzchar(values)])
+}
+con_list <- read_list(file.path(EXP9, "Analysis/con_animals.csv"))
+sus_list <- read_list(file.path(EXP9, "Analysis/sus_animals.txt"))
+dat <- dat %>%
+  mutate(
+    key = canon(ID),
+    Condition = ifelse(key %in% con_list, "CON", "SIS"),
+    Phenotype = case_when(
+      Condition == "CON" ~ "CON",
+      key %in% sus_list ~ "SUS",
+      TRUE ~ "RES"
+    ),
+    Phenotype_source = "Analysis/{con_animals.csv, sus_animals.txt}, RES by complement"
+  ) %>%
+  select(-key)
+write.table(
+  dat,
+  file.path(SOURCE_DATA, "method_validation_matched_data.tsv"),
+  sep = "\t", row.names = FALSE, quote = FALSE, na = ""
+)
 
 
 # --- Agreement statistics ---------------------------------------------------
@@ -275,7 +316,7 @@ p3 <- ggplot(cm %>% filter(x != y) %>%
         legend.key.height = unit(22, "pt"))
 save_fig(p3, "fig3_cross_assay_matrix", W15, MM(112))
 
-# --- 3. Group comparisons under both phenotype definitions ------------------
+# --- 3. Group comparisons using the canonical phenotype ---------------------
 group_vars <- c("EPM open time" = "EPM_OpenTime_dur",
                 "EPM centre time" = "EPM_CenterTime_dur",
                 "EPM SAP" = "EPM_SAP_dur",
@@ -289,18 +330,13 @@ group_long <- bind_rows(lapply(names(group_vars), function(nm) {
                grouping = "Condition", group = dat$Condition,
                Code = dat$Code, stringsAsFactors = FALSE),
     data.frame(metric = nm, value = dat[[group_vars[[nm]]]],
-               grouping = "Phenotype (curated)", group = dat$Phenotype,
-               Code = dat$Code, stringsAsFactors = FALSE),
-    data.frame(metric = nm, value = dat[[group_vars[[nm]]]],
-               grouping = "Phenotype (batch-corrected)",
-               group = dat$Phenotype_batchCorrected,
+               grouping = "Phenotype (canonical)", group = dat$Phenotype,
                Code = dat$Code, stringsAsFactors = FALSE)
   )
 })) %>%
   mutate(group = ifelse(is.na(group), "unknown", group),
          metric = factor(metric, levels = names(group_vars)),
-         grouping = factor(grouping, levels = c("Condition", "Phenotype (curated)",
-                                                "Phenotype (batch-corrected)")),
+         grouping = factor(grouping, levels = c("Condition", "Phenotype (canonical)")),
          group = factor(group, levels = c("CON", "SIS", "RES", "SUS", "unknown")))
 
 group_stats <- group_long %>%
@@ -325,7 +361,7 @@ group_tests <- group_long %>%
   ungroup()
 write.csv(group_tests, file.path(RES, "group_tests.csv"), row.names = FALSE)
 
-cat("\n=== 3. GROUP DIFFERENCES under both phenotype definitions ===\n")
+cat("\n=== 3. GROUP DIFFERENCES using the canonical phenotype ===\n")
 print(group_tests %>% mutate(p = signif(p, 3), p_BH = signif(p_BH, 3)) %>%
         as.data.frame(), row.names = FALSE)
 
@@ -345,14 +381,17 @@ p4 <- ggplot(group_long %>% filter(group != "unknown") %>% mutate(group = drople
                       guide = "none") +
   # scales = "free" in facet_grid frees x per column and y per row, so each
   # grouping shows only its own groups while a metric keeps one y scale
-  # across all three groupings.
+  # across both groupings.
   facet_grid(metric ~ grouping, scales = "free", switch = "y") +
-  labs(title = "Group differences are reported under both phenotype definitions",
-       subtitle = paste("Bar is the group median.", colour_key(c("CON", "RES", "SUS")),
-                        "<br>The curated and batch-corrected calls disagree for T2H7;",
-                        "the curated call is missing for 5 animals."),
+  labs(title = "Group differences use the canonical phenotype",
+       subtitle = paste0("Bar is the group median. ",
+                         colour_key(c("CON", "RES", "SUS")),
+                         "<br>RES is the complement among SIS animals after applying ",
+                         "the current<br>canonical susceptible roster."),
        x = NULL, y = NULL,
-       caption = "Groups are identified by position, not colour alone. With 4 CON animals these comparisons are severely underpowered; see results/group_tests.csv.") +
+       caption = paste0("Groups are identified by position, not colour alone.<br>",
+                        "With 4 CON animals these comparisons are severely underpowered; ",
+                        "see statistics/group_tests.csv.")) +
   theme_exp9() +
   theme(strip.placement = "outside",
         strip.text.y.left = element_markdown(angle = 0, hjust = 1, size = 6,
