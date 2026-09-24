@@ -12,7 +12,8 @@
 #   - minimal non-data ink: no panel borders, no axis lines, no tick marks
 #   - gridlines on the value axis only (override with grid = "both" for
 #     scatters, "none" for heatmaps)
-#   - vector PDF for submission plus a 600 dpi PNG preview from one call
+#   - vector PDF for submission, editable SVG and a 600 dpi PNG preview from
+#     one call
 #
 # Palette: dark navy / neutral grey / coral. Navy and coral differ in hue AND
 # lightness, so they stay separable under deuteranopia and protanopia (where
@@ -94,10 +95,14 @@ colour_key <- function(groups = c("CON", "RES", "SUS"))
   paste(sprintf("<span style='color:%s'>**%s**</span>", PAL_DARK[groups], groups),
         collapse = " <span style='color:#C8C8C8'>|</span> ")
 
-# Vector for the journal, raster for quick viewing, from one call.
+# Vector for the journal, editable vector for figure assembly, raster for quick
+# viewing, from one call. svglite keeps text as <text> elements rather than
+# outlined glyphs, so labels stay editable in Illustrator or Inkscape.
 save_fig <- function(plot, name, width, height, dir = FIG) {
   ggsave(file.path(dir, paste0(name, ".pdf")), plot,
          width = width, height = height, device = cairo_pdf)
+  ggsave(file.path(dir, paste0(name, ".svg")), plot,
+         width = width, height = height, device = svglite::svglite)
   ggsave(file.path(dir, paste0(name, ".png")), plot,
          width = width, height = height, dpi = 600, bg = "white")
   invisible(name)

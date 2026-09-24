@@ -177,7 +177,7 @@ figure_contract <- c(
   fig9_nor_detector_designs = "13_compare_nor_detectors.R; NOR calibration"
 )
 expected_figure_files <- unlist(lapply(names(figure_contract), function(stem) {
-  paste0(stem, c(".pdf", ".png"))
+  paste0(stem, c(".pdf", ".svg", ".png"))
 }))
 missing_figures <- expected_figure_files[
   !file.exists(file.path(FIG_DIR, expected_figure_files))
@@ -190,12 +190,13 @@ if (length(missing_figures)) {
 figure_readme <- c(
   "# Figure inventory",
   "",
-  "All PDF and PNG files in this directory were regenerated during this release.",
+  "All PDF, SVG and PNG files in this directory were regenerated during this release.",
   "",
   "## Included canonical figures",
   "",
-  unname(sprintf("- `%s.pdf` and `%s.png`: %s",
-                 names(figure_contract), names(figure_contract), figure_contract)),
+  unname(sprintf("- `%s.pdf`, `%s.svg` and `%s.png`: %s",
+                 names(figure_contract), names(figure_contract),
+                 names(figure_contract), figure_contract)),
   "",
   "## Deliberate exclusions",
   "",
@@ -235,7 +236,7 @@ readme <- c(
   "- metadata/: animal identity and experimental-group metadata.",
   "- assay_summaries/: compact per-batch assay tables, QC and run manifests.",
   "- statistics/: validation/calibration plus pooled and sex-stratified results.",
-  "- figures/: eight regenerated canonical figure pairs plus producer map.",
+  "- figures/: eight regenerated canonical figures (PDF, SVG, PNG) plus producer map.",
   "- qc/: cohort counts, assay coverage and missing-record register.",
   "- source_data/: compact validation inputs and raw BORIS summaries.",
   "- provenance/: exact configs/scripts, source-copy map, Git/R records and hashes.",

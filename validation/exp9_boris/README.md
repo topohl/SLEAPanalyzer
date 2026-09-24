@@ -35,9 +35,10 @@ S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Analysis\Behavior\SLEAPanalyze
 
 Each release contains canonical all-animal, male (B1/B2/B5), and female
 (B3/B4/B6) tables; pooled and sex-stratified batch-adjusted statistics; eight
-regenerated figure pairs (Figures 1-4, 6, and 7-9); compact assay summaries;
-QC; exact scripts/configs; stage logs; source and bundle SHA-256 manifests; and
-Git/R provenance. Figure 5 is excluded because it has no generating script.
+regenerated figures as PDF, SVG and PNG (Figures 1-4, 6, and 7-9); compact
+assay summaries; QC; exact scripts/configs; stage logs; source and bundle
+SHA-256 manifests; and Git/R provenance. Figure 5 is excluded because it has no
+generating script.
 Figures 10-12 are excluded because they are produced by the superseded phenotype
 scripts 14-22. Bulk coordinate files, per-animal plots, and EPM TIFFs remain in
 their recorded source locations. The builder refuses to overwrite an existing
@@ -118,7 +119,7 @@ convention and output widths — so the validation and publication sets read as 
 | Palette | navy `#3F4576` / grey `#C2C2C2` / coral `#F4636E`; series extend with teal and mauve |
 | Type | 7 pt sans-serif |
 | Widths | 183 mm double-column, 120 mm, 89 mm single |
-| Output | vector PDF for submission + 600 dpi PNG preview, from one `save_fig()` call |
+| Output | vector PDF for submission + editable SVG (svglite, live text) + 600 dpi PNG preview, from one `save_fig()` call |
 | Non-data ink | no panel borders, no axis lines, no tick marks; gridlines on the value axis only |
 
 Navy and coral differ in hue *and* lightness, so they stay separable under deuteranopia
