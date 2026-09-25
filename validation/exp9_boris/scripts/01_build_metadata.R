@@ -31,10 +31,30 @@ ENRICH <- file.path(PROJ, "enriched")
 dir.create(META,   showWarnings = FALSE, recursive = TRUE)
 dir.create(ENRICH, showWarnings = FALSE, recursive = TRUE)
 
+# The phenotype table exists only in the retained numbered original
+# 03_derived_metrics, which may be archived under history/original_layout/.
+# Its archive receipt, not directory existence, says where it is; any other
+# state stops the script.
+retained_derived_metrics <- function(exp9) {
+  ready <- file.path(exp9, "Analysis/Behavior/RFID/analysis_ready")
+  original <- file.path(ready, "03_derived_metrics")
+  archived <- file.path(ready, "history/original_layout/03_derived_metrics")
+  receipt <- file.path(ready, "_migration_control/numbered_root_archive/03_derived_metrics.json")
+  if (!file.exists(receipt)) {
+    if (dir.exists(archived)) stop("03_derived_metrics archive exists without a receipt: ", archived)
+    return(original)
+  }
+  state <- jsonlite::fromJSON(receipt, simplifyVector = FALSE)[["state"]]
+  if (identical(state, "prepared") && dir.exists(original) && !dir.exists(archived)) return(original)
+  if (identical(state, "activated") && !dir.exists(original) && dir.exists(archived)) return(archived)
+  stop("03_derived_metrics archive is not readable (state ", format(state), "): ", receipt)
+}
+
 src <- list(
   id_code   = file.path(EXP9, "Planning/animalIDCode.txt"),
-  assign    = file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc/animal_group_sex_assignment_qc.csv"),
-  phenotype = file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc/cross_scale_identity_expected_phenotype_from_preprocessed.csv"),
+  # Stage 01 foundation copy, identical to the numbered original.
+  assign    = file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/foundations/behavior_metrics/qc/animal_group_sex_assignment_qc.csv"),
+  phenotype = file.path(retained_derived_metrics(EXP9), "qc/cross_scale_identity_expected_phenotype_from_preprocessed.csv"),
   sus       = file.path(EXP9, "Analysis/sus_animals.csv"),
   sus_bc    = file.path(EXP9, "Analysis/sus_animals_batchCorrected.csv"),
   con       = file.path(EXP9, "Analysis/con_animals.csv"),

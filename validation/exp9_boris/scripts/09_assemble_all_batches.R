@@ -61,8 +61,9 @@ id_code$key <- canon(id_code$ID)
 
 # The RFID table also carries two identifier systems per row: AnimalID_raw is
 # the one animalIDCode uses for some batches, AnimalID_norm for others. Accept
-# a match on either.
-asg_raw <- read.csv(file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc",
+# a match on either. Read the Stage 01 foundation copy, which is identical to
+# the numbered 03_derived_metrics original that is being archived.
+asg_raw <- read.csv(file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/foundations/behavior_metrics/qc",
                               "animal_group_sex_assignment_qc.csv"), stringsAsFactors = FALSE)
 asg <- bind_rows(
     asg_raw %>% mutate(key = canon(AnimalID_norm)),

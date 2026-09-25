@@ -133,8 +133,9 @@ dup <- inv %>% filter(!is.na(code_true)) %>%
 if (nrow(dup) == 0) cat("none\n") else print(as.data.frame(dup), row.names = FALSE)
 
 cat("\n=== 5. ANIMALS PER BATCH vs the metadata tables ===\n")
+# Stage 01 foundation copy, identical to the numbered original being archived.
 asg <- read.csv(file.path("s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress",
-                          "Analysis/Behavior/RFID/analysis_ready/03_derived_metrics/qc",
+                          "Analysis/Behavior/RFID/analysis_ready/foundations/behavior_metrics/qc",
                           "animal_group_sex_assignment_qc.csv"), stringsAsFactors = FALSE)
 cov <- inv %>% filter(!is.na(code_true), assay %in% c("EPM", "NOR", "SocP")) %>%
   distinct(batch, assay, code_true) %>%
