@@ -44,7 +44,12 @@ retained_derived_metrics <- function(exp9) {
     if (dir.exists(archived)) stop("03_derived_metrics archive exists without a receipt: ", archived)
     return(original)
   }
-  state <- jsonlite::fromJSON(receipt, simplifyVector = FALSE)[["state"]]
+  rec <- jsonlite::fromJSON(receipt, simplifyVector = FALSE)
+  if (!identical(rec[["root"]], "03_derived_metrics") ||
+      !identical(rec[["archive_root_rel"]], "history/original_layout/03_derived_metrics")) {
+    stop("Invalid 03_derived_metrics archive receipt: ", receipt)
+  }
+  state <- rec[["state"]]
   if (identical(state, "prepared") && dir.exists(original) && !dir.exists(archived)) return(original)
   if (identical(state, "activated") && !dir.exists(original) && dir.exists(archived)) return(archived)
   stop("03_derived_metrics archive is not readable (state ", format(state), "): ", receipt)
