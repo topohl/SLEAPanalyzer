@@ -43,7 +43,12 @@ comp <- suppressMessages(read_excel(file.path(SIS, "E9_Behavior_Data.xlsx"),
          key = canon(ID), Batch = paste0("B", Batch))
 
 sus_orig <- canon(trimws(readLines(file.path(ANA, "sus_animals.txt"), warn = FALSE)))
-sus_bc   <- canon(trimws(readLines(file.path(ANA, "sus_animals_batchCorrected.txt"), warn = FALSE)))
+# The batch-corrected list was retired in the 2026-09-20 consolidation; this
+# script reproduces how it was made, so it reads the archived copy. Historical
+# comparison only -- do not use for new work.
+sus_bc   <- canon(trimws(readLines(
+  file.path(ANA, "_archive_animal_lists", "sus_animals_batchCorrected.txt"),
+  warn = FALSE)))
 
 # --- scaling variants -------------------------------------------------------
 # centre: "batch" = each batch's own control mean; "none" = no centring at all

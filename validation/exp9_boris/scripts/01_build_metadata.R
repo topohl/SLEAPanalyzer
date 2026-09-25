@@ -61,7 +61,9 @@ src <- list(
   assign    = file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/foundations/behavior_metrics/qc/animal_group_sex_assignment_qc.csv"),
   phenotype = file.path(retained_derived_metrics(EXP9), "qc/cross_scale_identity_expected_phenotype_from_preprocessed.csv"),
   sus       = file.path(EXP9, "Analysis/sus_animals.csv"),
-  sus_bc    = file.path(EXP9, "Analysis/sus_animals_batchCorrected.csv"),
+  # Retired in the 2026-09-20 animal-list consolidation; read from its archive
+  # only for the Phenotype_batchCorrected comparison columns below.
+  sus_bc    = file.path(EXP9, "Analysis/_archive_animal_lists/sus_animals_batchCorrected.csv"),
   con       = file.path(EXP9, "Analysis/con_animals.csv"),
   nor       = file.path(PROJ, "NOR.xlsx"),
   socp      = file.path(PROJ, "SocP.xlsx"),
@@ -239,7 +241,7 @@ conflicts <- bind_rows(
   meta %>% filter(Phenotype_conflict) %>%
     transmute(Code, ID, Domain = "phenotype",
               Description = sprintf(
-                "Primary phenotype '%s' (%s) disagrees with batch-corrected call '%s' (Analysis/sus_animals_batchCorrected.csv).",
+                "Primary phenotype '%s' (%s) disagrees with batch-corrected call '%s' (Analysis/_archive_animal_lists/sus_animals_batchCorrected.csv).",
                 Phenotype, Phenotype_source, Phenotype_batchCorrected),
               Status = "OPEN"),
   meta %>% filter(Condition_conflict) %>%
