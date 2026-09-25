@@ -107,8 +107,7 @@ socp <- bind_rows(lapply(c("S1", "S2"), function(ph) {
 
 # ------------------------------------------------------------- assemble -----
 sleap <- meta %>%
-  select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_batchCorrected,
-         Phenotype_bc_complement, Phenotype_conflict) %>%
+  select(Code, ID, Batch, Sex, Condition, Phenotype) %>%
   left_join(epm,  by = "Code") %>%
   left_join(nor,  by = "Code") %>%
   left_join(socp, by = "Code") %>%

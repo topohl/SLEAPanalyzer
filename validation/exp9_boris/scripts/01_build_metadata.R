@@ -61,9 +61,6 @@ src <- list(
   assign    = file.path(EXP9, "Analysis/Behavior/RFID/analysis_ready/foundations/behavior_metrics/qc/animal_group_sex_assignment_qc.csv"),
   phenotype = file.path(retained_derived_metrics(EXP9), "qc/cross_scale_identity_expected_phenotype_from_preprocessed.csv"),
   sus       = file.path(EXP9, "Analysis/sus_animals.csv"),
-  # Retired in the 2026-09-20 animal-list consolidation; read from its archive
-  # only for the Phenotype_batchCorrected comparison columns below.
-  sus_bc    = file.path(EXP9, "Analysis/_archive_animal_lists/sus_animals_batchCorrected.csv"),
   con       = file.path(EXP9, "Analysis/con_animals.csv"),
   nor       = file.path(PROJ, "NOR.xlsx"),
   socp      = file.path(PROJ, "SocP.xlsx"),
@@ -146,18 +143,18 @@ pheno_tbl <- pheno_raw %>%
 
 # --- Sources 4-6: standalone SUS / CON animal lists ------------------------
 #
-# Analysis/.old/sus_animals.csv is deliberately NOT read: it is superseded.
-# It is worth knowing it exists, though, because on the Batch-1 subset it
-# matches sus_animals_batchCorrected.csv exactly (10 animals including 0001,
-# OQ750 and OQ762), while the current sus_animals.csv drops those three. The
-# batch-corrected call therefore reinstates the oldest list rather than
-# inventing a new one. Recorded in README.md against the T2H7 conflict.
+# Only the canonical pair is read: Analysis/sus_animals.csv and
+# Analysis/con_animals.csv. The curated Stage 01 table (Source 2) is built from
+# the same two lists and calls every other SIS animal RES; the fallback below
+# leaves an animal missing from that table NA unless a list names it. The superseded
+# Analysis/.old/sus_animals.csv and the batch-corrected list, retired to
+# Analysis/_archive_animal_lists/ in the 2026-09-20 consolidation, are
+# deliberately not read.
 read_list <- function(p) {
   v <- trimws(readLines(p, warn = FALSE))
   normalise_id(v[nzchar(v)], id_code$ID)
 }
 sus_plain <- na.omit(read_list(src$sus))
-sus_bc    <- na.omit(read_list(src$sus_bc))
 con_list  <- na.omit(read_list(src$con))
 
 # --- Condition (CON/SIS) as recorded in the assay scoring sheets -----------
@@ -197,26 +194,6 @@ meta <- cohort %>%
       TRUE                                  ~ "unresolved"
     ),
 
-    # Alternative phenotype definition: batch-corrected SUS call. Kept as its
-    # own column because it disagrees with the primary definition for some
-    # animals, and the choice changes downstream group comparisons.
-    #
-    # IMPORTANT ASYMMETRY: sus_animals_batchCorrected.csv lists only SUS
-    # animals, so "RES" below is the *complement* within SIS, i.e. it assumes
-    # every SIS animal absent from the list was scored and found resilient.
-    # The primary definition makes no such assumption -- an animal with no row
-    # in the curated table stays NA. Phenotype_bc_complement marks which RES
-    # calls rest on that assumption so it can be excluded if unwarranted.
-    Phenotype_batchCorrected = case_when(
-      ID %in% sus_bc     ~ "SUS",
-      Condition == "CON" ~ "CON",
-      Condition == "SIS" ~ "RES",
-      TRUE               ~ NA_character_
-    ),
-    Phenotype_bc_complement = Condition == "SIS" & !(ID %in% sus_bc),
-    Phenotype_conflict = !is.na(Phenotype) & !is.na(Phenotype_batchCorrected) &
-                         Phenotype != Phenotype_batchCorrected,
-
     # Condition implied by the curated phenotype, used as a consistency check.
     Condition_implied = case_when(
       Phenotype == "CON"             ~ "CON",
@@ -231,19 +208,12 @@ meta <- cohort %>%
     has_SocP = ID   %in% cond_socp$ID
   ) %>%
   select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_source,
-         Phenotype_batchCorrected, Phenotype_bc_complement, Phenotype_conflict,
          Condition_NOR, Condition_SocP, Condition_implied, Condition_conflict,
          Pheno_expected, RefGroup, has_NOR, has_EPM, has_SocP) %>%
   arrange(Code)
 
 # --- Conflict / gap register -----------------------------------------------
 conflicts <- bind_rows(
-  meta %>% filter(Phenotype_conflict) %>%
-    transmute(Code, ID, Domain = "phenotype",
-              Description = sprintf(
-                "Primary phenotype '%s' (%s) disagrees with batch-corrected call '%s' (Analysis/_archive_animal_lists/sus_animals_batchCorrected.csv).",
-                Phenotype, Phenotype_source, Phenotype_batchCorrected),
-              Status = "OPEN"),
   meta %>% filter(Condition_conflict) %>%
     transmute(Code, ID, Domain = "condition",
               Description = sprintf(
@@ -295,7 +265,6 @@ prov <- c(
   "",
   sprintf("cohort: %d animals (union of EPM and NOR subjects)", nrow(meta)),
   sprintf("phenotype resolved: %d/%d", sum(!is.na(meta$Phenotype)), nrow(meta)),
-  sprintf("phenotype conflicts (primary vs batch-corrected): %d", sum(meta$Phenotype_conflict)),
   sprintf("condition conflicts (assay sheet vs phenotype-implied): %d", sum(meta$Condition_conflict)),
   "",
   "Note: the curated RFID table Group column encodes phenotype (CON/RES/SUS),",
@@ -306,7 +275,6 @@ writeLines(prov, file.path(META, "metadata_provenance.txt"))
 
 cat("\n=== canonical metadata ===\n")
 print(as.data.frame(meta %>% select(Code, ID, Sex, Condition, Phenotype,
-                                    Phenotype_batchCorrected, Phenotype_bc_complement, Phenotype_conflict,
                                     has_NOR, has_EPM, has_SocP)))
 cat("\n=== conflicts / gaps ===\n")
 print(as.data.frame(conflicts))

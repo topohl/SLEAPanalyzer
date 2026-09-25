@@ -39,8 +39,7 @@ dir.create(ENRICH, showWarnings = FALSE, recursive = TRUE)
 meta <- read.delim(file.path(META, "animal_metadata.tsv"),
                    stringsAsFactors = FALSE, na.strings = "")
 meta_join <- meta %>%
-  select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_source,
-         Phenotype_batchCorrected, Phenotype_bc_complement, Phenotype_conflict)
+  select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_source)
 
 write_both <- function(df, stem) {
   write.table(df, file.path(ENRICH, paste0(stem, ".tsv")),
@@ -225,8 +224,7 @@ nor_wide <- nor %>%
          NOR_mapping_convention)
 
 master <- meta %>%
-  select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_source,
-         Phenotype_batchCorrected, Phenotype_bc_complement, Phenotype_conflict) %>%
+  select(Code, ID, Batch, Sex, Condition, Phenotype, Phenotype_source) %>%
   left_join(nor_wide,  by = "Code") %>%
   left_join(socp_wide, by = "Code") %>%
   left_join(epm_wide,  by = "Code") %>%
@@ -280,7 +278,6 @@ cat("BatchZscoreD2_BORIS reproduced by CON-referenced population z:",
 
 cat("\n=== group sizes ===\n")
 cat("Condition:\n");                print(table(master$Condition, useNA = "ifany"))
-cat("Phenotype (primary):\n");      print(table(master$Phenotype, useNA = "ifany"))
-cat("Phenotype (batch-corrected):\n"); print(table(master$Phenotype_batchCorrected, useNA = "ifany"))
+cat("Phenotype:\n");                print(table(master$Phenotype, useNA = "ifany"))
 
 cat("\nwrote enriched files to:", ENRICH, "\n")

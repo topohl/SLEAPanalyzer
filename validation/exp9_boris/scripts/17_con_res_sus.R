@@ -114,10 +114,11 @@ run_all <- function(phenotype_col, tag) {
     ungroup()
 }
 
-res <- bind_rows(
-  run_all("Phenotype", "your list (sus_animals.txt)"),
-  run_all("Phenotype_batchCorrected", "batch z-scored list")
-)
+# Groups come only from the canonical lists (Analysis/sus_animals.csv and
+# con_animals.csv, via the metadata's Phenotype). The retired batch-corrected
+# list is not used.
+PRIMARY <- "canonical lists (sus_animals.csv, con_animals.csv)"
+res <- run_all("Phenotype", PRIMARY)
 write.csv(res, file.path(RES, "con_res_sus_comparisons.csv"), row.names = FALSE)
 
 show <- function(sc, kd, ttl) {
@@ -130,7 +131,6 @@ show <- function(sc, kd, ttl) {
   print(as.data.frame(x), row.names = FALSE)
 }
 
-PRIMARY <- "your list (sus_animals.txt)"
 cat("group sizes and design:\n")
 cat(sprintf("  CON %d | RES %d | SUS %d\n",
             sum(dat$Phenotype == "CON", na.rm = TRUE),
@@ -146,16 +146,6 @@ cat(sprintf("\nindependent outcomes surviving BH within contrast: %d of %d\n",
             nrow(sig), sum(res$scheme == PRIMARY & res$kind == "independent")))
 if (nrow(sig)) print(sig %>% mutate(d = round(d, 2), q = signif(p_BH, 3)) %>%
                        select(label, contrast, d, q) %>% as.data.frame(), row.names = FALSE)
-
-cat("\n=== does the conclusion depend on which list is used? ===\n")
-cmp <- res %>% filter(kind == "independent") %>%
-  select(scheme, label, contrast, d, p) %>%
-  pivot_wider(names_from = scheme, values_from = c(d, p))
-names(cmp) <- gsub("your list \\(sus_animals.txt\\)", "yours", names(cmp))
-names(cmp) <- gsub("batch z-scored list", "zscored", names(cmp))
-print(cmp %>% mutate(across(starts_with("d_"), ~round(., 2)),
-                     across(starts_with("p_"), ~signif(., 3))) %>%
-        arrange(`p_yours`) %>% head(8) %>% as.data.frame(), row.names = FALSE)
 
 # --- Figure -----------------------------------------------------------------
 pl <- res %>% filter(scheme == PRIMARY) %>%

@@ -61,10 +61,8 @@ forbidden_phenotype_columns <- c(
 sleap <- read.delim(file.path(ENRICH, "sleap_wide.tsv"),
                     stringsAsFactors = FALSE, na.strings = "") %>%
   select(-any_of(forbidden_phenotype_columns))
-dat <- inner_join(sleap, boris %>% select(-c(ID, Batch, Sex, Condition, Phenotype,
-                                             Phenotype_batchCorrected,
-                                             Phenotype_bc_complement,
-                                             Phenotype_conflict)),
+dat <- inner_join(sleap, boris %>% select(-c(ID, Batch, Sex, Condition, Phenotype),
+                                          -any_of(forbidden_phenotype_columns)),
                   by = "Code")
 stopifnot(nrow(dat) == 20)
 
