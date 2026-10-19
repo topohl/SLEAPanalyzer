@@ -109,10 +109,18 @@ def parse_key(filename: str, phases: tuple[str, ...]) -> tuple[str, str]:
     return (hits[0], "")
 
 
-def index_folder(folder: Path, phases: tuple[str, ...]) -> dict[tuple[str, str], Path]:
-    """Map ``(code, phase)`` to path for every CSV in *folder*, refusing duplicates."""
+def index_folder(folder: Path, phases: tuple[str, ...], code: str | None = None) -> dict[tuple[str, str], Path]:
+    """Map ``(code, phase)`` to path for every CSV in *folder*, refusing duplicates.
+
+    With *code*, only that animal's files are looked at -- the others are not even parsed. That is how one re-tracked
+    recording is re-formatted in a folder (B5 NOR) whose other files carry the legacy ``_NOR`` phase label that
+    ``parse_key`` rejects.
+    """
     out: dict[tuple[str, str], Path] = {}
     for path in sorted(folder.glob("*.csv")):
+        if code is not None and not (phases and re.search(rf"_{re.escape(code)}_(?:{'|'.join(phases)})\.", path.name)
+                                     or not phases and re.search(rf"_{re.escape(code)}\.", path.name)):
+            continue
         key = parse_key(path.name, phases)
         if key in out:
             raise ValueError(
@@ -257,8 +265,8 @@ def process_one(geom_path: Path, animal_path: Path, dst: Path,
 def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
         overwrite: bool = False, dry_run: bool = False,
         formatted_dir: Path | None = None, keep_merged: bool = False,
-        verbose: bool = True) -> pd.DataFrame:
-    """Merge, format and verify one batch/assay. Returns the per-file report."""
+        verbose: bool = True, code: str | None = None) -> pd.DataFrame:
+    """Merge, format and verify one batch/assay (or, with *code*, one animal). Returns the per-file report."""
     if assay not in PHASES:
         raise ValueError(f"unknown assay {assay!r}; add it to PHASES")
     phases = PHASES[assay]
@@ -278,11 +286,17 @@ def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
     say(f"  phases : {phases or '(none)'}")
     say(f"  output : {formatted_root}")
 
-    animal_idx = index_folder(animal, phases)
-    geom_idx = index_folder(geom, phases)
+    animal_idx = index_folder(animal, phases, code)
+    geom_idx = index_folder(geom, phases, code)
     only_animal = sorted(set(animal_idx) - set(geom_idx))
     only_geom = sorted(set(geom_idx) - set(animal_idx))
     paired = sorted(set(animal_idx) & set(geom_idx))
+    if code is not None and not paired:
+        raise ValueError(
+            f"no animal/geom pair for code {code!r} in {batch}/{assay} "
+            f"(animal files: {sorted(p.name for p in animal_idx.values())}, "
+            f"geom files: {sorted(p.name for p in geom_idx.values())})"
+        )
 
     say(f"\npaired: {len(paired)}   animal-only: {len(only_animal)}   "
         f"geom-only: {len(only_geom)}")
@@ -306,7 +320,7 @@ def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
     # staging glob, so say so rather than leave it to be discovered later.
     planned = set(plan.values())
     orphans = [p for p in formatted_root.rglob("*.csv") if p not in planned] \
-        if formatted_root.exists() else []
+        if formatted_root.exists() and code is None else []
     if orphans:
         say(f"\n  !! {len(orphans)} file(s) in formatted/ will NOT be replaced by "
             "this run and may be stale:")
@@ -439,11 +453,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="report what would be written, change nothing")
     ap.add_argument("--keep-merged", action="store_true",
                     help="also write the intermediate merged CSVs (debugging only)")
+    ap.add_argument("--code", default=None,
+                    help="only this animal code (e.g. H1E2); other files in the folders are not parsed")
     args = ap.parse_args(argv)
     try:
         run(args.batch, args.assay, root=args.root,
             formatted_dir=args.formatted_dir, overwrite=args.overwrite,
-            dry_run=args.dry_run, keep_merged=args.keep_merged)
+            dry_run=args.dry_run, keep_merged=args.keep_merged, code=args.code)
     except Exception as exc:
         print(f"\nERROR: {exc}", file=sys.stderr)
         return 1

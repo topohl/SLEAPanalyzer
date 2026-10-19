@@ -52,5 +52,39 @@ class ProcessOneTest(unittest.TestCase):
             )
 
 
+class CodeFilterTest(unittest.TestCase):
+    """--code formats one animal without parsing the legacy ``_NOR``-labelled siblings (B5 NOR)."""
+
+    def make_tree(self, root: Path) -> None:
+        for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
+                          ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
+            d = root / "B5" / "NOR" / "SLEAP" / sub
+            d.mkdir(parents=True)
+            for name in ("H1E2_NOV", "H1E2_HAB", "F8O9_NOR", "F8O9_NOV"):     # F8O9_NOR is the legacy label
+                pd.DataFrame(cols).to_csv(d / f"E9_B5_NOR-{sub}.000_E9_B5_{name}.analysis_locs.csv", index=False)
+
+    def test_without_code_the_legacy_label_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.make_tree(Path(tmp))
+            with self.assertRaises(ValueError):
+                sd.run("B5", "NOR", root=Path(tmp), dry_run=True, verbose=False)
+
+    def test_with_code_only_that_animal_is_formatted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_tree(root)
+            report = sd.run("B5", "NOR", root=root, code="H1E2", verbose=False)
+            self.assertEqual(sorted(zip(report.code, report.phase)), [("H1E2", "HAB"), ("H1E2", "NOV")])
+            out = sorted(p.name for p in (root / "B5" / "NOR" / "SLEAP" / "formatted").rglob("*.csv"))
+            self.assertEqual(out, ["H1E2_HAB.merged_locs_formatted.csv", "H1E2_NOV.merged_locs_formatted.csv"])
+
+    def test_unknown_code_is_a_clear_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.make_tree(Path(tmp))
+            with self.assertRaises(ValueError) as ctx:
+                sd.run("B5", "NOR", root=Path(tmp), code="ZZZZ", verbose=False)
+            self.assertIn("ZZZZ", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

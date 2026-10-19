@@ -102,6 +102,16 @@ Configurations are validated before anything runs, and every problem is
 reported at once rather than one per attempt. Relative paths resolve against
 the directory holding the configuration file.
 
+### Re-tracking one recording
+
+When the SLEAP tracking of one video is redone, one command takes the new `.analysis.h5` files to the changed assay output. It prints the plan and writes nothing without `--apply`:
+
+```bash
+python tools/retrack_recording.py --batch B5 --assay NOR --code H1E2 --phase NOV --static-landmark objR --apply
+```
+
+It converts the geom and animal exports (`01_SLEAPcoords/sleap_h5.py`), formats and installs them, replaces the staged copy, moves everything it replaces into `_superseded_<date>/` (formatted files into `formatted/old/`), reruns that batch's analysis and reports which animals changed; all but the re-tracked one must be unchanged. `--static-landmark` holds a hand-labelled static object at its first labelled position instead of interpolating it. NOR only. Afterwards build a release (`tools/build_exp9_behavior_bundle.ps1`) and ingest it with the SISanalyzer scripts.
+
 ### Outputs
 
 | File | Contents |
