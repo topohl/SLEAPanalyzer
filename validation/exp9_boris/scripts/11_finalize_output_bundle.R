@@ -71,8 +71,17 @@ if (any(is.na(dat$Sex)) || any(is.na(dat$Condition)) || any(is.na(dat$Phenotype)
 male <- dat %>% filter(Sex == "Male")
 female <- dat %>% filter(Sex == "Female")
 stopifnot(nrow(male) == 59L, nrow(female) == 58L)
-expected_condition <- c(CON = 24L, SIS = 93L)
-expected_phenotype <- c(CON = 24L, RES = 58L, SUS = 35L)
+# The expected counts come from the canonical lists the assembly read (09_assemble_all_batches.R), so a change of the SUS list cannot
+# leave a stale number here (a hard-coded 35 SUS / 58 RES stopped the 2026-10-19 build). Only the randomised design is a constant:
+# 4 controls in each of the six batches.
+EXP9 <- Sys.getenv("EXP9_ROOT", unset = "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress")
+list_ids <- function(p) { v <- trimws(readLines(p, warn = FALSE)); unique(v[nzchar(v)]) }
+n_con <- length(list_ids(file.path(EXP9, "Analysis/con_animals.csv")))
+n_sus <- length(list_ids(file.path(EXP9, "Analysis/sus_animals.txt")))
+stopifnot("con_animals.csv must name 24 controls (4 per batch)" = n_con == 24L)
+expected_condition <- c(CON = n_con, SIS = nrow(dat) - n_con)
+expected_phenotype <- c(CON = n_con, RES = nrow(dat) - n_con - n_sus, SUS = n_sus)
+message(sprintf("canonical lists: %d CON, %d SUS -> expecting %d RES", n_con, n_sus, expected_phenotype[["RES"]]))
 observed_condition <- table(dat$Condition)
 observed_phenotype <- table(dat$Phenotype)
 if (!setequal(names(observed_condition), names(expected_condition)) ||
