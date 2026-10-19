@@ -105,7 +105,7 @@ max_bout <- function(x, fps, min_duration_s = 0) {
   if (length(d) == 0) NA_real_ else max(d)
 }
 
-make_theme_publication <- function(base_size = 7) {
+make_theme_figure <- function(base_size = 7) {
   ggplot2::theme_classic(base_size = base_size) +
     ggplot2::theme(
       axis.line = element_line(linewidth = 0.3),
@@ -423,7 +423,7 @@ save_advanced_plots <- function(full_tbl, output_dir, config) {
         x = "Zone switches per min",
         y = "Center time (%)"
       ) +
-      make_theme_publication()
+      make_theme_figure()
     ggsave(file.path(plot_dir, "advanced_center_vs_zone_fragmentation.svg"), p,
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }
@@ -436,7 +436,7 @@ save_advanced_plots <- function(full_tbl, output_dir, config) {
         x = "Burst rate per min",
         y = "Distance (cm)"
       ) +
-      make_theme_publication()
+      make_theme_figure()
     ggsave(file.path(plot_dir, "advanced_burst_rate_vs_distance.svg"), p,
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }
@@ -449,7 +449,7 @@ save_advanced_plots <- function(full_tbl, output_dir, config) {
         x = "Wall 5 cm % per 100 cm",
         y = "Center time per 100 cm"
       ) +
-      make_theme_publication()
+      make_theme_figure()
     ggsave(file.path(plot_dir, "advanced_locomotion_normalized_profile.svg"), p,
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }

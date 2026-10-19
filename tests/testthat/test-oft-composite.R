@@ -12,7 +12,7 @@ local({
   # Evaluate only the helper definitions, not the batch loop.
   start <- grep("^zscore <- function", script)[1]
   stop_at <- grep("^add_center_exploration_score <- function", script)[1]
-  end <- grep("^make_theme_publication <- function", script)[1] - 1L
+  end <- grep("^make_theme_figure <- function", script)[1] - 1L
   eval(parse(text = paste(script[c(start:(start + 6), stop_at:end)], collapse = "\n")),
        envir = oft_functions)
 })

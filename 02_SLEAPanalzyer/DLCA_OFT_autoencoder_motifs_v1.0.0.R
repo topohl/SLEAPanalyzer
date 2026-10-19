@@ -168,7 +168,7 @@ as_training_history_tbl <- function(history_obj) {
     select(epoch, everything())
 }
 
-make_theme_publication <- function(base_size = 7) {
+make_theme_figure <- function(base_size = 7) {
   ggplot2::theme_classic(base_size = base_size) +
     ggplot2::theme(
       axis.line = element_line(linewidth = 0.3),
@@ -377,7 +377,7 @@ save_autoencoder_plots <- function(window_scores, motif_profiles, training_histo
     p <- ggplot(window_scores, aes(x = AE1, y = AE2, color = factor(autoencoder_motif))) +
       geom_point(size = 0.7, alpha = 0.55) +
       labs(title = "Autoencoder latent OFT motif space", x = "AE latent 1", y = "AE latent 2") +
-      make_theme_publication()
+      make_theme_figure()
     ggsave(file.path(plot_dir, "oft_autoencoder_latent_motif_space.svg"), p,
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }
@@ -389,7 +389,7 @@ save_autoencoder_plots <- function(window_scores, motif_profiles, training_histo
     geom_line(linewidth = 0.4) +
     facet_wrap(~ metric, scales = "free_y") +
     labs(title = "Autoencoder training history", x = "Epoch", y = "Value") +
-    make_theme_publication()
+    make_theme_figure()
   ggsave(file.path(plot_dir, "oft_autoencoder_training_history.svg"), p,
          width = config$plot_width_double_col, height = config$plot_height_single_col)
 
@@ -406,7 +406,7 @@ save_autoencoder_plots <- function(window_scores, motif_profiles, training_histo
     geom_tile() +
     coord_flip() +
     labs(title = "Autoencoder motif profiles", x = NULL, y = "Motif") +
-    make_theme_publication()
+    make_theme_figure()
   ggsave(file.path(plot_dir, "oft_autoencoder_motif_profile_heatmap.svg"), p,
          width = config$plot_width_double_col, height = config$plot_height_single_col)
 
