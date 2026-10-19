@@ -54,7 +54,7 @@ SCRIPTS <- local({
 DEFAULT_ROOT <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = DEFAULT_ROOT)
 
-# Shared Nature-style theme, identical to the publication figure set.
+# Shared figure theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
 ENRICH <- Sys.getenv("EXP9_SLEAP_DATA_DIR", unset = file.path(RUN_ROOT, "enriched"))
 FIG <- Sys.getenv("EXP9_SLEAP_FIGURES_DIR", unset = file.path(RUN_ROOT, "figures"))

@@ -47,7 +47,7 @@ SCRIPTS <- local({
 })
 PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 
-# Shared Nature-style theme, identical to the publication figure set.
+# Shared figure theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
 RES  <- file.path(PROJ, "results"); FIG <- file.path(PROJ, "figures")
 

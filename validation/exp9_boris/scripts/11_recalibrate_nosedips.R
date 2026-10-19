@@ -36,7 +36,7 @@ SCRIPTS <- local({
 })
 PROJ <- normalizePath(file.path(SCRIPTS, ".."), winslash = "/")
 
-# Shared Nature-style theme, identical to the publication figure set.
+# Shared figure theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
 REPO <- Sys.getenv("SLEAPANALYZER_ROOT", unset = normalizePath(file.path(PROJ, "..", ".."), winslash = "/"))
 RUN_ROOT <- Sys.getenv("EXP9_SLEAP_RUN_ROOT", unset = PROJ)

@@ -98,7 +98,7 @@ entry_count <- function(x) {
   sum(x & !dplyr::lag(x, default = FALSE), na.rm = TRUE)
 }
 
-make_theme_nature <- function(base_size = 7) {
+make_theme_publication <- function(base_size = 7) {
   ggplot2::theme_classic(base_size = base_size) +
     ggplot2::theme(
       axis.line = element_line(linewidth = 0.3),
@@ -360,7 +360,7 @@ save_plots <- function(window_scores, loadings_tbl, motif_profiles, output_dir, 
     p <- ggplot(window_scores, aes(x = PC1, y = PC2, factor(motif))) +
       geom_point(size = 0.7, alpha = 0.55) +
       labs(title = "Unsupervised OFT motif space", x = "PC1", y = "PC2") +
-      make_theme_nature()
+      make_theme_publication()
     ggsave(file.path(plot_dir, "oft_unsupervised_motif_pca_space.svg"), p,
            width = config$plot_width_single_col, height = config$plot_height_single_col)
   }
@@ -377,7 +377,7 @@ save_plots <- function(window_scores, loadings_tbl, motif_profiles, output_dir, 
       coord_flip() +
       facet_wrap(~ PC, scales = "free_y") +
       labs(title = "Top PCA loadings for unsupervised OFT motifs", x = NULL, y = "Loading") +
-      make_theme_nature()
+      make_theme_publication()
     ggsave(file.path(plot_dir, "oft_unsupervised_pca_top_loadings.svg"), p,
            width = config$plot_width_double_col, height = config$plot_height_double_col)
   }
@@ -394,7 +394,7 @@ save_plots <- function(window_scores, loadings_tbl, motif_profiles, output_dir, 
     geom_tile() +
     coord_flip() +
     labs(title = "Post hoc motif feature profiles", x = NULL, y = "Motif") +
-    make_theme_nature()
+    make_theme_publication()
   ggsave(file.path(plot_dir, "oft_unsupervised_motif_profile_heatmap.svg"), p,
          width = config$plot_width_double_col, height = config$plot_height_single_col)
 

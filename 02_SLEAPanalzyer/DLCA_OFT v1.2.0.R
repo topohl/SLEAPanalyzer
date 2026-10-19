@@ -25,7 +25,7 @@
 # - Path tortuosity and angular movement metrics
 # - Velocity-state segmentation
 # - Composite center-exploration profile score across processed animals
-# - Nature-oriented SVG summary plots
+# - Publication-style SVG summary plots
 #
 # Biological interpretation note:
 # OFT should be read as a profile rather than a single "anxiety" score.
@@ -633,7 +633,7 @@ add_center_exploration_score <- function(summary_tbl) {
     )
 }
 
-make_theme_nature <- function(base_size = 7) {
+make_theme_publication <- function(base_size = 7) {
   ggplot2::theme_classic(base_size = base_size) +
     ggplot2::theme(
       axis.line = element_line(linewidth = 0.3),
@@ -664,7 +664,7 @@ save_enhanced_plots <- function(summary_tbl, bins_tbl, output_dir, config) {
         x = NULL,
         y = "Composite z-score, standardised within this cohort"
       ) +
-      make_theme_nature()
+      make_theme_publication()
 
     ggsave(
       file.path(plot_dir, "enhanced_oft_center_exploration_score_cohort_z_experimental.svg"),
@@ -682,7 +682,7 @@ save_enhanced_plots <- function(summary_tbl, bins_tbl, output_dir, config) {
       x = "Mean wall distance (cm)",
       y = "Center time (%)"
     ) +
-    make_theme_nature()
+    make_theme_publication()
 
   ggsave(
     file.path(plot_dir, "enhanced_center_vs_wall_distance.svg"),
@@ -701,7 +701,7 @@ save_enhanced_plots <- function(summary_tbl, bins_tbl, output_dir, config) {
         x = "Time (min)",
         y = "Distance per bin (cm)"
       ) +
-      make_theme_nature()
+      make_theme_publication()
 
     ggsave(
       file.path(plot_dir, "enhanced_distance_habituation_trajectory.svg"),
@@ -719,7 +719,7 @@ save_enhanced_plots <- function(summary_tbl, bins_tbl, output_dir, config) {
         x = "Time (min)",
         y = "Center time per bin (s)"
       ) +
-      make_theme_nature()
+      make_theme_publication()
 
     ggsave(
       file.path(plot_dir, "enhanced_center_time_trajectory.svg"),

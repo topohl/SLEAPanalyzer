@@ -6,7 +6,7 @@
 # publication figures read as one set: same palette, same type size, same
 # gridline convention, same output widths.
 #
-# Nature conventions applied here:
+# Publication-style conventions applied here:
 #   - sans-serif, 7 pt body type
 #   - 89 mm single-column / 120 mm / 183 mm double-column widths
 #   - minimal non-data ink: no panel borders, no axis lines, no tick marks

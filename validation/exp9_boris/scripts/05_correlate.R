@@ -50,7 +50,7 @@ dir.create(FIG, showWarnings = FALSE, recursive = TRUE)
 dir.create(RES, showWarnings = FALSE, recursive = TRUE)
 dir.create(SOURCE_DATA, showWarnings = FALSE, recursive = TRUE)
 
-# Shared Nature-style theme, identical to the publication figure set.
+# Shared figure theme, identical to the publication figure set.
 source(file.path(SCRIPTS, "00_theme.R"))
 
 boris <- read.delim(file.path(ENRICH, "analysis_ready_wide.tsv"),
