@@ -71,3 +71,8 @@ report_rearing: true
 rearing_spine_distance_cm: 1
 
 write_manifest: true
+
+# Optional: hold objL / objR at their median position over the frames in which they are at least
+# static_objects_min_separation_cm apart (guards against keypoints that jump onto the other object during contact).
+# static_objects: true
+# static_objects_min_separation_cm: 10

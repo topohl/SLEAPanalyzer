@@ -84,6 +84,8 @@ geo <- lapply(files, function(p) {
   t <- CalibrateTrackingData(t, method = "area",
                              in.metric = cfg$arena_width_cm * cfg$arena_height_cm,
                              points = cfg$arena_corner_names)
+  if (isTRUE(cfg$static_objects))   # objects held at fixed positions, as in DLCA_NOR (config static_objects)
+    t <- hold_static_landmarks(t, c("objL", "objR"), cfg$static_objects_min_separation_cm)
   valid <- landmark_validity(t, c("nose", "bodycentre", "objL", "objR"))
   list(code = substr(basename(p), 1, 4), fps = t$fps, valid = valid,
        dL = tracking_point_distance(t, "objL", "nose"),

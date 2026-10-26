@@ -87,6 +87,14 @@ for (batch in batches) {
       in.metric = config$arena_width_cm * config$arena_height_cm,
       points = config$arena_corner_names
     )
+    # Objects held at fixed positions (config static_objects): their tracked keypoints can jump onto the other object
+    # while the animal occludes one. Applied after calibration, so the separation is in cm.
+    objectsApart <- NA_real_
+    if (isTRUE(config$static_objects)) {
+      if (is.null(config$static_objects_min_separation_cm)) stop("static_objects needs static_objects_min_separation_cm", call. = FALSE)
+      tracking <- hold_static_landmarks(tracking, c("objL", "objR"), config$static_objects_min_separation_cm)
+      objectsApart <- attr(tracking, "static_landmarks")$share_of_frames_used
+    }
     tracking <- AddOFTZones(
       tracking, scale_center = 0.5, scale_periphery = 0.8,
       scale_corners = 0.4, points = config$arena_corner_names
@@ -167,6 +175,8 @@ for (batch in batches) {
         speedMoving = tracking$Report$bodycentre.speed.moving,
         speedRaw = tracking$Report$bodycentre.raw.speed,
         frequencyRear_experimental = frequencyRear,
+        staticObjects = isTRUE(config$static_objects),
+        objectsApartFraction = objectsApart,
         qcPass = qcDecision$pass,
         qcReasons = paste(qcDecision$reasons, collapse = "; "),
         stringsAsFactors = FALSE

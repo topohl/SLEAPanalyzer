@@ -174,3 +174,30 @@ is_self_intersecting <- function(polygon) {
   }
   FALSE
 }
+
+#' Hold static landmarks (objects) at one position for the whole video.
+#'
+#' Object keypoints are tracked frame by frame, but the objects do not move. While the animal occludes an object, its
+#' keypoint can jump onto the other object, so that contact with the occluded object is missed exactly when it happens.
+#' Each landmark is set to its median position over the frames in which the landmarks are at least `min_separation`
+#' apart (in the tracking's units), and to that position in every frame.
+#' @return the tracking with the landmarks fixed; attribute "static_landmarks" holds the share of frames used.
+hold_static_landmarks <- function(tracking, points, min_separation) {
+  validate_tracking_data(tracking, required_landmarks = points)
+  if (length(points) != 2L) stop("hold_static_landmarks needs exactly two landmarks", call. = FALSE)
+  validate_scalar_number(min_separation, "min_separation", positive = TRUE)
+  separation <- tracking_point_distance(tracking, points[1], points[2])
+  apart <- is.finite(separation) & separation > min_separation
+  if (!any(apart)) stop("the landmarks ", paste(points, collapse = " and "), " are never ", min_separation, " apart", call. = FALSE)
+  for (point in points) {
+    xy <- get_point_coordinates(tracking, point)
+    tracking$data[[point]]$x <- rep(stats::median(xy$x[apart]), length(xy$x))
+    tracking$data[[point]]$y <- rep(stats::median(xy$y[apart]), length(xy$y))
+    if (!is.null(tracking$median.data) && point %in% rownames(tracking$median.data)) {
+      tracking$median.data[point, "x"] <- tracking$data[[point]]$x[1]
+      tracking$median.data[point, "y"] <- tracking$data[[point]]$y[1]
+    }
+  }
+  attr(tracking, "static_landmarks") <- list(points = points, min_separation = min_separation, share_of_frames_used = mean(apart))
+  tracking
+}

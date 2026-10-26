@@ -105,7 +105,9 @@ assay_schema <- function(assay) {
       proximity_range_cm = config_field("number_vector", length = 2),
       proximity_angle_deg = config_field("number_vector", length = 2),
       report_rearing = config_field("logical", required = FALSE),
-      rearing_spine_distance_cm = config_field("number", positive = TRUE, required = FALSE)
+      rearing_spine_distance_cm = config_field("number", positive = TRUE, required = FALSE),
+      static_objects = config_field("logical", required = FALSE),
+      static_objects_min_separation_cm = config_field("number", positive = TRUE, required = FALSE)
     ),
     SocP = list(
       phases = config_field("string_vector"),

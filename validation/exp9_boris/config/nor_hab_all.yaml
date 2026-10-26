@@ -52,3 +52,9 @@ report_rearing: true
 rearing_spine_distance_cm: 1
 
 write_manifest: true
+
+# Objects held at fixed positions (2026-10-26): the tracked object keypoints can jump onto the other object while the
+# animal occludes one, so contact is scored against each object's median position over the frames in which the two
+# objects are more than this far apart (they stand about 20 cm apart).
+static_objects: true
+static_objects_min_separation_cm: 10

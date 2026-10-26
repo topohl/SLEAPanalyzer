@@ -247,6 +247,8 @@ readme <- c(
   "  Habituation trials: SocP/<batch>/HAB (empty cups, all batches) and",
   "  NOR_HAB/<batch> (two familiar objects, B2-B6; B1 was never tracked).",
   "  They are not part of the handoff tables below.",
+  "  Novel-object contact (test and habituation) is scored with the two objects held at fixed positions",
+  "  (configs static_objects; column objectsApartFraction = share of frames that set the positions).",
   "- statistics/: validation/calibration plus pooled and sex-stratified results.",
   "- figures/: eight regenerated canonical figures (PDF, SVG, PNG) plus producer map.",
   "- qc/: cohort counts, assay coverage and missing-record register.",
