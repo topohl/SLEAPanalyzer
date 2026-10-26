@@ -18,18 +18,24 @@
 #      <CODE>... so the rule holds everywhere.
 #
 #   2. TRIAL MIXING. B2-B6 keep NOR habituation and novel-object trials in one
-#      folder. Only _NOV files are staged.
+#      folder. Novel-object trials go to NOR/, habituation trials to NOR_HAB/.
+#      Batch 1 habituation was scored by hand (BORIS) and never tracked.
 #
 #   3. DUPLICATE SocP COPIES. B3 and B5 additionally hold 57 flat copies of
 #      their HAB/S1/S2 contents. Only the phase subfolders are staged.
 #
 #   4. EPM `neck`. Added as an alias of spine1, as for Batch 1.
 #
+#   5. SocP HAB SIDE FILE. novelLocHAB.txt equals novelLocS1.txt in B1, the S2
+#      side in B2-B5 and a mix in B6, so it is not used. HAB is staged with the
+#      S1 file: "novel" in HAB is the cup that holds the stranger mouse in S1.
+#
 # Layout written, matching each script's own path construction:
-#   EPM   STAGE/EPM/<batch>/<CODE>.csv
-#   NOR   STAGE/NOR/<batch>/<CODE>_NOV.csv   + STAGE/NOR_meta/<batch>/novelLoc.txt
-#   SocP  STAGE/SocP/<batch>/<S1|S2>/<CODE>_<phase>.csv + novelLoc<phase>.txt
-#   OFT   STAGE/OFT/<batch>/<CODE>.csv
+#   EPM      STAGE/EPM/<batch>/<CODE>.csv
+#   NOR      STAGE/NOR/<batch>/<CODE>_NOV.csv  + STAGE/NOR_meta/<batch>/novelLoc.txt
+#   NOR_HAB  STAGE/NOR_HAB/<batch>/<CODE>_HAB.csv  (same NOR_meta side file)
+#   SocP     STAGE/SocP/<batch>/<HAB|S1|S2>/<CODE>_<phase>.csv + novelLoc<phase>.txt
+#   OFT      STAGE/OFT/<batch>/<CODE>.csv
 # ============================================================================
 
 suppressMessages({
@@ -141,11 +147,18 @@ for (b in BATCHES) {
   file.copy(file.path(RAW, b, "NOR/novelLoc.txt"),
             file.path(STAGE, "NOR_meta", b, "novelLoc.txt"), overwrite = TRUE)
 
+  # NOR habituation: the _HAB trial of the same folder (two copies of the
+  # familiar object). Batch 1 has none.
+  if (b != "B1")
+    stage_set("NOR", b, file.path(RAW, b, "NOR/SLEAP/formatted"),
+              file.path(STAGE, "NOR_HAB", b), pattern = "_HAB[^/]*[.]csv$", suffix = "_HAB")
+
   # SocP: phase subfolders only, never the flat duplicates in B3/B5.
-  for (ph in c("S1", "S2")) {
+  for (ph in c("HAB", "S1", "S2")) {
     stage_set("SocP", b, file.path(RAW, b, "SocP/SLEAP/formatted", ph),
               file.path(STAGE, "SocP", b, ph), suffix = paste0("_", ph))
-    file.copy(file.path(RAW, b, "SocP", paste0("novelLoc", ph, ".txt")),
+    side <- if (ph == "HAB") "S1" else ph   # see note 5 above
+    file.copy(file.path(RAW, b, "SocP", paste0("novelLoc", side, ".txt")),
               file.path(STAGE, "SocP", b, ph, paste0("novelLoc", ph, ".txt")),
               overwrite = TRUE)
   }

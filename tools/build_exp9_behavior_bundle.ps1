@@ -163,7 +163,15 @@ try {
             $destination = Join-Path $releaseRoot "assay_summaries\NOR\$batch\$name"
             Copy-RecordedFile -Source $source -Destination $destination
         }
-        foreach ($phase in 'S1','S2') {
+        # Habituation trials: NOR B2-B6 (Batch 1 was never tracked), SocP all batches.
+        if ($batch -ne 'B1') {
+            foreach ($name in 'combined_output.csv','tracking_qc.csv','run_manifest.yaml') {
+                $source = Join-Path $AssayOutputRoot "NOR_HAB\$batch\$name"
+                $destination = Join-Path $releaseRoot "assay_summaries\NOR_HAB\$batch\$name"
+                Copy-RecordedFile -Source $source -Destination $destination
+            }
+        }
+        foreach ($phase in 'HAB','S1','S2') {
             foreach ($name in 'combined_output.csv','tracking_qc.csv','run_manifest.yaml') {
                 $source = Join-Path $AssayOutputRoot "SocP\$batch\$phase\$name"
                 $destination = Join-Path $releaseRoot "assay_summaries\SocP\$batch\$phase\$name"
@@ -185,7 +193,7 @@ try {
     }
 
     $configDir = Join-Path $repoRoot 'validation\exp9_boris\config'
-    foreach ($name in 'epm_all.yaml','nor_all.yaml','socp_all.yaml','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
+    foreach ($name in 'epm_all.yaml','nor_all.yaml','nor_hab_all.yaml','socp_all.yaml','socp_hab_all.yaml','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
         Copy-RecordedFile `
             -Source (Join-Path $configDir $name) `
             -Destination (Join-Path $releaseRoot "provenance\configs\$name")

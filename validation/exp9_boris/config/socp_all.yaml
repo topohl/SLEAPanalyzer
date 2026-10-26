@@ -1,7 +1,6 @@
 # Exp9 social preference, all six batches, S1 and S2.
 #
-# HAB is omitted: there is no manual habituation scoring to compare against.
-# Add "HAB" to phases to analyse it.
+# HAB runs from socp_hab_all.yaml (same detector, S1 side file).
 #
 # metadata_dir is deliberately NOT set. DLCA_SocP falls back to the per-phase
 # input directory when it is absent, which is what makes the per-batch

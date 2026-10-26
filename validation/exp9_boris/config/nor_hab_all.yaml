@@ -1,0 +1,54 @@
+# Exp9 NOR habituation trials, batches 2-6.
+#
+# The habituation trial holds two copies of the familiar (round) object; the
+# novel object is added only in the test trial (nor_all.yaml). Batch 1
+# habituation was scored by hand (BORIS) and never tracked, so it is absent.
+#
+# Detector: the familiar object's detector of the test trial (4 cm radius,
+# same angle and body-exclusion rules) on BOTH objects, because both are the
+# same object. The 9 x 7 cm box of nor_all.yaml fits only the rectangular
+# novel object and is not used here.
+#
+# NOVEL/FAMILIAR: the side file is the test trial's novelLoc.txt, so contactNov
+# is contact with the object on the side where the novel object will be placed
+# (same "R" = left mapping as nor_all.yaml). Its preference index measures a
+# side bias before the novel object exists; it should be near zero.
+
+input_dir: C:/Users/topohl/Documents/exp9_sleap_staging/NOR_HAB
+output_dir: C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris/sleap_output_all/NOR_HAB
+metadata_dir: C:/Users/topohl/Documents/exp9_sleap_staging/NOR_meta
+animal_id_code_file: C:/Users/topohl/Documents/exp9_sleap_staging/animalIDCode.txt
+novel_location_file: novelLoc.txt
+batches: [B2, B3, B4, B5, B6]
+
+fps: 30
+
+arena_width_cm: 49
+arena_height_cm: 49
+arena_corner_names: [tl, tr, br, bl]
+
+max_interpolation_gap_s: 0.2
+likelihood_cutoff: ~
+max_plausible_speed_cm_s: 100
+
+qc_min_valid_fraction: 0.8
+qc_max_longest_gap_s: 5.0
+qc_max_interpolated_fraction: 0.2
+
+movement_cutoff_cm_s: 5
+integration_period_frames: 5
+
+contact_geometry: radial
+contact_distance_cm: 4
+body_exclusion_distance_cm: 1
+contact_angle_deg: [70, 290]
+proximity_range_cm: [4, 8]
+proximity_angle_deg: [90, 270]
+
+min_bout_s: 0.0
+max_gap_s: 0.0
+
+report_rearing: true
+rearing_spine_distance_cm: 1
+
+write_manifest: true
