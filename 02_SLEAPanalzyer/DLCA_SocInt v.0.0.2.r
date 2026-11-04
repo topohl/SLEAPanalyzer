@@ -1,7 +1,7 @@
 # ================================================================
 # SLEAP/DLC Social Interaction Analyzer
 # Event-based animal-animal interaction analysis with QC
-# Author: Tobias Pohl / ChatGPT revision
+# Author: Tobias Pohl
 # ================================================================
 #
 # What this script adds vs. the exploratory v0.0.2 script:

@@ -1,7 +1,7 @@
 # ================================================================
 # SLEAP/DLC Open Field Test Analyzer
 # QC-first OFT analysis with frame-level, summary, and enhanced outputs
-# Author: Tobias Pohl / ChatGPT revision
+# Author: Tobias Pohl
 # Version: 1.2.0
 # Date: 2026-05-11
 # ================================================================

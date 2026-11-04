@@ -1,6 +1,6 @@
 # ================================================================
 # SLEAP/DLC OFT Optional Autoencoder Motif Discovery
-# Author: Tobias Pohl / ChatGPT revision
+# Author: Tobias Pohl
 # Version: 1.0.0
 # Date: 2026-05-11
 # ================================================================
