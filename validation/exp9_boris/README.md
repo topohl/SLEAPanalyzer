@@ -119,10 +119,18 @@ and as the analysis uses it: this script finds the coordinates, `tools/figure_st
 draws them. `Rscript 27_figure_stills.R <out_dir>`, then
 `python -I tools/figure_stills.py <out_dir>/stills.csv <out_dir>`.
 
+**`28` — cup geometry.** Calibration and cup geometry of every social-preference recording
+as the tracking sees them: pixels per cm, the arena's aspect ratio, the distance between the
+cup points and their jitter, head and body length, and the apparent cup radius (where observed
+noses stop on the open side of the cup). The cups are the same in every batch, so their apparent
+radius checks that one contact distance means the same everywhere (2026-11-05: 3.8 to 4.15 cm by
+batch, no difference between the sexes; a per-recording correction for it agreed worse with the
+manual scoring). `Rscript 28_cup_geometry.R`; results in `results/socp_cup_geometry.csv`.
+
 ## Layout
 
 ```
-scripts/    27 R scripts, as described above
+scripts/    28 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv
