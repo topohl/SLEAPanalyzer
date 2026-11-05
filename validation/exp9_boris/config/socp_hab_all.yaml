@@ -41,6 +41,16 @@ body_exclusion_distance_cm: 1
 proximity_range_cm: [6, 10]
 require_orientation: false
 
+# Time on top of a cup is not contact; same rule and values as socp_all.yaml.
+on_cup_exclusion: true
+on_cup_footprint_radius_cm: 4
+on_cup_beyond_cm: 2
+on_cup_max_distance_cm: 10
+on_cup_min_apparent_size: 1.08
+on_cup_merge_gap_s: 0.5
+on_cup_min_episode_s: 0.2
+on_cup_size_window_s: 0.5
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

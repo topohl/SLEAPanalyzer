@@ -39,6 +39,20 @@ body_exclusion_distance_cm: 1
 proximity_range_cm: [6, 10]
 require_orientation: false
 
+# Time on top of a cup is not contact (manual scoring does not count it).
+# A floor-level body centre stays at least ~5 cm from the cup point and never
+# between the cup and the corner; on the lid the mouse is imaged ~1.15-1.25x
+# larger. Set on all 348 SocP recordings and checked by blind review of 123
+# frames (2026-11-05): see docs/assay_definitions.md.
+on_cup_exclusion: true
+on_cup_footprint_radius_cm: 4
+on_cup_beyond_cm: 2
+on_cup_max_distance_cm: 10
+on_cup_min_apparent_size: 1.08
+on_cup_merge_gap_s: 0.5
+on_cup_min_episode_s: 0.2
+on_cup_size_window_s: 0.5
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

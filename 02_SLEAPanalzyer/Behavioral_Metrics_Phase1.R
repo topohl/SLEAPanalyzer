@@ -275,6 +275,10 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
 #'   every required landmark has finite coordinates.
 #' @param threshold_unit unit the distance thresholds are expressed in; must
 #'   match the coordinate unit of the tracking data.
+#' @param on_cup optional list with logical vectors `left` and `right`, one
+#'   value per frame, TRUE while the animal is on top of that cup (see
+#'   detect_on_object()). Those frames are neither contact nor proximity for
+#'   that cup; they stay valid observation time.
 compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_distance = 6,
                                  body_exclusion_distance = 1,
@@ -284,7 +288,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_angle = c(70, 290),
                                  valid = NULL,
                                  min_bout_s = 0,
-                                 max_gap_s = 0) {
+                                 max_gap_s = 0,
+                                 on_cup = NULL) {
   required <- c("nose", "bodycentre", "socl", "socr")
   validate_tracking_data(tracking, required_landmarks = required)
   validate_assay_timing(tracking, fps)
@@ -317,6 +322,20 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   proximity_left <- distance_left > proximity_range[1] & distance_left <= proximity_range[2]
   proximity_right <- distance_right > proximity_range[1] & distance_right <= proximity_range[2]
 
+  if (is.null(on_cup)) on_cup <- list(left = rep(FALSE, n), right = rep(FALSE, n))
+  if (!is.list(on_cup) || !all(c("left", "right") %in% names(on_cup))) {
+    stop("on_cup must be a list with logical vectors 'left' and 'right'")
+  }
+  on_left <- normalize_validity_mask(on_cup$left, n)
+  on_right <- normalize_validity_mask(on_cup$right, n)
+  # Counted before the mask is applied, so the summary says what was removed.
+  removed_left <- sum(contact_left & on_left & valid, na.rm = TRUE) / fps
+  removed_right <- sum(contact_right & on_right & valid, na.rm = TRUE) / fps
+  contact_left <- contact_left & !on_left
+  contact_right <- contact_right & !on_right
+  proximity_left <- proximity_left & !on_left
+  proximity_right <- proximity_right & !on_right
+
   segment <- function(event) {
     segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)
   }
@@ -334,6 +353,9 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   contact_mapped <- mapped(left$duration_s, right$duration_s)
   proximity_mapped <- mapped(proximity_left_seg$duration_s, proximity_right_seg$duration_s)
   latency_mapped <- mapped(left$latency_s, right$latency_s)
+  on_cup_left_s <- sum(on_left & valid) / fps
+  on_cup_right_s <- sum(on_right & valid) / fps
+  on_cup_mapped <- mapped(on_cup_left_s, on_cup_right_s)
 
   list(
     summary = data.frame(
@@ -358,6 +380,12 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       validFraction = left$valid_time_s / get_tracking_duration(tracking),
       coordinateUnit = get_tracking_unit(tracking),
       novelLoc = location,
+      onCupLeft = on_cup_left_s,
+      onCupRight = on_cup_right_s,
+      onCupNovel = unname(on_cup_mapped["novel"]),
+      onCupFamiliar = unname(on_cup_mapped["familiar"]),
+      contactRemovedLeft = removed_left,
+      contactRemovedRight = removed_right,
       stringsAsFactors = FALSE
     ),
     events = data.frame(
@@ -365,6 +393,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       contact_right = contact_right,
       proximity_left = proximity_left,
       proximity_right = proximity_right,
+      on_cup_left = on_left,
+      on_cup_right = on_right,
       valid = valid
     ),
     segmentation = list(left = left, right = right)

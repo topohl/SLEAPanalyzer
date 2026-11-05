@@ -308,6 +308,8 @@ as rearing. It has not been validated against manual scoring.
 | `contactNovel` / `contactFamiliar` | Configurable | The above, mapped through metadata |
 | `proxNovel` / `proxFamiliar` | Configurable | Nose distance within `proximity_range_cm` |
 | `latency*`, `frequency*`, `entries*` | Core | Shared event engine |
+| `onCupLeft` / `onCupRight`, `onCupNovel` / `onCupFamiliar` | Configurable | Time on top of the cup (`on_cup_exclusion`) |
+| `contactRemovedLeft` / `contactRemovedRight` | Configurable | Contact time the on-cup rule removed |
 
 The same detector is applied to both chambers. Unlike NOR, no head-orientation
 criterion is applied by default; this preserves the established SocP
@@ -315,6 +317,34 @@ definition. `require_orientation = TRUE` adds one, which **changes the
 definition** and needs its own validation.
 
 The novel/familiar mapping follows the same inherited convention as NOR.
+
+### Time on top of a cup is not contact
+
+A mouse sitting on a cup's lid has its nose within the contact distance of the
+cup point, so the distance rule scores it as contact; manual scoring does not.
+With `on_cup_exclusion: true`, `detect_on_object()` (core `plausibility.R`)
+finds those stretches and they count as neither contact nor proximity for that
+cup (they stay valid time). An episode is a run of frames with the body centre
+where a floor-level mouse cannot be (within `on_cup_footprint_radius_cm` of the
+cup point, or more than `on_cup_beyond_cm` past it toward the corner), gaps up
+to `on_cup_merge_gap_s` merged. It is accepted when it lasts at least
+`on_cup_min_episode_s` and the mouse looks raised: its median apparent body
+size (landmark separations relative to the recording's median; a top-down
+camera images a raised mouse larger) is at least `on_cup_min_apparent_size`.
+It is then extended while the mouse stays raised within
+`on_cup_max_distance_cm`, which covers the lid edge. Position alone is not
+enough: a mouse squeezed between cup and wall, or a misplaced body point, sits
+in the same places at normal size. Every candidate episode and its decision is
+written to `on_cup_episodes.csv`; reviewed corrections go in
+`qc_decisions_file` (`file, target, start_s, end_s, decision, reason,
+reviewer`; decision `on_object` or `not_on_object`).
+
+Exp9 values (4 cm, 2 cm, 10 cm, 1.08, 0.5 s, 0.2 s, size window 0.5 s) come
+from all 348 recordings: floor-level body centres stay at least ~5 cm from
+the cup point (rearing at the wire about 4.2 cm), and raised episodes measure
+1.10-1.40 against at most 1.03 for floor episodes. In a blind review of 123
+frames (two independent passes, 98% agreement) the rule removed 34 of 35
+frames judged on top of the cup and none of 85 floor frames.
 
 ---
 
