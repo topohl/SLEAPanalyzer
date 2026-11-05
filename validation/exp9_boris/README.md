@@ -105,13 +105,16 @@ skeletons), writes those recordings' tracking after the repair and the lists for
 `tools/qc_review.py`, which draws the original and the repaired nose and body centre
 on stills and clips.
 
-**`26` — frame agreement.** The social-preference contact against the raw manual
-events of batch 1 frame by frame (9 animals; the other 10 by their totals), with the
-nose as tracked and with the head length restored (`restore_head_length()`): where
-contact is missed or added, by side of the cup, along the cup lid, against the
-contact distance. `Rscript 26_frame_agreement.R <reference_release>`; results in
-`results/socp_frame_*.csv`. See "A head hidden under the cup lid" in
-`docs/assay_definitions.md`.
+**`26` — frame agreement.** The social-preference contact against the raw manual events of
+batch 1 frame by frame: 19 animals (camera 2, where the head length restoration was developed;
+camera 1, held out), habituation and both phases, each record aligned on the ear midpoint and
+compared over the frames it covers (four records cover a shifted window). With the nose as
+tracked and with the head length restored (`restore_head_length()`): agreement by camera and cup
+with 95% intervals over animals, where contact is missed or added, along the cup lid, against the
+contact distance; the one trial scored twice by hand; bout counts, mean bout and latency against
+the automated merge gap and minimum bout. `Rscript 26_frame_agreement.R <reference_release>`;
+results in `results/socp_frame_*.csv` and `results/socp_bout_*.csv`. See "A head hidden under
+the cup lid" in `docs/assay_definitions.md`.
 
 **`27` — figure stills.** One video frame per kind of misplaced nose (a fixed spot at the
 image edge, an object outside the arena, a head under the cup lid), with the nose as tracked
@@ -127,10 +130,15 @@ radius checks that one contact distance means the same everywhere (2026-11-05: 3
 batch, no difference between the sexes; a per-recording correction for it agreed worse with the
 manual scoring). `Rscript 28_cup_geometry.R`; results in `results/socp_cup_geometry.csv`.
 
+**`29` — head restoration impact.** Contact with each cup in every social-preference recording
+without and with the head length restoration as configured, the median head length and the time
+restored (report only). `Rscript 29_head_restore_impact.R`; results in
+`results/socp_head_restore_impact.csv`.
+
 ## Layout
 
 ```
-scripts/    28 R scripts, as described above
+scripts/    31 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

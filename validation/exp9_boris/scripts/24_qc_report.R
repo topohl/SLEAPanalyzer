@@ -44,6 +44,10 @@ meta <- hand[, .(Code, ID, Sex, Group = Phenotype)]
 dec <- fread(file.path(PROJ, "config", "qc_decisions_socp.csv"))
 screen_f <- file.path(PROJ, "results", "plausibility_summary.csv"); screen <- if (file.exists(screen_f)) fread(screen_f) else NULL
 stopifnot("every recording also in the reference release" = all(paste(now$batch, now$phase, now$Code) %in% paste(ref$batch, ref$phase, ref$Code)),
+          # its before/after columns credit every change to the repair and the cup rule; a run that also restores the head length
+          # (noseRestoredS) needs a reference with the same restoration, or a split of the steps, before it can be reported here
+          "the SocP outputs do not restore the head length (not split by this report yet)" =
+            !"noseRestoredS" %in% names(now) || all(is.na(now$noseRestoredS)),
           "every SocP output comes from a run with the landmark repair" = all(c("landmarksFlaggedS", "noseReconstructedS") %in% names(now)) &&
             !anyNA(now$landmarksFlaggedS) && !anyNA(now$noseReconstructedS),
           "a repair table for every recording" = all(paste(now$batch, now$phase, now$Code) %in% paste(reps$batch, reps$phase, reps$Code)))

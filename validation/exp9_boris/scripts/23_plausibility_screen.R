@@ -3,7 +3,8 @@
 #
 # Frame-level plausibility screen of every staged Exp9 recording (social
 # preference, novel object, open field, plus maze; tests and habituation
-# trials). Report only: nothing here changes a score. Each recording is read,
+# trials). Report only: nothing here changes a score. The head length
+# restoration of the social preference test is not applied here (see 29). Each recording is read,
 # interpolated and calibrated as its assay script does, then the checks of
 # core/plausibility.R run on it:
 #

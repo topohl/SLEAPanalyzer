@@ -198,7 +198,7 @@ test_that("SocP restores a head hidden under a cup lid before scoring contact", 
     k <- 101:130; ear <- (points$leftEar[k, ] + points$rightEar[k, ]) / 2
     points$nose[k, ] <- ear + 0.4 * (points$nose[k, ] - ear)
     write_tracking_fixture(file.path(fixture$root, "formatted", "HAB", "B001_socp.csv"), points, n)
-    writeLines(c(readLines(fixture$config), paste0("head_length_restore: ", tolower(restore))), fixture$config)
+    writeLines(c(readLines(fixture$config), paste0("head_length_restore: ", tolower(restore)), "head_length_restore_below: 0.75"), fixture$config)
     output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
     expect_script_succeeded(output, "SocP script with head length restoration")
     utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
@@ -208,6 +208,35 @@ test_that("SocP restores a head hidden under a cup lid before scoring contact", 
   expect_equal(off$contactLeft, 9, tolerance = 1e-6)
   expect_equal(on$contactLeft, 10, tolerance = 1e-6)
   expect_equal(on$headLengthCm, 1.5, tolerance = 0.02)
-  expect_equal(on$headShortS, 1, tolerance = 1e-6)
+  expect_equal(on$noseRestoredS, 1, tolerance = 1e-6)
   expect_true(is.na(off$headLengthCm))
+})
+
+test_that("head length restoration runs after the on-cup detection and leaves it unchanged", {
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  fixture <- make_socp_fixture(temp_run_dir("socp_on_cup_head"), climb_frames = 60)
+  writeLines(c(readLines(fixture$config), "head_length_restore: true", "head_length_restore_below: 0.75"), fixture$config)
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+  expect_script_succeeded(output, "SocP script with on-cup exclusion and head length restoration")
+  result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  # the fixture's head is never clearly short, so nothing is restored and the on-cup result is that of the plain run
+  expect_equal(result$noseRestoredS, 0)
+  expect_equal(result$contactLeft, 3, tolerance = 1e-6)
+  expect_equal(result$contactRemovedLeft, 2, tolerance = 1e-6)
+  expect_equal(result$onCupLeft, 2, tolerance = 1e-6)
+})
+
+test_that("head length restoration needs its setting", {
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  fixture <- make_socp_fixture(temp_run_dir("socp_head_unset"))
+  writeLines(c(readLines(fixture$config), "head_length_restore: true"), fixture$config)
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+  expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
+  expect_true(any(grepl("head_length_restore is on but unset", output)))
 })

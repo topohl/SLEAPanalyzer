@@ -145,8 +145,10 @@ assay_schema <- function(assay) {
       qc_decisions_file = config_field("path", required = FALSE),
 
       # A nose hidden under a cup lid is put back at the head's median length
-      # (restore_head_length(), landmark_repair.R). Off unless set.
-      head_length_restore = config_field("logical", required = FALSE)
+      # (restore_head_length(), landmark_repair.R). Off unless set; when on,
+      # head_length_restore_below must be stated.
+      head_length_restore = config_field("logical", required = FALSE),
+      head_length_restore_below = config_field("number", positive = TRUE, required = FALSE)
     ),
     stop("Unknown assay: ", assay)
   )

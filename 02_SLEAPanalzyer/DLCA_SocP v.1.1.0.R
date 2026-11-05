@@ -64,6 +64,11 @@ if (isTRUE(config$landmark_repair)) {
   # a rebuilt coordinate keeps the likelihood of the point it replaced, which a cutoff would then judge
   if (!is.null(config$likelihood_cutoff)) stop("landmark_repair and likelihood_cutoff cannot be combined")
 }
+head_fields <- c("head_length_restore_below")
+if (isTRUE(config$head_length_restore)) {
+  unset <- head_fields[vapply(head_fields, function(f) is.null(config[[f]]), logical(1))]
+  if (length(unset) > 0) stop("head_length_restore is on but unset: ", paste(unset, collapse = ", "))
+}
 if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
   stop("qc_decisions_file not found: ", config$qc_decisions_file)
 }
@@ -216,12 +221,12 @@ for (batch in batches) {
 
       # After the on-cup detection, whose size measure uses the nose, so that
       # only the contact and proximity measures see the restored nose.
-      headRow <- data.frame(headLengthCm = NA_real_, headShortS = NA_real_)
+      headRow <- data.frame(headLengthCm = NA_real_, noseRestoredS = NA_real_)
       if (isTRUE(config$head_length_restore)) {
-        tracking <- restore_head_length(tracking)
+        tracking <- restore_head_length(tracking, below = config$head_length_restore_below)
         hl <- tracking$head_length
         headRow <- data.frame(headLengthCm = hl$median,
-                              headShortS = sum(hl$length < 0.75 * hl$median, na.rm = TRUE) / config$fps)
+                              noseRestoredS = if (is.finite(hl$median)) sum(hl$moved) / config$fps else NA_real_)
       }
 
       metrics <- compute_socp_metrics(

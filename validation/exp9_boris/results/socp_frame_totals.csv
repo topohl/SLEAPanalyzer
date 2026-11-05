@@ -1,79 +1,319 @@
-code,Animal,phase,role,metric,manual,as_tracked,head_restored,camera
-A1L9,OQ752,S1,mouse,S1 novel,168.735,157.8,171.366666666667,camera 2 (raw events)
-C2P4,OQ771,S1,mouse,S1 novel,195.416,183.5,196.633333333333,camera 1 (totals only)
-C7E2,OQ761,S1,empty or familiar,S1 familiar,56.301,35.8333333333333,37.2666666666667,camera 2 (raw events)
-F2I1,OQ770,S1,empty or familiar,S1 familiar,23.565,27.5,28.7333333333333,camera 1 (totals only)
-F9L3,OQ751,S1,mouse,S1 novel,137.973,133.3,139.5,camera 2 (raw events)
-H9J5,OQ772,S1,mouse,S1 novel,319.674,276.9,284.233333333333,camera 1 (totals only)
-K4T2,OQ750,S1,empty or familiar,S1 familiar,16.991,18.8333333333333,19.6,camera 2 (raw events)
-L2H0,OQ760,S1,empty or familiar,S1 familiar,41.993,44.1,48.3666666666667,camera 1 (totals only)
-M1M3,0003,S1,mouse,S1 novel,178.388,173.233333333333,180.766666666667,camera 2 (raw events)
-M8P3,OQ763,S1,mouse,S1 novel,227.805,215.3,223.7,camera 1 (totals only)
-P9X0,OQ755,S1,empty or familiar,S1 familiar,24.976,22.7666666666667,24.3333333333333,camera 2 (raw events)
-R8K7,OQ754,S1,empty or familiar,S1 familiar,30.235,24.0666666666667,25.8333333333333,camera 1 (totals only)
-R8O3,OQ764,S1,mouse,S1 novel,263.057,229.5,252.933333333333,camera 2 (raw events)
-S7I3,0004,S1,mouse,S1 novel,179.927,169.566666666667,179.5,camera 1 (totals only)
-T2H7,OQ762,S1,empty or familiar,S1 familiar,33.625,36.5333333333333,37.7333333333333,camera 2 (raw events)
-U5P3,OQ765,S1,empty or familiar,S1 familiar,35.984,37.5666666666667,38.9666666666667,camera 1 (totals only)
-V2P0,0002,S1,mouse,S1 novel,298.839,286.333333333333,303.833333333333,camera 2 (raw events)
-X1H0,0001,S1,mouse,S1 novel,202.054,184,194.066666666667,camera 1 (totals only)
-Y0F3,OQ753,S1,empty or familiar,S1 familiar,32.357,31.7,34.0333333333333,camera 2 (raw events)
-Y6V5,OQ773,S1,empty or familiar,S1 familiar,31.727,30.6666666666667,30.8,camera 1 (totals only)
-C2P4,OQ771,S2,empty or familiar,S2 familiar,42.488,39.3,42.8333333333333,camera 1 (totals only)
-C7E2,OQ761,S2,mouse,S2 novel,125.401,126.133333333333,132.333333333333,camera 2 (raw events)
-F2I1,OQ770,S2,mouse,S2 novel,98.903,95.4666666666667,98.9,camera 1 (totals only)
-F9L3,OQ751,S2,empty or familiar,S2 familiar,92.848,101.333333333333,102.733333333333,camera 2 (raw events)
-H9J5,OQ772,S2,empty or familiar,S2 familiar,98.556,92.2666666666667,93.0333333333333,camera 1 (totals only)
-K4T2,OQ750,S2,mouse,S2 novel,152.947,152.366666666667,154.333333333333,camera 2 (raw events)
-L2H0,OQ760,S2,mouse,S2 novel,103.678,100.3,103.466666666667,camera 1 (totals only)
-M1M3,0003,S2,empty or familiar,S2 familiar,64.964,72.9333333333333,75.8666666666667,camera 2 (raw events)
-M8P3,OQ763,S2,empty or familiar,S2 familiar,33.748,38.3333333333333,40.5333333333333,camera 1 (totals only)
-P9X0,OQ755,S2,mouse,S2 novel,163.35,153.766666666667,159.466666666667,camera 2 (raw events)
-R8K7,OQ754,S2,mouse,S2 novel,117.714,90.2,101.2,camera 1 (totals only)
-R8O3,OQ764,S2,empty or familiar,S2 familiar,61.536,57,59.8333333333333,camera 2 (raw events)
-S7I3,0004,S2,empty or familiar,S2 familiar,64.479,59.4333333333333,62.8333333333333,camera 1 (totals only)
-T2H7,OQ762,S2,mouse,S2 novel,100.634,106.8,110.433333333333,camera 2 (raw events)
-U5P3,OQ765,S2,mouse,S2 novel,139.208,123.566666666667,133,camera 1 (totals only)
-V2P0,0002,S2,empty or familiar,S2 familiar,169.778,148.5,154.9,camera 2 (raw events)
-X1H0,0001,S2,empty or familiar,S2 familiar,91.72,93.1666666666667,96.3333333333333,camera 1 (totals only)
-Y0F3,OQ753,S2,mouse,S2 novel,103.451,111.166666666667,113.433333333333,camera 2 (raw events)
-Y6V5,OQ773,S2,mouse,S2 novel,185.496,173.533333333333,176.4,camera 1 (totals only)
-A1L9,OQ752,S1,empty or familiar,S1 familiar,21.406,20.0333333333333,19.9666666666667,camera 2 (raw events)
-C2P4,OQ771,S1,empty or familiar,S1 familiar,16.256,19.5666666666667,21.1,camera 1 (totals only)
-C7E2,OQ761,S1,mouse,S1 novel,200.949,218.1,229.066666666667,camera 2 (raw events)
-F2I1,OQ770,S1,mouse,S1 novel,181.803,177.466666666667,183.2,camera 1 (totals only)
-F9L3,OQ751,S1,empty or familiar,S1 familiar,55.706,54.3333333333333,55.9,camera 2 (raw events)
-H9J5,OQ772,S1,empty or familiar,S1 familiar,26.487,25.1,25.9666666666667,camera 1 (totals only)
-K4T2,OQ750,S1,mouse,S1 novel,195.944,182.133333333333,190.9,camera 2 (raw events)
-L2H0,OQ760,S1,mouse,S1 novel,108.559,111.4,112.466666666667,camera 1 (totals only)
-M1M3,0003,S1,empty or familiar,S1 familiar,54.242,46.9666666666667,47.3,camera 2 (raw events)
-M8P3,OQ763,S1,empty or familiar,S1 familiar,30.028,26.2333333333333,30.8666666666667,camera 1 (totals only)
-P9X0,OQ755,S1,mouse,S1 novel,121.801,106.733333333333,114.2,camera 2 (raw events)
-R8K7,OQ754,S1,mouse,S1 novel,188.946,196.6,200.633333333333,camera 1 (totals only)
-R8O3,OQ764,S1,empty or familiar,S1 familiar,24.977,19.2,22.1,camera 2 (raw events)
-S7I3,0004,S1,empty or familiar,S1 familiar,32.827,35.0666666666667,35.6333333333333,camera 1 (totals only)
-T2H7,OQ762,S1,mouse,S1 novel,216.966,216.766666666667,220.166666666667,camera 2 (raw events)
-U5P3,OQ765,S1,mouse,S1 novel,246.371,220.3,233.766666666667,camera 1 (totals only)
-V2P0,0002,S1,empty or familiar,S1 familiar,25.032,25.2666666666667,26.0333333333333,camera 2 (raw events)
-X1H0,0001,S1,empty or familiar,S1 familiar,17.486,17.0333333333333,17.5333333333333,camera 1 (totals only)
-Y0F3,OQ753,S1,mouse,S1 novel,220.919,215.1,219.566666666667,camera 2 (raw events)
-Y6V5,OQ773,S1,mouse,S1 novel,296.582,264.533333333333,286.3,camera 1 (totals only)
-C2P4,OQ771,S2,mouse,S2 novel,192.079,175.5,195.4,camera 1 (totals only)
-C7E2,OQ761,S2,empty or familiar,S2 familiar,44.005,45.1666666666667,45.5333333333333,camera 2 (raw events)
-F2I1,OQ770,S2,empty or familiar,S2 familiar,86.049,82.8,85.0666666666667,camera 1 (totals only)
-F9L3,OQ751,S2,mouse,S2 novel,70.5,62.2333333333333,66.8333333333333,camera 2 (raw events)
-H9J5,OQ772,S2,mouse,S2 novel,281.379,262.066666666667,267.7,camera 1 (totals only)
-K4T2,OQ750,S2,empty or familiar,S2 familiar,58.239,58.5666666666667,59.5,camera 2 (raw events)
-L2H0,OQ760,S2,empty or familiar,S2 familiar,65.041,58.7333333333333,59.8333333333333,camera 1 (totals only)
-M1M3,0003,S2,mouse,S2 novel,144.452,134.666666666667,140.266666666667,camera 2 (raw events)
-M8P3,OQ763,S2,mouse,S2 novel,60.71,66.3666666666667,68.3666666666667,camera 1 (totals only)
-P9X0,OQ755,S2,empty or familiar,S2 familiar,28.483,27.3666666666667,28.2333333333333,camera 2 (raw events)
-R8K7,OQ754,S2,empty or familiar,S2 familiar,123.466,114.533333333333,118.7,camera 1 (totals only)
-R8O3,OQ764,S2,mouse,S2 novel,265.897,254.566666666667,262.333333333333,camera 2 (raw events)
-S7I3,0004,S2,mouse,S2 novel,170.872,159.333333333333,163.733333333333,camera 1 (totals only)
-T2H7,OQ762,S2,empty or familiar,S2 familiar,49.603,50.0333333333333,51.6666666666667,camera 2 (raw events)
-U5P3,OQ765,S2,empty or familiar,S2 familiar,69.729,63.0333333333333,67.3,camera 1 (totals only)
-V2P0,0002,S2,mouse,S2 novel,153.874,148.8,150.6,camera 2 (raw events)
-X1H0,0001,S2,mouse,S2 novel,114.459,106.366666666667,113.133333333333,camera 1 (totals only)
-Y0F3,OQ753,S2,empty or familiar,S2 familiar,51.039,45.1666666666667,48.7,camera 2 (raw events)
-Y6V5,OQ773,S2,empty or familiar,S2 familiar,118.711,115.866666666667,119.633333333333,camera 1 (totals only)
+nose,code,phase,cup,role,camera,full_window,tp,fn,fp,manual_s,auto_s
+without restoration,A1L9,HAB,L,habituation,camera 2,TRUE,852,921,634,59.1,49.5333333333333
+without restoration,A1L9,HAB,R,habituation,camera 2,TRUE,667,723,715,46.3333333333333,46.0666666666667
+without restoration,M1M3,S1,L,stranger cup,camera 2,TRUE,4799,549,398,178.266666666667,173.233333333333
+without restoration,M1M3,S1,R,other cup,camera 2,TRUE,1154,473,255,54.2333333333333,46.9666666666667
+without restoration,P9X0,S1,L,other cup,camera 2,TRUE,553,194,130,24.9,22.7666666666667
+without restoration,P9X0,S1,R,stranger cup,camera 2,TRUE,2865,786,337,121.7,106.733333333333
+without restoration,P9X0,S2,L,stranger cup,camera 2,TRUE,4438,458,175,163.2,153.766666666667
+without restoration,P9X0,S2,R,other cup,camera 2,TRUE,731,122,90,28.4333333333333,27.3666666666667
+without restoration,R8O3,S1,L,stranger cup,camera 2,TRUE,6534,1347,350,262.7,229.466666666667
+without restoration,R8O3,S1,R,other cup,camera 2,TRUE,497,252,79,24.9666666666667,19.2
+without restoration,R8O3,S2,L,other cup,camera 2,TRUE,1547,301,163,61.6,57
+without restoration,R8O3,S2,R,stranger cup,camera 2,TRUE,7368,604,269,265.733333333333,254.566666666667
+without restoration,T2H7,S1,L,other cup,camera 2,TRUE,814,196,282,33.6666666666667,36.5333333333333
+without restoration,T2H7,S1,R,stranger cup,camera 2,TRUE,5996,509,505,216.833333333333,216.7
+without restoration,T2H7,S2,L,stranger cup,camera 2,TRUE,2571,447,632,100.6,106.766666666667
+without restoration,T2H7,S2,R,other cup,camera 2,TRUE,1284,204,217,49.6,50.0333333333333
+without restoration,V2P0,S1,L,stranger cup,camera 2,TRUE,8025,926,564,298.366666666667,286.3
+without restoration,V2P0,S1,R,other cup,camera 2,TRUE,594,155,164,24.9666666666667,25.2666666666667
+without restoration,V2P0,S2,L,other cup,camera 2,TRUE,4267,819,187,169.533333333333,148.466666666667
+without restoration,V2P0,S2,R,stranger cup,camera 2,TRUE,4169,442,295,153.7,148.8
+without restoration,Y0F3,S1,L,other cup,camera 2,TRUE,776,193,175,32.3,31.7
+without restoration,Y0F3,S1,R,stranger cup,camera 2,TRUE,6122,504,331,220.866666666667,215.1
+without restoration,Y0F3,S2,L,stranger cup,camera 2,TRUE,2881,220,454,103.366666666667,111.166666666667
+without restoration,Y0F3,S2,R,other cup,camera 2,TRUE,1244,283,111,50.9,45.1666666666667
+without restoration,C7E2,S2,L,stranger cup,camera 2,TRUE,3456,295,327,125.033333333333,126.1
+without restoration,C7E2,S2,R,other cup,camera 2,TRUE,1202,116,153,43.9333333333333,45.1666666666667
+without restoration,F9L3,S2,L,other cup,camera 2,TRUE,2633,135,407,92.2666666666667,101.333333333333
+without restoration,F9L3,S2,R,stranger cup,camera 2,TRUE,1735,379,132,70.4666666666667,62.2333333333333
+without restoration,K4T2,S1,L,other cup,camera 2,TRUE,415,94,150,16.9666666666667,18.8333333333333
+without restoration,K4T2,S1,R,stranger cup,camera 2,TRUE,5022,854,442,195.866666666667,182.133333333333
+without restoration,K4T2,S2,L,stranger cup,camera 2,TRUE,4264,322,307,152.866666666667,152.366666666667
+without restoration,K4T2,S2,R,other cup,camera 2,TRUE,1568,176,189,58.1333333333333,58.5666666666667
+without restoration,C2P4,HAB,L,habituation,camera 1,TRUE,676,230,334,30.2,33.6666666666667
+without restoration,C2P4,HAB,R,habituation,camera 1,TRUE,349,222,304,19.0333333333333,21.7666666666667
+without restoration,C2P4,S1,L,stranger cup,camera 1,TRUE,5055,804,450,195.3,183.5
+without restoration,C2P4,S1,R,other cup,camera 1,TRUE,409,77,178,16.2,19.5666666666667
+without restoration,F2I1,HAB,L,habituation,camera 1,TRUE,1262,317,436,52.6333333333333,56.6
+without restoration,F2I1,HAB,R,habituation,camera 1,TRUE,1054,248,388,43.4,48.0666666666667
+without restoration,F2I1,S1,L,other cup,camera 1,FALSE,540,150,285,23,27.5
+without restoration,F2I1,S1,R,stranger cup,camera 1,FALSE,4882,569,419,181.7,176.7
+without restoration,C2P4,S2,L,other cup,camera 1,FALSE,1016,256,163,42.4,39.3
+without restoration,C2P4,S2,R,stranger cup,camera 1,FALSE,4802,957,463,191.966666666667,175.5
+without restoration,F2I1,S2,L,stranger cup,camera 1,TRUE,2578,383,286,98.7,95.4666666666667
+without restoration,F2I1,S2,R,other cup,camera 1,TRUE,2257,325,227,86.0666666666667,82.8
+without restoration,L2H0,HAB,L,habituation,camera 1,TRUE,1086,251,391,44.5666666666667,49.2333333333333
+without restoration,L2H0,HAB,R,habituation,camera 1,TRUE,759,289,231,34.9333333333333,33
+without restoration,L2H0,S1,L,other cup,camera 1,TRUE,1053,208,270,42.0333333333333,44.1
+without restoration,L2H0,S1,R,stranger cup,camera 1,TRUE,2984,268,358,108.4,111.4
+without restoration,L2H0,S2,L,stranger cup,camera 1,TRUE,2749,360,260,103.633333333333,100.3
+without restoration,L2H0,S2,R,other cup,camera 1,TRUE,1634,319,128,65.1,58.7333333333333
+without restoration,M8P3,HAB,L,habituation,camera 1,TRUE,893,270,213,38.7666666666667,36.8666666666667
+without restoration,M8P3,HAB,R,habituation,camera 1,TRUE,749,251,285,33.3333333333333,34.4666666666667
+without restoration,M1M3,HAB,L,habituation,camera 2,TRUE,1200,690,328,63,50.9333333333333
+without restoration,M1M3,HAB,R,habituation,camera 2,TRUE,1019,587,233,53.5333333333333,41.7333333333333
+without restoration,M8P3,S1,L,stranger cup,camera 1,TRUE,6127,703,330,227.666666666667,215.233333333333
+without restoration,M8P3,S1,R,other cup,camera 1,TRUE,581,319,206,30,26.2333333333333
+without restoration,M8P3,S2,L,other cup,camera 1,TRUE,859,149,291,33.6,38.3333333333333
+without restoration,M8P3,S2,R,stranger cup,camera 1,TRUE,1612,208,379,60.6666666666667,66.3666666666667
+without restoration,S7I3,HAB,L,habituation,camera 1,TRUE,705,253,312,31.9333333333333,33.9
+without restoration,S7I3,HAB,R,habituation,camera 1,TRUE,734,202,302,31.2,34.5333333333333
+without restoration,S7I3,S1,L,stranger cup,camera 1,TRUE,4719,679,368,179.933333333333,169.566666666667
+without restoration,S7I3,S1,R,other cup,camera 1,TRUE,850,130,202,32.6666666666667,35.0666666666667
+without restoration,S7I3,S2,L,other cup,camera 1,TRUE,1566,371,217,64.5666666666667,59.4333333333333
+without restoration,S7I3,S2,R,stranger cup,camera 1,TRUE,4492,631,288,170.766666666667,159.333333333333
+without restoration,M1M3,S2,L,other cup,camera 2,TRUE,1734,211,454,64.8333333333333,72.9333333333333
+without restoration,M1M3,S2,R,stranger cup,camera 2,TRUE,3737,597,303,144.466666666667,134.666666666667
+without restoration,Y6V5,HAB,L,habituation,camera 1,TRUE,1775,364,303,71.3,69.2666666666667
+without restoration,Y6V5,HAB,R,habituation,camera 1,TRUE,1119,247,242,45.5333333333333,45.3666666666667
+without restoration,Y6V5,S1,L,other cup,camera 1,TRUE,807,146,113,31.7666666666667,30.6666666666667
+without restoration,Y6V5,S1,R,stranger cup,camera 1,TRUE,7264,1627,671,296.366666666667,264.5
+without restoration,Y6V5,S2,L,stranger cup,camera 1,TRUE,4962,604,244,185.533333333333,173.533333333333
+without restoration,Y6V5,S2,R,other cup,camera 1,TRUE,3283,278,193,118.7,115.866666666667
+without restoration,X1H0,HAB,L,habituation,camera 1,TRUE,805,362,228,38.9,34.4333333333333
+without restoration,X1H0,HAB,R,habituation,camera 1,TRUE,1045,366,314,47.0333333333333,45.3
+without restoration,X1H0,S1,L,stranger cup,camera 1,TRUE,5043,1019,477,202.066666666667,184
+without restoration,X1H0,S1,R,other cup,camera 1,TRUE,438,87,73,17.5,17.0333333333333
+without restoration,U5P3,HAB,L,habituation,camera 1,TRUE,1026,359,410,46.1666666666667,47.8666666666667
+without restoration,U5P3,HAB,R,habituation,camera 1,TRUE,1170,244,393,47.1333333333333,52.1
+without restoration,U5P3,S1,L,other cup,camera 1,TRUE,952,109,175,35.3666666666667,37.5666666666667
+without restoration,U5P3,S1,R,stranger cup,camera 1,TRUE,6120,1273,487,246.433333333333,220.233333333333
+without restoration,U5P3,S2,L,stranger cup,camera 1,TRUE,3604,570,103,139.133333333333,123.566666666667
+without restoration,U5P3,S2,R,other cup,camera 1,TRUE,1747,342,144,69.6333333333334,63.0333333333333
+without restoration,C7E2,HAB,L,habituation,camera 2,TRUE,1382,769,429,71.7,60.3666666666667
+without restoration,C7E2,HAB,R,habituation,camera 2,TRUE,613,402,187,33.8333333333333,26.6666666666667
+without restoration,F9L3,HAB,L,habituation,camera 2,TRUE,1483,587,491,69,65.8
+without restoration,F9L3,HAB,R,habituation,camera 2,TRUE,1145,628,161,59.1,43.5333333333333
+without restoration,F9L3,S1,L,stranger cup,camera 2,TRUE,3587,539,411,137.533333333333,133.266666666667
+without restoration,F9L3,S1,R,other cup,camera 2,TRUE,1286,381,344,55.5666666666667,54.3333333333333
+without restoration,A1L9,S1,L,stranger cup,camera 2,FALSE,3526,1325,490,161.7,133.866666666667
+without restoration,A1L9,S1,R,other cup,camera 2,FALSE,498,144,103,21.4,20.0333333333333
+without restoration,Y0F3,HAB,L,habituation,camera 2,TRUE,1208,329,358,51.2333333333333,52.2
+without restoration,Y0F3,HAB,R,habituation,camera 2,TRUE,1630,394,367,67.4666666666667,66.5666666666667
+without restoration,C7E2,S1,L,other cup,camera 2,FALSE,892,211,180,36.7666666666667,35.7333333333333
+without restoration,C7E2,S1,R,stranger cup,camera 2,FALSE,4567,802,158,178.966666666667,157.5
+without restoration,V2P0,HAB,L,habituation,camera 2,TRUE,889,288,245,39.2333333333333,37.8
+without restoration,V2P0,HAB,R,habituation,camera 2,TRUE,642,214,195,28.5333333333333,27.9
+without restoration,T2H7,HAB,L,habituation,camera 2,TRUE,1415,511,233,64.2,54.9333333333333
+without restoration,T2H7,HAB,R,habituation,camera 2,TRUE,672,354,239,34.2,30.3666666666667
+without restoration,R8O3,HAB,L,habituation,camera 2,TRUE,1159,599,252,58.6,47.0333333333333
+without restoration,R8O3,HAB,R,habituation,camera 2,TRUE,824,620,144,48.1333333333333,32.2666666666667
+without restoration,P9X0,HAB,L,habituation,camera 2,TRUE,1222,1084,397,76.8666666666667,53.9666666666667
+without restoration,P9X0,HAB,R,habituation,camera 2,TRUE,849,618,173,48.9,34.0666666666667
+without restoration,K4T2,HAB,L,habituation,camera 2,TRUE,1729,729,321,81.9333333333333,68.3333333333333
+without restoration,K4T2,HAB,R,habituation,camera 2,TRUE,896,367,180,42.1,35.8666666666667
+without restoration,H9J5,HAB,L,habituation,camera 1,TRUE,832,163,140,33.1666666666667,32.4
+without restoration,H9J5,HAB,R,habituation,camera 1,TRUE,911,212,200,37.4333333333333,37.0333333333333
+restored,A1L9,HAB,L,habituation,camera 2,TRUE,907,866,755,59.1,55.4
+restored,A1L9,HAB,R,habituation,camera 2,TRUE,685,705,765,46.3333333333333,48.3333333333333
+restored,M1M3,S1,L,stranger cup,camera 2,TRUE,4962,386,445,178.266666666667,180.233333333333
+restored,M1M3,S1,R,other cup,camera 2,TRUE,1159,468,261,54.2333333333333,47.3333333333333
+restored,P9X0,S1,L,other cup,camera 2,TRUE,578,169,146,24.9,24.1333333333333
+restored,P9X0,S1,R,stranger cup,camera 2,TRUE,3024,627,385,121.7,113.633333333333
+restored,P9X0,S2,L,stranger cup,camera 2,TRUE,4534,362,218,163.2,158.4
+restored,P9X0,S2,R,other cup,camera 2,TRUE,748,105,92,28.4333333333333,28
+restored,R8O3,S1,L,stranger cup,camera 2,TRUE,7151,730,384,262.7,251.166666666667
+restored,R8O3,S1,R,other cup,camera 2,TRUE,558,191,91,24.9666666666667,21.6333333333333
+restored,R8O3,S2,L,other cup,camera 2,TRUE,1594,254,190,61.6,59.4666666666667
+restored,R8O3,S2,R,stranger cup,camera 2,TRUE,7530,442,298,265.733333333333,260.933333333333
+restored,T2H7,S1,L,other cup,camera 2,TRUE,829,181,299,33.6666666666667,37.6
+restored,T2H7,S1,R,stranger cup,camera 2,TRUE,6037,468,543,216.833333333333,219.333333333333
+restored,T2H7,S2,L,stranger cup,camera 2,TRUE,2624,394,648,100.6,109.066666666667
+restored,T2H7,S2,R,other cup,camera 2,TRUE,1296,192,251,49.6,51.5666666666667
+restored,V2P0,S1,L,stranger cup,camera 2,TRUE,8308,643,737,298.366666666667,301.5
+restored,V2P0,S1,R,other cup,camera 2,TRUE,614,135,167,24.9666666666667,26.0333333333333
+restored,V2P0,S2,L,other cup,camera 2,TRUE,4391,695,238,169.533333333333,154.3
+restored,V2P0,S2,R,stranger cup,camera 2,TRUE,4197,414,311,153.7,150.266666666667
+restored,Y0F3,S1,L,other cup,camera 2,TRUE,839,130,177,32.3,33.8666666666667
+restored,Y0F3,S1,R,stranger cup,camera 2,TRUE,6195,431,361,220.866666666667,218.533333333333
+restored,Y0F3,S2,L,stranger cup,camera 2,TRUE,2916,185,478,103.366666666667,113.133333333333
+restored,Y0F3,S2,R,other cup,camera 2,TRUE,1273,254,126,50.9,46.6333333333333
+restored,C7E2,S2,L,stranger cup,camera 2,TRUE,3527,224,435,125.033333333333,132.066666666667
+restored,C7E2,S2,R,other cup,camera 2,TRUE,1203,115,158,43.9333333333333,45.3666666666667
+restored,F9L3,S2,L,other cup,camera 2,TRUE,2633,135,433,92.2666666666667,102.2
+restored,F9L3,S2,R,stranger cup,camera 2,TRUE,1857,257,139,70.4666666666667,66.5333333333333
+restored,K4T2,S1,L,other cup,camera 2,TRUE,417,92,166,16.9666666666667,19.4333333333333
+restored,K4T2,S1,R,stranger cup,camera 2,TRUE,5173,703,477,195.866666666667,188.333333333333
+restored,K4T2,S2,L,stranger cup,camera 2,TRUE,4268,318,359,152.866666666667,154.233333333333
+restored,K4T2,S2,R,other cup,camera 2,TRUE,1587,157,192,58.1333333333333,59.3
+restored,C2P4,HAB,L,habituation,camera 1,TRUE,686,220,348,30.2,34.4666666666667
+restored,C2P4,HAB,R,habituation,camera 1,TRUE,370,201,323,19.0333333333333,23.1
+restored,C2P4,S1,L,stranger cup,camera 1,TRUE,5385,474,477,195.3,195.4
+restored,C2P4,S1,R,other cup,camera 1,TRUE,445,41,183,16.2,20.9333333333333
+restored,F2I1,HAB,L,habituation,camera 1,TRUE,1288,291,445,52.6333333333333,57.7666666666667
+restored,F2I1,HAB,R,habituation,camera 1,TRUE,1081,221,421,43.4,50.0666666666667
+restored,F2I1,S1,L,other cup,camera 1,FALSE,549,141,304,23,28.4333333333333
+restored,F2I1,S1,R,stranger cup,camera 1,FALSE,4956,495,489,181.7,181.5
+restored,C2P4,S2,L,other cup,camera 1,FALSE,1098,174,167,42.4,42.1666666666667
+restored,C2P4,S2,R,stranger cup,camera 1,FALSE,5281,478,526,191.966666666667,193.566666666667
+restored,F2I1,S2,L,stranger cup,camera 1,TRUE,2650,311,302,98.7,98.4
+restored,F2I1,S2,R,other cup,camera 1,TRUE,2279,303,257,86.0666666666667,84.5333333333333
+restored,L2H0,HAB,L,habituation,camera 1,TRUE,1115,222,392,44.5666666666667,50.2333333333333
+restored,L2H0,HAB,R,habituation,camera 1,TRUE,762,286,248,34.9333333333333,33.6666666666667
+restored,L2H0,S1,L,other cup,camera 1,TRUE,1079,182,349,42.0333333333333,47.6
+restored,L2H0,S1,R,stranger cup,camera 1,TRUE,2992,260,371,108.4,112.1
+restored,L2H0,S2,L,stranger cup,camera 1,TRUE,2768,341,327,103.633333333333,103.166666666667
+restored,L2H0,S2,R,other cup,camera 1,TRUE,1645,308,139,65.1,59.4666666666667
+restored,M8P3,HAB,L,habituation,camera 1,TRUE,928,235,251,38.7666666666667,39.3
+restored,M8P3,HAB,R,habituation,camera 1,TRUE,765,235,320,33.3333333333333,36.1666666666667
+restored,M1M3,HAB,L,habituation,camera 2,TRUE,1248,642,389,63,54.5666666666667
+restored,M1M3,HAB,R,habituation,camera 2,TRUE,1031,575,249,53.5333333333333,42.6666666666667
+restored,M8P3,S1,L,stranger cup,camera 1,TRUE,6245,585,421,227.666666666667,222.2
+restored,M8P3,S1,R,other cup,camera 1,TRUE,623,277,295,30,30.6
+restored,M8P3,S2,L,other cup,camera 1,TRUE,875,133,325,33.6,40
+restored,M8P3,S2,R,stranger cup,camera 1,TRUE,1642,178,402,60.6666666666667,68.1333333333333
+restored,S7I3,HAB,L,habituation,camera 1,TRUE,733,225,322,31.9333333333333,35.1666666666667
+restored,S7I3,HAB,R,habituation,camera 1,TRUE,736,200,319,31.2,35.1666666666667
+restored,S7I3,S1,L,stranger cup,camera 1,TRUE,4971,427,382,179.933333333333,178.433333333333
+restored,S7I3,S1,R,other cup,camera 1,TRUE,856,124,205,32.6666666666667,35.3666666666667
+restored,S7I3,S2,L,other cup,camera 1,TRUE,1641,296,231,64.5666666666667,62.4
+restored,S7I3,S2,R,stranger cup,camera 1,TRUE,4527,596,361,170.766666666667,162.933333333333
+restored,M1M3,S2,L,other cup,camera 2,TRUE,1769,176,475,64.8333333333333,74.8
+restored,M1M3,S2,R,stranger cup,camera 2,TRUE,3854,480,318,144.466666666667,139.066666666667
+restored,Y6V5,HAB,L,habituation,camera 1,TRUE,1780,359,332,71.3,70.4
+restored,Y6V5,HAB,R,habituation,camera 1,TRUE,1132,234,265,45.5333333333333,46.5666666666667
+restored,Y6V5,S1,L,other cup,camera 1,TRUE,809,144,114,31.7666666666667,30.7666666666667
+restored,Y6V5,S1,R,stranger cup,camera 1,TRUE,7851,1040,714,296.366666666667,285.5
+restored,Y6V5,S2,L,stranger cup,camera 1,TRUE,5019,547,261,185.533333333333,176
+restored,Y6V5,S2,R,other cup,camera 1,TRUE,3354,207,225,118.7,119.3
+restored,X1H0,HAB,L,habituation,camera 1,TRUE,866,301,279,38.9,38.1666666666667
+restored,X1H0,HAB,R,habituation,camera 1,TRUE,1062,349,344,47.0333333333333,46.8666666666667
+restored,X1H0,S1,L,stranger cup,camera 1,TRUE,5277,785,509,202.066666666667,192.866666666667
+restored,X1H0,S1,R,other cup,camera 1,TRUE,444,81,77,17.5,17.3666666666667
+restored,U5P3,HAB,L,habituation,camera 1,TRUE,1106,279,429,46.1666666666667,51.1666666666667
+restored,U5P3,HAB,R,habituation,camera 1,TRUE,1175,239,408,47.1333333333333,52.7666666666667
+restored,U5P3,S1,L,other cup,camera 1,TRUE,970,91,196,35.3666666666667,38.8666666666667
+restored,U5P3,S1,R,stranger cup,camera 1,TRUE,6434,959,505,246.433333333333,231.3
+restored,U5P3,S2,L,stranger cup,camera 1,TRUE,3851,323,135,139.133333333333,132.866666666667
+restored,U5P3,S2,R,other cup,camera 1,TRUE,1866,223,145,69.6333333333334,67.0333333333333
+restored,C7E2,HAB,L,habituation,camera 2,TRUE,1561,590,471,71.7,67.7333333333333
+restored,C7E2,HAB,R,habituation,camera 2,TRUE,649,366,191,33.8333333333333,28
+restored,F9L3,HAB,L,habituation,camera 2,TRUE,1556,514,552,69,70.2666666666667
+restored,F9L3,HAB,R,habituation,camera 2,TRUE,1160,613,172,59.1,44.4
+restored,F9L3,S1,L,stranger cup,camera 2,TRUE,3683,443,470,137.533333333333,138.433333333333
+restored,F9L3,S1,R,other cup,camera 2,TRUE,1309,358,349,55.5666666666667,55.2666666666667
+restored,A1L9,S1,L,stranger cup,camera 2,FALSE,3803,1048,561,161.7,145.466666666667
+restored,A1L9,S1,R,other cup,camera 2,FALSE,497,145,104,21.4,20.0333333333333
+restored,Y0F3,HAB,L,habituation,camera 2,TRUE,1231,306,396,51.2333333333333,54.2333333333333
+restored,Y0F3,HAB,R,habituation,camera 2,TRUE,1666,358,417,67.4666666666667,69.4333333333333
+restored,C7E2,S1,L,other cup,camera 2,FALSE,919,184,192,36.7666666666667,37.0333333333333
+restored,C7E2,S1,R,stranger cup,camera 2,FALSE,4795,574,165,178.966666666667,165.333333333333
+restored,V2P0,HAB,L,habituation,camera 2,TRUE,917,260,260,39.2333333333333,39.2333333333333
+restored,V2P0,HAB,R,habituation,camera 2,TRUE,664,192,200,28.5333333333333,28.8
+restored,T2H7,HAB,L,habituation,camera 2,TRUE,1508,418,268,64.2,59.2
+restored,T2H7,HAB,R,habituation,camera 2,TRUE,678,348,269,34.2,31.5666666666667
+restored,R8O3,HAB,L,habituation,camera 2,TRUE,1267,491,304,58.6,52.3666666666667
+restored,R8O3,HAB,R,habituation,camera 2,TRUE,883,561,170,48.1333333333333,35.1
+restored,P9X0,HAB,L,habituation,camera 2,TRUE,1309,997,451,76.8666666666667,58.6666666666667
+restored,P9X0,HAB,R,habituation,camera 2,TRUE,858,609,223,48.9,36.0333333333333
+restored,K4T2,HAB,L,habituation,camera 2,TRUE,1890,568,368,81.9333333333333,75.2666666666667
+restored,K4T2,HAB,R,habituation,camera 2,TRUE,912,351,212,42.1,37.4666666666667
+restored,H9J5,HAB,L,habituation,camera 1,TRUE,848,147,153,33.1666666666667,33.3666666666667
+restored,H9J5,HAB,R,habituation,camera 1,TRUE,922,201,214,37.4333333333333,37.8666666666667
+"restored, every short head",A1L9,HAB,L,habituation,camera 2,TRUE,912,861,757,59.1,55.6333333333333
+"restored, every short head",A1L9,HAB,R,habituation,camera 2,TRUE,685,705,778,46.3333333333333,48.7666666666667
+"restored, every short head",M1M3,S1,L,stranger cup,camera 2,TRUE,4972,376,451,178.266666666667,180.766666666667
+"restored, every short head",M1M3,S1,R,other cup,camera 2,TRUE,1158,469,261,54.2333333333333,47.3
+"restored, every short head",P9X0,S1,L,other cup,camera 2,TRUE,582,165,148,24.9,24.3333333333333
+"restored, every short head",P9X0,S1,R,stranger cup,camera 2,TRUE,3036,615,390,121.7,114.2
+"restored, every short head",P9X0,S2,L,stranger cup,camera 2,TRUE,4540,356,244,163.2,159.466666666667
+"restored, every short head",P9X0,S2,R,other cup,camera 2,TRUE,754,99,93,28.4333333333333,28.2333333333333
+"restored, every short head",R8O3,S1,L,stranger cup,camera 2,TRUE,7197,684,390,262.7,252.9
+"restored, every short head",R8O3,S1,R,other cup,camera 2,TRUE,570,179,93,24.9666666666667,22.1
+"restored, every short head",R8O3,S2,L,other cup,camera 2,TRUE,1602,246,193,61.6,59.8333333333333
+"restored, every short head",R8O3,S2,R,stranger cup,camera 2,TRUE,7566,406,304,265.733333333333,262.333333333333
+"restored, every short head",T2H7,S1,L,other cup,camera 2,TRUE,831,179,301,33.6666666666667,37.7333333333333
+"restored, every short head",T2H7,S1,R,stranger cup,camera 2,TRUE,6056,449,547,216.833333333333,220.1
+"restored, every short head",T2H7,S2,L,stranger cup,camera 2,TRUE,2649,369,663,100.6,110.4
+"restored, every short head",T2H7,S2,R,other cup,camera 2,TRUE,1298,190,252,49.6,51.6666666666667
+"restored, every short head",V2P0,S1,L,stranger cup,camera 2,TRUE,8366,585,748,298.366666666667,303.8
+"restored, every short head",V2P0,S1,R,other cup,camera 2,TRUE,613,136,168,24.9666666666667,26.0333333333333
+"restored, every short head",V2P0,S2,L,other cup,camera 2,TRUE,4405,681,241,169.533333333333,154.866666666667
+"restored, every short head",V2P0,S2,R,stranger cup,camera 2,TRUE,4205,406,313,153.7,150.6
+"restored, every short head",Y0F3,S1,L,other cup,camera 2,TRUE,840,129,181,32.3,34.0333333333333
+"restored, every short head",Y0F3,S1,R,stranger cup,camera 2,TRUE,6218,408,369,220.866666666667,219.566666666667
+"restored, every short head",Y0F3,S2,L,stranger cup,camera 2,TRUE,2918,183,485,103.366666666667,113.433333333333
+"restored, every short head",Y0F3,S2,R,other cup,camera 2,TRUE,1331,196,130,50.9,48.7
+"restored, every short head",C7E2,S2,L,stranger cup,camera 2,TRUE,3532,219,437,125.033333333333,132.3
+"restored, every short head",C7E2,S2,R,other cup,camera 2,TRUE,1202,116,164,43.9333333333333,45.5333333333333
+"restored, every short head",F9L3,S2,L,other cup,camera 2,TRUE,2637,131,445,92.2666666666667,102.733333333333
+"restored, every short head",F9L3,S2,R,stranger cup,camera 2,TRUE,1865,249,140,70.4666666666667,66.8333333333333
+"restored, every short head",K4T2,S1,L,other cup,camera 2,TRUE,418,91,170,16.9666666666667,19.6
+"restored, every short head",K4T2,S1,R,stranger cup,camera 2,TRUE,5241,635,486,195.866666666667,190.9
+"restored, every short head",K4T2,S2,L,stranger cup,camera 2,TRUE,4268,318,362,152.866666666667,154.333333333333
+"restored, every short head",K4T2,S2,R,other cup,camera 2,TRUE,1588,156,197,58.1333333333333,59.5
+"restored, every short head",C2P4,HAB,L,habituation,camera 1,TRUE,686,220,355,30.2,34.7
+"restored, every short head",C2P4,HAB,R,habituation,camera 1,TRUE,375,196,332,19.0333333333333,23.5666666666667
+"restored, every short head",C2P4,S1,L,stranger cup,camera 1,TRUE,5419,440,480,195.3,196.633333333333
+"restored, every short head",C2P4,S1,R,other cup,camera 1,TRUE,448,38,185,16.2,21.1
+"restored, every short head",F2I1,HAB,L,habituation,camera 1,TRUE,1292,287,464,52.6333333333333,58.5333333333333
+"restored, every short head",F2I1,HAB,R,habituation,camera 1,TRUE,1098,204,426,43.4,50.8
+"restored, every short head",F2I1,S1,L,other cup,camera 1,FALSE,549,141,313,23,28.7333333333333
+"restored, every short head",F2I1,S1,R,stranger cup,camera 1,FALSE,4962,489,511,181.7,182.433333333333
+"restored, every short head",C2P4,S2,L,other cup,camera 1,FALSE,1109,163,176,42.4,42.8333333333333
+"restored, every short head",C2P4,S2,R,stranger cup,camera 1,FALSE,5331,428,531,191.966666666667,195.4
+"restored, every short head",F2I1,S2,L,stranger cup,camera 1,TRUE,2652,309,315,98.7,98.9
+"restored, every short head",F2I1,S2,R,other cup,camera 1,TRUE,2285,297,267,86.0666666666667,85.0666666666667
+"restored, every short head",L2H0,HAB,L,habituation,camera 1,TRUE,1141,196,395,44.5666666666667,51.2
+"restored, every short head",L2H0,HAB,R,habituation,camera 1,TRUE,774,274,255,34.9333333333333,34.3
+"restored, every short head",L2H0,S1,L,other cup,camera 1,TRUE,1093,168,358,42.0333333333333,48.3666666666667
+"restored, every short head",L2H0,S1,R,stranger cup,camera 1,TRUE,2995,257,379,108.4,112.466666666667
+"restored, every short head",L2H0,S2,L,stranger cup,camera 1,TRUE,2772,337,332,103.633333333333,103.466666666667
+"restored, every short head",L2H0,S2,R,other cup,camera 1,TRUE,1648,305,147,65.1,59.8333333333333
+"restored, every short head",M8P3,HAB,L,habituation,camera 1,TRUE,937,226,253,38.7666666666667,39.6666666666667
+"restored, every short head",M8P3,HAB,R,habituation,camera 1,TRUE,773,227,337,33.3333333333333,37
+"restored, every short head",M1M3,HAB,L,habituation,camera 2,TRUE,1253,637,401,63,55.1333333333333
+"restored, every short head",M1M3,HAB,R,habituation,camera 2,TRUE,1032,574,256,53.5333333333333,42.9333333333333
+"restored, every short head",M8P3,S1,L,stranger cup,camera 1,TRUE,6284,546,425,227.666666666667,223.633333333333
+"restored, every short head",M8P3,S1,R,other cup,camera 1,TRUE,626,274,300,30,30.8666666666667
+"restored, every short head",M8P3,S2,L,other cup,camera 1,TRUE,878,130,338,33.6,40.5333333333333
+"restored, every short head",M8P3,S2,R,stranger cup,camera 1,TRUE,1642,178,409,60.6666666666667,68.3666666666667
+"restored, every short head",S7I3,HAB,L,habituation,camera 1,TRUE,739,219,329,31.9333333333333,35.6
+"restored, every short head",S7I3,HAB,R,habituation,camera 1,TRUE,739,197,337,31.2,35.8666666666667
+"restored, every short head",S7I3,S1,L,stranger cup,camera 1,TRUE,4990,408,395,179.933333333333,179.5
+"restored, every short head",S7I3,S1,R,other cup,camera 1,TRUE,863,117,206,32.6666666666667,35.6333333333333
+"restored, every short head",S7I3,S2,L,other cup,camera 1,TRUE,1646,291,239,64.5666666666667,62.8333333333333
+"restored, every short head",S7I3,S2,R,stranger cup,camera 1,TRUE,4541,582,371,170.766666666667,163.733333333333
+"restored, every short head",M1M3,S2,L,other cup,camera 2,TRUE,1769,176,507,64.8333333333333,75.8666666666667
+"restored, every short head",M1M3,S2,R,stranger cup,camera 2,TRUE,3881,453,327,144.466666666667,140.266666666667
+"restored, every short head",Y6V5,HAB,L,habituation,camera 1,TRUE,1787,352,335,71.3,70.7333333333333
+"restored, every short head",Y6V5,HAB,R,habituation,camera 1,TRUE,1132,234,276,45.5333333333333,46.9333333333333
+"restored, every short head",Y6V5,S1,L,other cup,camera 1,TRUE,809,144,115,31.7666666666667,30.8
+"restored, every short head",Y6V5,S1,R,stranger cup,camera 1,TRUE,7873,1018,715,296.366666666667,286.266666666667
+"restored, every short head",Y6V5,S2,L,stranger cup,camera 1,TRUE,5030,536,262,185.533333333333,176.4
+"restored, every short head",Y6V5,S2,R,other cup,camera 1,TRUE,3358,203,231,118.7,119.633333333333
+"restored, every short head",X1H0,HAB,L,habituation,camera 1,TRUE,870,297,298,38.9,38.9333333333333
+"restored, every short head",X1H0,HAB,R,habituation,camera 1,TRUE,1062,349,357,47.0333333333333,47.3
+"restored, every short head",X1H0,S1,L,stranger cup,camera 1,TRUE,5306,756,516,202.066666666667,194.066666666667
+"restored, every short head",X1H0,S1,R,other cup,camera 1,TRUE,445,80,81,17.5,17.5333333333333
+"restored, every short head",U5P3,HAB,L,habituation,camera 1,TRUE,1120,265,436,46.1666666666667,51.8666666666667
+"restored, every short head",U5P3,HAB,R,habituation,camera 1,TRUE,1180,234,419,47.1333333333333,53.3
+"restored, every short head",U5P3,S1,L,other cup,camera 1,TRUE,970,91,199,35.3666666666667,38.9666666666667
+"restored, every short head",U5P3,S1,R,stranger cup,camera 1,TRUE,6502,891,509,246.433333333333,233.7
+"restored, every short head",U5P3,S2,L,stranger cup,camera 1,TRUE,3853,321,137,139.133333333333,133
+"restored, every short head",U5P3,S2,R,other cup,camera 1,TRUE,1871,218,148,69.6333333333334,67.3
+"restored, every short head",C7E2,HAB,L,habituation,camera 2,TRUE,1569,582,482,71.7,68.3666666666667
+"restored, every short head",C7E2,HAB,R,habituation,camera 2,TRUE,656,359,192,33.8333333333333,28.2666666666667
+"restored, every short head",F9L3,HAB,L,habituation,camera 2,TRUE,1563,507,564,69,70.9
+"restored, every short head",F9L3,HAB,R,habituation,camera 2,TRUE,1171,602,178,59.1,44.9666666666667
+"restored, every short head",F9L3,S1,L,stranger cup,camera 2,TRUE,3706,420,478,137.533333333333,139.466666666667
+"restored, every short head",F9L3,S1,R,other cup,camera 2,TRUE,1317,350,360,55.5666666666667,55.9
+"restored, every short head",A1L9,S1,L,stranger cup,camera 2,FALSE,3817,1034,576,161.7,146.433333333333
+"restored, every short head",A1L9,S1,R,other cup,camera 2,FALSE,497,145,102,21.4,19.9666666666667
+"restored, every short head",Y0F3,HAB,L,habituation,camera 2,TRUE,1238,299,405,51.2333333333333,54.7666666666667
+"restored, every short head",Y0F3,HAB,R,habituation,camera 2,TRUE,1674,350,432,67.4666666666667,70.2
+"restored, every short head",C7E2,S1,L,other cup,camera 2,FALSE,919,184,196,36.7666666666667,37.1666666666667
+"restored, every short head",C7E2,S1,R,stranger cup,camera 2,FALSE,4830,539,170,178.966666666667,166.666666666667
+"restored, every short head",V2P0,HAB,L,habituation,camera 2,TRUE,918,259,262,39.2333333333333,39.3333333333333
+"restored, every short head",V2P0,HAB,R,habituation,camera 2,TRUE,666,190,208,28.5333333333333,29.1333333333333
+"restored, every short head",T2H7,HAB,L,habituation,camera 2,TRUE,1513,413,280,64.2,59.7666666666667
+"restored, every short head",T2H7,HAB,R,habituation,camera 2,TRUE,684,342,312,34.2,33.2
+"restored, every short head",R8O3,HAB,L,habituation,camera 2,TRUE,1278,480,320,58.6,53.2666666666667
+"restored, every short head",R8O3,HAB,R,habituation,camera 2,TRUE,892,552,178,48.1333333333333,35.6666666666667
+"restored, every short head",P9X0,HAB,L,habituation,camera 2,TRUE,1313,993,480,76.8666666666667,59.7666666666667
+"restored, every short head",P9X0,HAB,R,habituation,camera 2,TRUE,862,605,230,48.9,36.4
+"restored, every short head",K4T2,HAB,L,habituation,camera 2,TRUE,1901,557,373,81.9333333333333,75.8
+"restored, every short head",K4T2,HAB,R,habituation,camera 2,TRUE,910,353,222,42.1,37.7333333333333
+"restored, every short head",H9J5,HAB,L,habituation,camera 1,TRUE,870,125,168,33.1666666666667,34.6
+"restored, every short head",H9J5,HAB,R,habituation,camera 1,TRUE,936,187,226,37.4333333333333,38.7333333333333

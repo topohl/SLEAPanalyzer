@@ -384,7 +384,7 @@ as rearing. It has not been validated against manual scoring.
 | `latency*`, `frequency*`, `entries*` | Core | Shared event engine |
 | `onCupLeft` / `onCupRight`, `onCupNovel` / `onCupFamiliar` | Configurable | Time on top of the cup (`on_cup_exclusion`) |
 | `contactRemovedLeft` / `contactRemovedRight` | Configurable | Contact time the on-cup rule removed |
-| `headLengthCm`, `headShortS` | Configurable | Median head length (ear midpoint to nose) and time the visible head was below 75% of it (`head_length_restore`) |
+| `headLengthCm`, `noseRestoredS` | Configurable | Median head length (ear midpoint to nose) and time the nose was restored (`head_length_restore`) |
 
 The same detector is applied to both chambers. Unlike NOR, no head-orientation
 criterion is applied by default; this preserves the established SocP
@@ -435,29 +435,44 @@ investigating the cup there pushes its head under the lid, and the pose model
 puts the nose at the lid edge, where the head disappears: the tracked head is
 short, and the nose up to several centimetres short of the cup. With
 `head_length_restore: true`, `restore_head_length()` (core
-`landmark_repair.R`) moves the nose along the direction from the ear midpoint
-to the nose until the head has its median length in the recording (frames
-with an observed nose); a head at least that long is left as it is. It runs
-after the on-cup detection, whose size measure uses the nose, so it changes
-contact and proximity only. It has no parameter of its own, and the contact
-distance stays at 6 cm.
+`landmark_repair.R`) restores a clearly short head: where the visible head
+(ear midpoint to nose) is below `head_length_restore_below` (0.75, set in
+advance) of its median length in the recording (frames with an observed
+nose), the nose is moved along the ear-to-nose direction to that median
+length, at most about 2 cm. A moved nose has the status `reconstructed`, and
+`noseRestoredS` reports the time moved. It runs after the on-cup detection,
+whose size measure uses the nose, so it changes contact and proximity only;
+the contact distance stays at 6 cm.
 
-Validation against the manual scoring of batch 1 frame by frame
-(`validation/exp9_boris/scripts/26_frame_agreement.R`, results
-`socp_frame_*.csv`; raw events of 9 animals, 36 cup sessions): where noses
-stopped at the lid edge, the frames the scorer counted as contact had a
-visible head of 0.63 of its median length, the frames not counted 1.01. With
-the head restored, frame agreement (F1) rose from 0.848 to 0.859 and the
-bias of the totals from -4.1 to +0.5 s (limits of agreement ±18.5 to
-±15.7 s); 6 cm is then the contact distance with the best concordance. On
-the 10 animals of the other camera, which had no part in finding the rule
-(totals only), the contact with the stranger mouse moved from 14.8 to 5.3 s
-(phase 1) and from 11.2 to 4.3 s (phase 2) below the manual totals, and the
-mean absolute difference about halved; the empty and familiar cups were
-unchanged. A contact distance of 6.25 cm without the restoration does about as
-well on the mouse cups but worse on the empty cup, and it would be fitted to
-the manual scoring. Directly behind the lid most manually scored time is still
-missed: there the hidden part is longer than a head.
+Validation (`validation/exp9_boris/scripts/26_frame_agreement.R`, results
+`socp_frame_*.csv`) against the raw manual events of batch 1, frame by frame:
+18 animals with raw records (camera 2, 10 animals, where the rule was
+developed; camera 1, 8 animals, held out from its development) plus one whose
+habituation trial alone was recorded, in habituation, phase 1 and phase 2
+(106 cup sessions). Each manual record is aligned on the ear midpoint, which
+the restoration does not move; four records cover a window shifted against the
+trial (A1L9 phase 1 by 29 s and C7E2 phase 1 by 94 s, scored on a later chapter
+of the video; F2I1 phase 1 by 7 s, C2P4 phase 2 by 3 s), and only the frames a
+record covers are compared. Where noses stopped at the lid edge, the frames the
+scorer counted as contact had a visible head of 0.64 to 0.68 of its median
+length, the frames not counted 0.97 to 1.00. With the head restored, frame
+agreement (F1) rose from 0.857 to 0.869 (camera 1: 0.862 to 0.875), and the
+totals per cup session agreed better: bias -5.0 to -1.4 s, limits of agreement
+±16.6 to ±11.8 s (camera 1: -3.4 to +0.2 s, ±16.0 to ±9.7 s). Most of the gain
+is at the stranger cup (camera 1 bias -11.3 to -3.6 s, camera 2 -8.8 to
+-2.5 s); in the habituation trials, where agreement is lowest (F1 0.71 to
+0.77), camera 1 agreed slightly worse afterwards (concordance 0.963 to 0.947).
+With the restored head, 6 cm is at or next to the best contact distance on both
+cameras; without it, 6.25 cm agrees about as well on totals (camera 1 bias
++2.6 s, ±10.7 s), but that distance is fitted to the manual scoring. A limit on
+the angle between head and body axis was tried and removed: a mouse
+investigating a cup turns its head, and the limit undid real recoveries on
+both cameras (camera 2 F1 0.857 with it, 0.864 without), so camera 1 is no
+longer a pure hold-out for that choice. Directly behind the lid most manually
+scored time is still missed (479 of 667 s): there the hidden part is longer
+than a head. One habituation trial was scored twice by hand: the two scorings
+agree with F1 0.843; the automated scoring of that trial agrees with them at
+0.73 and 0.77.
 
 ---
 
