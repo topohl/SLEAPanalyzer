@@ -26,7 +26,7 @@
 #   socp_frame_lid_edge.csv   the place along the lid edge: visible head length, scored and unscored
 #   socp_frame_sweep.csv      frame agreement and totals against the contact distance, both noses
 #   socp_frame_distance.csv   nose distance histogram, frames with and without manual contact
-#   socp_frame_positions.csv  nose positions around the cup (0.5 cm grid), by agreement, both noses
+#   socp_frame_positions.csv  nose positions around the cup (0.5 cm grid; x toward the other cup, y toward the lid side), by agreement, both noses
 #   socp_frame_totals.csv     all 20 animals: automated totals both ways against the manual totals
 #   socp_frame_totals_agreement.csv   their r / CCC / bias / mean absolute difference, by measure and camera
 # ============================================================================
@@ -98,12 +98,14 @@ nl <- rbindlist(lapply(c("S1", "S2"), function(ph) fread(sprintf(NOVEL, ph))[, .
 frames <- nl[frames, on = .(code, phase)]
 cupwise <- function(side) {
   s <- if (side == "L") "socl" else "socr"; o <- if (side == "L") "socr" else "socl"
+  # the cups stand in diagonal corners: x points toward the other cup, y is flipped for the right cup so both lids lie at y > 0
+  flip <- if (side == "L") 1 else -1
   frames[, .(code, phase, frame, cup = side, role = fifelse((NovelLoc == "R") == (side == "L"), "mouse", "empty or familiar"),
              valid, on = get(paste0("on_", tolower(side))), head_ratio,
              d = dist(nose_x, nose_y, get(paste0(s, "_x")), get(paste0(s, "_y"))), dh = dist(head_x, head_y, get(paste0(s, "_x")), get(paste0(s, "_y"))),
              b = dist(body_x, body_y, get(paste0(s, "_x")), get(paste0(s, "_y"))),
-             rx = (nose_x - get(paste0(s, "_x"))) * sign(get(paste0(o, "_x")) - get(paste0(s, "_x"))), ry = nose_y - get(paste0(s, "_y")),
-             hx = (head_x - get(paste0(s, "_x"))) * sign(get(paste0(o, "_x")) - get(paste0(s, "_x"))), hy = head_y - get(paste0(s, "_y")))]
+             rx = (nose_x - get(paste0(s, "_x"))) * sign(get(paste0(o, "_x")) - get(paste0(s, "_x"))), ry = (nose_y - get(paste0(s, "_y"))) * flip,
+             hx = (head_x - get(paste0(s, "_x"))) * sign(get(paste0(o, "_x")) - get(paste0(s, "_x"))), hy = (head_y - get(paste0(s, "_y"))) * flip)]
 }
 L <- rbind(cupwise("L"), cupwise("R"))
 L[, ok := valid & !on & b > config$body_exclusion_distance_cm]
@@ -155,7 +157,7 @@ side <- M[man & valid, .(manual_s = .N / 30, median_nose_cm = stats::median(d, n
 fwrite(side, file.path(OUT, "socp_frame_by_side.csv")); print(side, digits = 3)
 
 # along the lid edge: beyond the contact distance, on the wall side, behind the cup point
-M[, lid_edge := valid & d > 6.3 & d < 11 & abs(ry) > 3.8 & rx < -2.5]
+M[, lid_edge := valid & d > 6.3 & d < 11 & ry > 3.8 & rx < -2.5]
 lid <- M[lid_edge == TRUE & is.finite(head_ratio), .(time_s = .N / 30, median_head_ratio = stats::median(head_ratio), share_head_below_75 = mean(head_ratio < .75),
                                                      contact_head_restored = mean(auth)), by = .(manual_contact = man)]
 fwrite(lid, file.path(OUT, "socp_frame_lid_edge.csv")); print(lid, digits = 3)
@@ -173,8 +175,8 @@ hist <- rbindlist(lapply(c(`as tracked` = "d", `head length restored` = "dh"), f
   M[valid & get(v) < 20, .(time_s = .N / 30), by = .(manual_contact = man, bin_cm = br[findInterval(get(v), br)] + .125)]), idcol = "nose")
 fwrite(hist[order(nose, manual_contact, bin_cm)], file.path(OUT, "socp_frame_distance.csv"))
 st <- function(m, a) fifelse(m & a, "both", fifelse(m, "manual only", fifelse(a, "automated only", "neither")))
-pos <- rbind(M[valid & d < 14, .(nose = "as tracked", x = round(rx * 2) / 2, y = round(abs(ry) * 2) / 2, status = st(man, aut))],
-             M[valid & dh < 14, .(nose = "head length restored", x = round(hx * 2) / 2, y = round(abs(hy) * 2) / 2, status = st(man, auth))])
+pos <- rbind(M[valid & d < 14, .(nose = "as tracked", x = round(rx * 2) / 2, y = round(ry * 2) / 2, status = st(man, aut))],
+             M[valid & dh < 14, .(nose = "head length restored", x = round(hx * 2) / 2, y = round(hy * 2) / 2, status = st(man, auth))])
 fwrite(pos[status != "neither", .(time_s = .N / 30), by = .(nose, status, x, y)], file.path(OUT, "socp_frame_positions.csv"))
 
 # ---------------------------------------------------------------- totals, all 20 animals
