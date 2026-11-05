@@ -115,7 +115,20 @@ assay_schema <- function(assay) {
       contact_distance_cm = config_field("number", positive = TRUE),
       body_exclusion_distance_cm = config_field("number", positive = TRUE),
       proximity_range_cm = config_field("number_vector", length = 2),
-      require_orientation = config_field("logical", required = FALSE)
+      require_orientation = config_field("logical", required = FALSE),
+
+      # Time on top of a cup is not contact. Off unless set; the footprint and
+      # the size threshold belong to the apparatus and camera, see
+      # detect_on_object() and docs/assay_definitions.md.
+      on_cup_exclusion = config_field("logical", required = FALSE),
+      on_cup_footprint_radius_cm = config_field("number", positive = TRUE, required = FALSE),
+      on_cup_beyond_cm = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
+      on_cup_max_distance_cm = config_field("number", positive = TRUE, required = FALSE),
+      on_cup_min_apparent_size = config_field("number", positive = TRUE, required = FALSE),
+      on_cup_merge_gap_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
+      on_cup_min_episode_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
+      on_cup_size_window_s = config_field("number", positive = TRUE, required = FALSE),
+      qc_decisions_file = config_field("path", required = FALSE)
     ),
     stop("Unknown assay: ", assay)
   )
@@ -132,7 +145,8 @@ load_assay_config <- function(path, assay) {
     defaults = common_assay_defaults(),
     schema = assay_schema(assay),
     path_fields = c(
-      "input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file"
+      "input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file",
+      "qc_decisions_file"
     )
   )
 }

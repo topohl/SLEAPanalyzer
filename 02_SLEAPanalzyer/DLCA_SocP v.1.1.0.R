@@ -44,6 +44,20 @@ animalIDCode <- if (is.null(config$animal_id_code_file)) {
 
 batches <- if (is.null(config$batches)) "" else config$batches
 
+# Time on top of a cup is not contact (see detect_on_object()). The thresholds
+# belong to the apparatus and camera, so none of them has a default.
+on_cup_fields <- c("on_cup_footprint_radius_cm", "on_cup_beyond_cm", "on_cup_max_distance_cm",
+                   "on_cup_min_apparent_size", "on_cup_merge_gap_s", "on_cup_min_episode_s",
+                   "on_cup_size_window_s")
+if (isTRUE(config$on_cup_exclusion)) {
+  unset <- on_cup_fields[vapply(on_cup_fields, function(f) is.null(config[[f]]), logical(1))]
+  if (length(unset) > 0) stop("on_cup_exclusion is on but unset: ", paste(unset, collapse = ", "))
+}
+if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
+  stop("qc_decisions_file not found: ", config$qc_decisions_file)
+}
+qcDecisions <- read_qc_decisions(config$qc_decisions_file)
+
 for (batch in batches) {
   for (socpPhase in config$phases) {
     parts <- c(batch, socpPhase)
@@ -64,6 +78,7 @@ for (batch in batches) {
     fileList <- list.files(path = inputDir, pattern = "\\.csv$", full.names = TRUE)
     dfList <- list()
     qcList <- list()
+    episodeList <- list()
 
     for (inputFile in fileList) {
       inputFileName <- tools::file_path_sans_ext(basename(inputFile))
@@ -118,6 +133,38 @@ for (batch in batches) {
       code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
       if (is.na(code)) warning("Could not extract a four-character animal code from ", inputFileName)
       novel_location <- metadata_lookup(novelLoc, code, "NovelLoc")
+
+      onCup <- NULL
+      if (isTRUE(config$on_cup_exclusion)) {
+        size <- apparent_body_size(tracking)
+        cups <- lapply(c(left = "socl", right = "socr"), function(cup) {
+          found <- detect_on_object(
+            tracking, cup, config$arena_corner_names,
+            footprint_radius = config$on_cup_footprint_radius_cm,
+            beyond = config$on_cup_beyond_cm,
+            max_distance = config$on_cup_max_distance_cm,
+            min_apparent_size = config$on_cup_min_apparent_size,
+            merge_gap_s = config$on_cup_merge_gap_s,
+            min_episode_s = config$on_cup_min_episode_s,
+            size_window_s = config$on_cup_size_window_s,
+            size = size
+          )
+          found$on_object <- apply_qc_decisions(
+            found$on_object, qcDecisions, inputFileName, cup, config$fps
+          )
+          found
+        })
+        onCup <- list(left = cups$left$on_object, right = cups$right$on_object)
+        episodes <- rbind(cups$left$episodes, cups$right$episodes)
+        if (nrow(episodes) > 0) {
+          episodeList[[length(episodeList) + 1L]] <- cbind(
+            data.frame(file = inputFileName, Code = code, batch = batch, phase = socpPhase,
+                       stringsAsFactors = FALSE),
+            episodes
+          )
+        }
+      }
+
       metrics <- compute_socp_metrics(
         tracking, novel_location, config$fps,
         contact_distance = config$contact_distance_cm,
@@ -126,7 +173,8 @@ for (batch in batches) {
         threshold_unit = "cm",
         require_orientation = isTRUE(config$require_orientation),
         min_bout_s = config$min_bout_s,
-        max_gap_s = config$max_gap_s
+        max_gap_s = config$max_gap_s,
+        on_cup = onCup
       )
 
       df <- cbind(
@@ -180,6 +228,14 @@ for (batch in batches) {
     utils::write.csv(
       do.call(rbind, qcList), file.path(outputDir, "tracking_qc.csv"), row.names = FALSE
     )
+    if (isTRUE(config$on_cup_exclusion)) {
+      # Every candidate episode, accepted or not, so each decision can be reviewed.
+      episodes <- if (length(episodeList) == 0) {
+        cbind(data.frame(file = character(), Code = character(), batch = character(),
+                         phase = character()), empty_object_episode_table())
+      } else do.call(rbind, episodeList)
+      utils::write.csv(episodes, file.path(outputDir, "on_cup_episodes.csv"), row.names = FALSE)
+    }
 
     if (isTRUE(config$write_manifest)) {
       manifest <- run_manifest(

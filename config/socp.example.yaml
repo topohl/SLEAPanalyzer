@@ -36,6 +36,11 @@ proximity_range_cm: [6, 10]
 # and needs its own validation, so it is off by default.
 require_orientation: false
 
+# Time on top of a cup is scored as contact unless this is on. Its thresholds
+# depend on the cup and the camera; see "Time on top of a cup is not contact"
+# in docs/assay_definitions.md before setting them.
+on_cup_exclusion: false
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

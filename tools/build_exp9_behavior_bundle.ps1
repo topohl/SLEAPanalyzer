@@ -172,7 +172,7 @@ try {
             }
         }
         foreach ($phase in 'HAB','S1','S2') {
-            foreach ($name in 'combined_output.csv','tracking_qc.csv','run_manifest.yaml') {
+            foreach ($name in 'combined_output.csv','tracking_qc.csv','on_cup_episodes.csv','run_manifest.yaml') {
                 $source = Join-Path $AssayOutputRoot "SocP\$batch\$phase\$name"
                 $destination = Join-Path $releaseRoot "assay_summaries\SocP\$batch\$phase\$name"
                 Copy-RecordedFile -Source $source -Destination $destination
