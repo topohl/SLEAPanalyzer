@@ -214,6 +214,16 @@ for (batch in batches) {
         }
       }
 
+      # After the on-cup detection, whose size measure uses the nose, so that
+      # only the contact and proximity measures see the restored nose.
+      headRow <- data.frame(headLengthCm = NA_real_, headShortS = NA_real_)
+      if (isTRUE(config$head_length_restore)) {
+        tracking <- restore_head_length(tracking)
+        hl <- tracking$head_length
+        headRow <- data.frame(headLengthCm = hl$median,
+                              headShortS = sum(hl$length < 0.75 * hl$median, na.rm = TRUE) / config$fps)
+      }
+
       metrics <- compute_socp_metrics(
         tracking, novel_location, config$fps,
         contact_distance = config$contact_distance_cm,
@@ -249,7 +259,8 @@ for (batch in batches) {
           "valid_time_s", "valid_fraction", "observed_time_s",
           "interpolated_time_s", "longest_invalid_gap_s"
         )],
-        repairRow
+        repairRow,
+        headRow
       )
 
       utils::write.csv(

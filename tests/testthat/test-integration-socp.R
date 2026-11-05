@@ -179,3 +179,35 @@ test_that("the SocP batch script repairs a misplaced nose when configured", {
   qc <- utils::read.csv(file.path(fixture$output, "tracking_qc.csv"), stringsAsFactors = FALSE)
   expect_equal(qc$reconstructed_time_s, 1, tolerance = 1e-6)
 })
+
+test_that("SocP restores a head hidden under a cup lid before scoring contact", {
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  run <- function(restore) {
+    fixture <- make_socp_fixture(temp_run_dir(paste0("socp_head_", restore)))
+    # A full skeleton (10 px per cm) standing 7.5 cm from the left cup, facing it; for 30 frames only 40% of its head is seen.
+    n <- 300; shape <- rbind(nose = c(4, 0), leftEar = c(2.5, 0.8), rightEar = c(2.5, -0.8), spine1 = c(1.5, 0), leftArm = c(1.5, 1),
+                             rightArm = c(1.5, -1), bodycentre = c(0, 0), leftFlank = c(0, 1.4), rightFlank = c(0, -1.4), spine2 = c(-1.5, 0), tailbase = c(-2.7, 0))
+    set.seed(4)
+    points <- list(tl = cbind(x = rep(0, n), y = rep(240, n)), tr = cbind(x = rep(440, n), y = rep(240, n)),
+                   br = cbind(x = rep(440, n), y = rep(0, n)), bl = cbind(x = rep(0, n), y = rep(0, n)),
+                   socl = cbind(x = rep(50, n), y = rep(120, n)), socr = cbind(x = rep(390, n), y = rep(120, n)))
+    for (p in rownames(shape)) points[[p]] <- 10 * cbind(x = 5 + 9.5 - shape[p, 1] + stats::rnorm(n, 0, 0.03), y = 12 - shape[p, 2] + stats::rnorm(n, 0, 0.03))
+    k <- 101:130; ear <- (points$leftEar[k, ] + points$rightEar[k, ]) / 2
+    points$nose[k, ] <- ear + 0.4 * (points$nose[k, ] - ear)
+    write_tracking_fixture(file.path(fixture$root, "formatted", "HAB", "B001_socp.csv"), points, n)
+    writeLines(c(readLines(fixture$config), paste0("head_length_restore: ", tolower(restore))), fixture$config)
+    output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+    expect_script_succeeded(output, "SocP script with head length restoration")
+    utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  }
+  off <- run(FALSE); on <- run(TRUE)
+  # nose 5.5 cm from the cup point when seen whole; the hidden head puts it at 6.4 cm, beyond the contact distance
+  expect_equal(off$contactLeft, 9, tolerance = 1e-6)
+  expect_equal(on$contactLeft, 10, tolerance = 1e-6)
+  expect_equal(on$headLengthCm, 1.5, tolerance = 0.02)
+  expect_equal(on$headShortS, 1, tolerance = 1e-6)
+  expect_true(is.na(off$headLengthCm))
+})

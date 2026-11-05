@@ -137,3 +137,35 @@ test_that("anchor pairs with too large an error are not used", {
   expect_true(all(is.na(fixed$data$nose$x[50:80])))
   expect_equal(fixed$repair$summary$reconstructed_s[1], 0)
 })
+
+test_that("a nose short of a hidden head is put back at the median head length, along the head", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
+  k <- 50:80                                                             # head under a lid: the nose seen at 40% of the head
+  tr$data$nose$x[k] <- ex[k] + 0.4 * (m$truth$nose[k, "x"] - ex[k]); tr$data$nose$y[k] <- ey[k] + 0.4 * (m$truth$nose[k, "y"] - ey[k])
+  out <- restore_head_length(tr)
+  expect_equal(out$head_length$median, 1.5, tolerance = 0.02)
+  err <- sqrt((out$data$nose$x[k] - m$truth$nose[k, "x"])^2 + (out$data$nose$y[k] - m$truth$nose[k, "y"])^2)
+  expect_lt(max(err), 0.1)
+  long <- which(out$head_length$length >= out$head_length$median)       # a head at least the median length is left as it is
+  expect_equal(out$data$nose$x[long], tr$data$nose$x[long])
+  expect_lte(max(out$head_length$shift), out$head_length$median)
+  expect_equal(out$data$leftEar$x, tr$data$leftEar$x)
+})
+
+test_that("head length restoration leaves frames without both ears, and takes its median from observed noses only", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  tr$data$leftEar$x[10:20] <- NA; tr$data$leftEar$y[10:20] <- NA
+  tr$data$nose$x[10:20] <- tr$data$rightEar$x[10:20]; tr$data$nose$y[10:20] <- tr$data$rightEar$y[10:20]
+  tr$data$nose$status <- factor(rep("observed", 300), levels = FRAME_STATUS_LEVELS)
+  ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
+  k <- 100:250                                                           # long stretch of short heads, not observed: no effect on the median
+  tr$data$nose$x[k] <- ex[k] + 0.5 * (tr$data$nose$x[k] - ex[k]); tr$data$nose$y[k] <- ey[k] + 0.5 * (tr$data$nose$y[k] - ey[k])
+  tr$data$nose$status[k] <- "reconstructed"
+  out <- restore_head_length(tr)
+  expect_equal(out$data$nose$x[10:20], tr$data$nose$x[10:20])
+  expect_equal(out$head_length$median, 1.5, tolerance = 0.02)
+  expect_equal(out$data$nose$status, tr$data$nose$status)
+})
