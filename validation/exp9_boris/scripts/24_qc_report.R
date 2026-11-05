@@ -186,7 +186,7 @@ if (!is.null(man)) {
 }
 
 hm <- reps[, .(s = mean(outside_s + flagged_s + collapse_s)), by = .(landmark, Sex, phase)]
-hm[, landmark := factor(landmark, rev(unique(reps$landmark)))]; hm[, col := factor(paste(Sex, phase), paste(rep(c("Female", "Male"), each = 3), PHASES))]
+hm[, landmark := factor(landmark, rev(unique(reps$landmark)))]; hm[, col := factor(paste(Sex, phase, sep = "\n"), paste(rep(c("Female", "Male"), each = 3), PHASES, sep = "\n"))]
 p4 <- ggplot(hm, aes(col, landmark, fill = s)) + geom_tile(width = PAL$heatmap$tile, height = PAL$heatmap$tile) +
   geom_text(aes(label = sprintf("%.1f", s)), size = T$annotation_pt / .pt, family = T$family) +
   scale_fill_gradient(low = "#FFFFFF", high = "#F2CA4E", name = "s removed\nper recording") + coord_equal() + labs(x = NULL, y = NULL) + th +
