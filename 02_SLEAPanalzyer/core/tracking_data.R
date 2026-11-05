@@ -105,15 +105,20 @@ set_point_coordinates <- function(tracking, point, coordinates) {
 #' requested landmark meets it. Frames whose coordinates were interpolated are
 #' reported as invalid when `interpolated_is_valid` is FALSE, which is the
 #' conservative default for measurements that must not rest on fabricated data.
+#' Frames rebuilt by repair_landmarks() from other landmarks of the same frame
+#' count as valid unless `reconstructed_is_valid` is FALSE (session QC reports
+#' them as not observed).
 #'
 #' @param tracking a TrackingData object
 #' @param landmarks the landmarks a measurement depends on
 #' @param likelihood_cutoff optional minimum tracking confidence
 #' @param interpolated_is_valid whether interpolated frames count as observed
+#' @param reconstructed_is_valid whether rebuilt frames count as observed
 #' @return a logical vector, one entry per frame
 landmark_validity <- function(tracking, landmarks,
                               likelihood_cutoff = NULL,
-                              interpolated_is_valid = FALSE) {
+                              interpolated_is_valid = FALSE,
+                              reconstructed_is_valid = TRUE) {
   validate_tracking_data(tracking, required_landmarks = landmarks)
   if (!is.null(likelihood_cutoff)) {
     validate_scalar_number(likelihood_cutoff, "likelihood_cutoff")
@@ -128,8 +133,9 @@ landmark_validity <- function(tracking, landmarks,
       confidence[is.na(confidence)] <- -Inf
       valid <- valid & confidence >= likelihood_cutoff
     }
-    if (!isTRUE(interpolated_is_valid) && !is.null(values$status)) {
-      valid <- valid & values$status != "interpolated"
+    if (!is.null(values$status)) {
+      excluded <- c(if (!isTRUE(interpolated_is_valid)) "interpolated", if (!isTRUE(reconstructed_is_valid)) "reconstructed")
+      valid <- valid & !as.character(values$status) %in% excluded
     }
   }
   valid

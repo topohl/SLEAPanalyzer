@@ -32,7 +32,20 @@ common_assay_schema <- function() {
 
     metadata_dir = config_field("path", required = FALSE),
     animal_id_code_file = config_field("path", required = FALSE),
-    write_manifest = config_field("logical", required = FALSE)
+    write_manifest = config_field("logical", required = FALSE),
+
+    # Landmarks inconsistent with the rest of the skeleton are removed and the
+    # scored landmarks rebuilt from rigid neighbours (repair_landmarks(),
+    # landmark_repair.R). Off unless set; an assay script applies it only if it
+    # supports it (so far SocP).
+    landmark_repair = config_field("logical", required = FALSE),
+    landmark_repair_landmarks = config_field("string_vector", required = FALSE),
+    landmark_repair_targets = config_field("string_vector", required = FALSE),
+    landmark_repair_margin_cm = config_field("number", positive = TRUE, required = FALSE),
+    landmark_repair_margin_fraction = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
+    landmark_repair_min_share = config_field("number", positive = TRUE, required = FALSE),
+    landmark_repair_min_landmarks = config_field("integer", required = FALSE),
+    landmark_repair_max_anchor_error_cm = config_field("number", positive = TRUE, required = FALSE)
   )
 }
 
