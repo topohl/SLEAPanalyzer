@@ -207,10 +207,16 @@ tracking_qc_report <- function(tracking, landmarks = names(tracking$data),
   observed_only <- landmark_validity(
     tracking, required_landmarks,
     likelihood_cutoff = likelihood_cutoff,
-    interpolated_is_valid = FALSE
+    interpolated_is_valid = FALSE,
+    reconstructed_is_valid = FALSE
   )
   gaps <- rle(!valid)
   longest_gap <- if (any(gaps$values)) max(gaps$lengths[gaps$values]) else 0L
+  # Frames in which a required landmark was rebuilt by repair_landmarks(), reported apart from interpolation.
+  rebuilt <- valid & Reduce(`|`, lapply(required_landmarks, function(point) {
+    s <- tracking$data[[point]]$status
+    if (is.null(s)) rep(FALSE, length(valid)) else as.character(s) %in% "reconstructed"
+  }))
 
   list(
     file = tracking$filename,
@@ -231,7 +237,8 @@ tracking_qc_report <- function(tracking, landmarks = names(tracking$data),
     valid_time_s = sum(valid) / fps,
     valid_fraction = mean(valid),
     observed_time_s = sum(observed_only) / fps,
-    interpolated_time_s = (sum(valid) - sum(observed_only)) / fps,
+    interpolated_time_s = (sum(valid) - sum(observed_only) - sum(rebuilt & !observed_only)) / fps,
+    reconstructed_time_s = sum(rebuilt & !observed_only) / fps,
     longest_invalid_gap_frames = as.integer(longest_gap),
     longest_invalid_gap_s = longest_gap / fps,
     coordinate_unit = get_tracking_unit(tracking)
@@ -253,6 +260,7 @@ qc_summary_row <- function(report) {
     min_landmark_valid_fraction = min(report$coordinates$valid_fraction),
     coordinate_unit = report$coordinate_unit,
     frames_consistent = report$frames_consistent$consistent,
+    reconstructed_time_s = if (is.null(report$reconstructed_time_s)) 0 else report$reconstructed_time_s,
     stringsAsFactors = FALSE
   )
 }

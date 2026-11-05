@@ -52,6 +52,16 @@ on_cup_min_episode_s: 0.2
 on_cup_size_window_s: 0.5
 qc_decisions_file: qc_decisions_socp.csv
 
+# Landmark repair: same settings as socp_all.yaml.
+landmark_repair: true
+landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]
+landmark_repair_targets: [nose, bodycentre]
+landmark_repair_margin_cm: 3
+landmark_repair_margin_fraction: 0.6
+landmark_repair_min_share: 0.5
+landmark_repair_min_landmarks: 4
+landmark_repair_max_anchor_error_cm: 2
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

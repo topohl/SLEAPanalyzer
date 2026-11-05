@@ -138,3 +138,43 @@ test_that("the SocP batch script removes time on top of a cup when configured", 
   manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
   expect_true(manifest$config$on_cup_exclusion)
 })
+
+test_that("the SocP batch script repairs a misplaced nose when configured", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  fixture <- make_socp_fixture(temp_run_dir("socp_repair"))
+  # Replace the animal by a full skeleton walking a circle (10 px per cm); its nose sits on a far point for 30 frames.
+  n <- 300; t <- seq_len(n) / n * 2 * pi; heading <- t + pi / 2
+  shape <- rbind(nose = c(4, 0), leftEar = c(2.5, 0.8), rightEar = c(2.5, -0.8), spine1 = c(1.5, 0), leftArm = c(1.5, 1),
+                 rightArm = c(1.5, -1), bodycentre = c(0, 0), leftFlank = c(0, 1.4), rightFlank = c(0, -1.4), spine2 = c(-1.5, 0), tailbase = c(-2.7, 0))
+  set.seed(3)
+  points <- list(tl = cbind(x = rep(0, n), y = rep(240, n)), tr = cbind(x = rep(440, n), y = rep(240, n)),
+                 br = cbind(x = rep(440, n), y = rep(0, n)), bl = cbind(x = rep(0, n), y = rep(0, n)),
+                 socl = cbind(x = rep(50, n), y = rep(120, n)), socr = cbind(x = rep(390, n), y = rep(120, n)))
+  for (p in rownames(shape)) points[[p]] <- 10 * cbind(x = 22 + 8 * cos(t) + shape[p, 1] * cos(heading) - shape[p, 2] * sin(heading) + stats::rnorm(n, 0, 0.03),
+                                                       y = 12 + 8 * sin(t) + shape[p, 1] * sin(heading) + shape[p, 2] * cos(heading) + stats::rnorm(n, 0, 0.03))
+  points$nose[101:130, ] <- cbind(x = 20, y = 220)
+  write_tracking_fixture(file.path(fixture$root, "formatted", "HAB", "B001_socp.csv"), points, n)
+  writeLines(c(readLines(fixture$config), "landmark_repair: true",
+               "landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]",
+               "landmark_repair_targets: [nose, bodycentre]", "landmark_repair_margin_cm: 3", "landmark_repair_margin_fraction: 0.6",
+               "landmark_repair_min_share: 0.5", "landmark_repair_min_landmarks: 4", "landmark_repair_max_anchor_error_cm: 2"), fixture$config)
+
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+  expect_script_succeeded(output, "SocP script with landmark repair")
+  result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  expect_equal(result$noseReconstructedS, 1, tolerance = 1e-6)
+  expect_equal(result$landmarksFlaggedS, 1, tolerance = 1e-6)
+  expect_equal(result$skeletonCollapseS, 0)
+  expect_lt(result$noseAnchorErrorP95, 0.5)
+  expect_equal(result$validTime, 10)
+  for (f in c("landmark_repairs.csv", "landmark_repair_episodes.csv", "landmark_repair_models.csv")) expect_true(file.exists(file.path(fixture$output, f)))
+  ep <- utils::read.csv(file.path(fixture$output, "landmark_repair_episodes.csv"), stringsAsFactors = FALSE)
+  expect_equal(ep$target, "nose")
+  expect_equal(ep$reconstructed_share, 1)
+  qc <- utils::read.csv(file.path(fixture$output, "tracking_qc.csv"), stringsAsFactors = FALSE)
+  expect_equal(qc$reconstructed_time_s, 1, tolerance = 1e-6)
+})

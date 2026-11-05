@@ -6,7 +6,8 @@
 # fabricated coordinate from a real one unless the pipeline records which is
 # which.
 
-FRAME_STATUS_LEVELS <- c("observed", "interpolated", "invalid")
+# "reconstructed": rebuilt from other landmarks by repair_landmarks() (landmark_repair.R).
+FRAME_STATUS_LEVELS <- c("observed", "interpolated", "reconstructed", "invalid")
 
 #' Linearly interpolate short interior gaps only.
 #'
@@ -92,7 +93,10 @@ interpolate_tracking <- function(tracking, landmarks = names(tracking$data),
     tracking$data[[point]]$x <- filled_x$values
     tracking$data[[point]]$y <- filled_y$values
     # x and y are driven by the same validity mask, so their status agrees.
-    tracking$data[[point]]$status <- filled_x$status
+    status <- filled_x$status
+    # A coordinate rebuilt by repair_landmarks() stays labelled as rebuilt.
+    if (!is.null(values$status)) status[valid & as.character(values$status) == "reconstructed"] <- "reconstructed"
+    tracking$data[[point]]$status <- status
   }
   tracking$interpolation <- list(
     max_gap_s = max_gap_s,

@@ -53,6 +53,15 @@ if (isTRUE(config$on_cup_exclusion)) {
   unset <- on_cup_fields[vapply(on_cup_fields, function(f) is.null(config[[f]]), logical(1))]
   if (length(unset) > 0) stop("on_cup_exclusion is on but unset: ", paste(unset, collapse = ", "))
 }
+# Landmark repair (repair_landmarks()): every setting must be stated in the configuration.
+repair_fields <- c("landmark_repair_landmarks", "landmark_repair_targets", "landmark_repair_margin_cm",
+                   "landmark_repair_margin_fraction", "landmark_repair_min_share", "landmark_repair_min_landmarks",
+                   "landmark_repair_max_anchor_error_cm")
+if (isTRUE(config$landmark_repair)) {
+  unset <- repair_fields[vapply(repair_fields, function(f) is.null(config[[f]]), logical(1))]
+  if (length(unset) > 0) stop("landmark_repair is on but unset: ", paste(unset, collapse = ", "))
+  if (!all(c("nose", "bodycentre") %in% config$landmark_repair_targets)) stop("landmark_repair_targets must include nose and bodycentre")
+}
 if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
   stop("qc_decisions_file not found: ", config$qc_decisions_file)
 }
@@ -79,10 +88,52 @@ for (batch in batches) {
     dfList <- list()
     qcList <- list()
     episodeList <- list()
+    repairList <- list()
+    repairEpisodeList <- list()
+    repairModelList <- list()
 
     for (inputFile in fileList) {
       inputFileName <- tools::file_path_sans_ext(basename(inputFile))
       tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
+      code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
+
+      # Calibrated first, so that the repair thresholds are in cm; interpolation
+      # is linear, so its result does not depend on the order.
+      tracking <- CalibrateTrackingData(
+        tracking, method = "area",
+        in.metric = config$arena_width_cm * config$arena_height_cm,
+        points = config$arena_corner_names
+      )
+      repairRow <- data.frame(landmarksFlaggedS = 0, skeletonCollapseS = 0, noseReconstructedS = 0,
+                              bodycentreReconstructedS = 0, noseAnchorErrorP95 = NA_real_)
+      if (isTRUE(config$landmark_repair)) {
+        tracking <- repair_landmarks(
+          tracking,
+          landmarks = config$landmark_repair_landmarks,
+          targets = config$landmark_repair_targets,
+          margin = config$landmark_repair_margin_cm,
+          margin_fraction = config$landmark_repair_margin_fraction,
+          min_share = config$landmark_repair_min_share,
+          min_landmarks = config$landmark_repair_min_landmarks,
+          max_anchor_error = config$landmark_repair_max_anchor_error_cm
+        )
+        rp <- tracking$repair
+        s <- rp$summary
+        repairRow <- data.frame(
+          landmarksFlaggedS = sum(rp$frames_flagged & !rp$collapse) / config$fps,
+          skeletonCollapseS = sum(rp$collapse) / config$fps,
+          noseReconstructedS = s$reconstructed_s[s$landmark == "nose"],
+          bodycentreReconstructedS = s$reconstructed_s[s$landmark == "bodycentre"],
+          noseAnchorErrorP95 = if (is.null(rp$models$nose)) NA_real_ else rp$models$nose$error_p95[1]
+        )
+        tag <- data.frame(file = inputFileName, Code = code, batch = batch, phase = socpPhase, stringsAsFactors = FALSE)
+        repairList[[length(repairList) + 1L]] <- cbind(tag, s)
+        if (!is.null(rp$episodes) && nrow(rp$episodes) > 0) repairEpisodeList[[length(repairEpisodeList) + 1L]] <- cbind(tag, rp$episodes)
+        for (target in names(rp$models)) {
+          m <- head(rp$models[[target]], 3)
+          repairModelList[[length(repairModelList) + 1L]] <- cbind(tag, rank = seq_len(nrow(m)), m)
+        }
+      }
 
       # Bounded interpolation: SocP previously performed none at all, so
       # untracked frames reached the contact test as NA and were scored as
@@ -92,12 +143,6 @@ for (batch in batches) {
         landmarks = c("nose", "bodycentre"),
         max_gap_s = config$max_interpolation_gap_s,
         likelihood_cutoff = config$likelihood_cutoff
-      )
-
-      tracking <- CalibrateTrackingData(
-        tracking, method = "area",
-        in.metric = config$arena_width_cm * config$arena_height_cm,
-        points = config$arena_corner_names
       )
       tracking <- AddOFTZones(
         tracking, scale_center = 0.5, scale_periphery = 0.8,
@@ -199,7 +244,8 @@ for (batch in batches) {
         qc_summary_row(qcReport)[, c(
           "valid_time_s", "valid_fraction", "observed_time_s",
           "interpolated_time_s", "longest_invalid_gap_s"
-        )]
+        )],
+        repairRow
       )
 
       utils::write.csv(
@@ -235,6 +281,13 @@ for (batch in batches) {
                          phase = character()), empty_object_episode_table())
       } else do.call(rbind, episodeList)
       utils::write.csv(episodes, file.path(outputDir, "on_cup_episodes.csv"), row.names = FALSE)
+    }
+    if (isTRUE(config$landmark_repair)) {
+      # Per recording and landmark, every episode, and the three best anchor models per rebuilt landmark.
+      bind_or_empty <- function(x) if (length(x)) do.call(rbind, x) else data.frame()
+      utils::write.csv(bind_or_empty(repairList), file.path(outputDir, "landmark_repairs.csv"), row.names = FALSE)
+      utils::write.csv(bind_or_empty(repairEpisodeList), file.path(outputDir, "landmark_repair_episodes.csv"), row.names = FALSE)
+      utils::write.csv(bind_or_empty(repairModelList), file.path(outputDir, "landmark_repair_models.csv"), row.names = FALSE)
     }
 
     if (isTRUE(config$write_manifest)) {
