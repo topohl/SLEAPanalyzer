@@ -88,13 +88,21 @@ correction and use the older 39-animal susceptible list.
 
 **`23` — plausibility screen.** Every check of `core/plausibility.R` on every staged
 recording of the four assays (report only): `results/plausibility_episodes.csv`,
-`results/plausibility_summary.csv`. Review any episode with `tools/qc_review.py`. See
-"Plausibility checks" in `docs/assay_definitions.md`.
+`results/plausibility_summary.csv`, with what the landmark repair would remove and
+rebuild in each recording and, for the novel-object test, contact before and after it.
+Review any episode with `tools/qc_review.py`. See "Plausibility checks" in
+`docs/assay_definitions.md`.
+
+**`24` — QC report.** The tracking QC of the social preference test as one workbook,
+the same tables as CSV and figures: per recording what was removed, rebuilt, left
+untracked or excluded on a cup, contact before and after against a reference release,
+the anchor models, the reviewed decisions, the batch 1 manual check and the screen of
+`23` (report only). `Rscript 24_qc_report.R <socp_output_root> <reference_release> <out_dir>`.
 
 ## Layout
 
 ```
-scripts/    22 R scripts, as described above
+scripts/    24 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

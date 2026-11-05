@@ -161,7 +161,8 @@ test_that("the SocP batch script repairs a misplaced nose when configured", {
   writeLines(c(readLines(fixture$config), "landmark_repair: true",
                "landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]",
                "landmark_repair_targets: [nose, bodycentre]", "landmark_repair_margin_cm: 3", "landmark_repair_margin_fraction: 0.6",
-               "landmark_repair_min_share: 0.5", "landmark_repair_min_landmarks: 4", "landmark_repair_max_anchor_error_cm: 2"), fixture$config)
+               "landmark_repair_min_share: 0.5", "landmark_repair_min_landmarks: 4", "landmark_repair_max_anchor_error_cm: 2",
+               "landmark_repair_outside_cm: 15"), fixture$config)
 
   output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
   expect_script_succeeded(output, "SocP script with landmark repair")

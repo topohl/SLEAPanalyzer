@@ -71,8 +71,8 @@ continuity only.
 Session QC (`qc.R`) says whether a recording is usable. `plausibility.R` finds
 the stretches inside a usable recording that the scoring rules do not expect.
 Every check returns per-frame flags and an episode table; none changes a score
-unless an assay applies it through its configuration (so far only SocP,
-`on_cup_exclusion`).
+unless an assay applies it through its configuration (so far only SocP:
+`on_cup_exclusion`, and `landmark_repair` below).
 
 | Check | Flags |
 |---|---|
@@ -95,6 +95,47 @@ already fail the head-angle rule and what remains are partial mounts.
 `detect_on_object()` at 3.5 cm and 1.04 removes 2.5 s of that at 96%
 precision, and across all six batches it would change NOR D2 by more than 0.05
 in one recording, so the NOR scoring is left as it is.
+
+### Landmark repair
+
+A pose model can put landmarks on the wrong thing for seconds at a time: the
+nose on an object outside the arena, an ear on the animal's reflection, half
+the skeleton on a fixed spot at the edge of the image. The rest of the
+skeleton is still right, and the misplaced points contradict it.
+`repair_landmarks()` (core `landmark_repair.R`) handles this in four steps;
+an assay applies it with `landmark_repair: true` (so far SocP).
+
+0. **Outside.** A landmark more than `landmark_repair_outside_cm` outside the
+   arena corners is removed: no part of the animal can be there. A mouse
+   climbing a cup projects up to 14 cm beyond the floor outline (42
+   recordings, 2026-11-05), so the limit is 15 cm.
+1. **Flag.** For every pair of body landmarks the typical distance is its
+   median over the recording. A pair is broken in a frame when its distance
+   exceeds that median by more than `max(landmark_repair_margin_cm,
+   landmark_repair_margin_fraction * median)`. A landmark broken against at
+   least `landmark_repair_min_share` of the other landmarks present is
+   removed. When fewer than `landmark_repair_min_landmarks` landmarks remain,
+   the frame keeps a mutually consistent group that holds a majority of the
+   landmarks present (a split skeleton: the landmark with the most broken
+   pairs is dropped until none is left). Without such a group the skeleton
+   has collapsed (the animal hidden, or hands in the arena): all its body
+   landmarks are removed and the frame stays untracked.
+2. **Rebuild.** Each target (`landmark_repair_targets`: nose, body centre)
+   missing in a frame is rebuilt from two rigid neighbours present in that
+   frame, at its typical position in their frame of reference (fitted on the
+   recording's own trusted frames). The pair with the smallest error is used
+   first; pairs whose 95th-percentile error on trusted frames exceeds
+   `landmark_repair_max_anchor_error_cm` are never used.
+3. **Bridge.** Bounded interpolation then fills short gaps that remain.
+
+A rebuilt coordinate has the frame status `reconstructed`: it counts as valid
+for measurements (it is computed from landmarks observed in the same frame)
+but not as observed (`tracking_qc.csv` reports `reconstructed_time_s`).
+`landmark_repairs.csv`, `landmark_repair_episodes.csv` (checks
+`outside_arena`, `inconsistent_landmark`, `skeleton_split`,
+`skeleton_collapse`) and `landmark_repair_models.csv` record, per recording,
+what was removed, rebuilt or left missing, every episode, and the error of
+the anchor models.
 
 ---
 
