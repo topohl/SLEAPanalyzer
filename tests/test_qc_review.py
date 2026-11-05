@@ -48,5 +48,30 @@ def test_renders_still_clip_and_index():
         assert "ep01" in open(os.path.join(out, "index.html"), encoding="utf-8").read()
 
 
+def test_repaired_file_is_drawn():
+    with tempfile.TemporaryDirectory() as d:
+        video, track = make_recording(d)
+        fixed = os.path.join(d, "fixed.csv")
+        lines = open(track).read().splitlines()
+        rows = [l.split(",") for l in lines[3:]]
+        for r in rows: r[2] = str(float(r[2]) + 40)          # the repaired nose 40 px below the original
+        open(fixed, "w").write("\n".join(lines[:3] + [",".join(r) for r in rows]) + "\n")
+        eps = os.path.join(d, "episodes.csv"); vids = os.path.join(d, "videos.csv")
+        with open(vids, "w", newline="") as fh:
+            c = csv.writer(fh); c.writerow(["tracking_file", "video_path"]); c.writerow([track, video])
+        stills = {}
+        for name, rep in (("plain", ""), ("repaired", fixed)):
+            with open(eps, "w", newline="") as fh:
+                c = csv.writer(fh); c.writerow(["episode_id", "tracking_file", "start_frame", "end_frame", "label", "repaired_file"])
+                c.writerow(["ep01", track, 21, 40, "test", rep])
+            out = os.path.join(d, name)
+            subprocess.run([sys.executable, "-I", TOOL, eps, vids, out, "--pad-s", "0", "--width", "200"], check=True)
+            stills[name] = cv2.imread(os.path.join(out, "stills", "ep01.jpg"))
+        diff = np.abs(stills["repaired"].astype(int) - stills["plain"].astype(int)).sum(axis=2)
+        rows_changed = np.where(diff.max(axis=1) > 60)[0]
+        # the repaired nose ring (y = 120, radius 12) and the repaired body centre ring (same place as the original, y = 80)
+        assert len(rows_changed) and 60 <= rows_changed.min() and 125 <= rows_changed.max() <= 136
+
+
 if __name__ == "__main__":
-    test_renders_still_clip_and_index(); print("ok")
+    test_renders_still_clip_and_index(); test_repaired_file_is_drawn(); print("ok")
