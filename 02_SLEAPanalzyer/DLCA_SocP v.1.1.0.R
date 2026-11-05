@@ -61,6 +61,8 @@ if (isTRUE(config$landmark_repair)) {
   unset <- repair_fields[vapply(repair_fields, function(f) is.null(config[[f]]), logical(1))]
   if (length(unset) > 0) stop("landmark_repair is on but unset: ", paste(unset, collapse = ", "))
   if (!all(c("nose", "bodycentre") %in% config$landmark_repair_targets)) stop("landmark_repair_targets must include nose and bodycentre")
+  # a rebuilt coordinate keeps the likelihood of the point it replaced, which a cutoff would then judge
+  if (!is.null(config$likelihood_cutoff)) stop("landmark_repair and likelihood_cutoff cannot be combined")
 }
 if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
   stop("qc_decisions_file not found: ", config$qc_decisions_file)

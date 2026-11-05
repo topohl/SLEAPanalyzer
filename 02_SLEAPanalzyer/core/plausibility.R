@@ -230,14 +230,31 @@ read_qc_decisions <- function(path) {
 #' Apply reviewed decisions to an on-object mask.
 #'
 #' Frame i (1-based) lies at (i - 1) / fps seconds, the convention of every
-#' latency in this repository.
-apply_qc_decisions <- function(on_object, decisions, file, target, fps) {
+#' latency in this repository. `on_object` forces its window on.
+#' `not_on_object` clears its window and every detected episode overlapping
+#' it: a review judges an episode, whose edges can move by a few frames when
+#' the tracking changes (e.g. after the landmark repair). An episode reaching
+#' more than `max_edge_shift_s` beyond the window is no longer the one
+#' reviewed, and stops the run.
+apply_qc_decisions <- function(on_object, decisions, file, target, fps, max_edge_shift_s = 0.5) {
   rows <- decisions[decisions$file == file & decisions$target == target, , drop = FALSE]
   if (nrow(rows) == 0) return(on_object)
   time_s <- (seq_along(on_object) - 1L) / fps
+  runs <- rle(on_object); ends <- cumsum(runs$lengths); starts <- ends - runs$lengths + 1L
   for (i in seq_len(nrow(rows))) {
     span <- time_s >= rows$start_s[i] & time_s <= rows$end_s[i]
-    on_object[span] <- rows$decision[i] == "on_object"
+    if (rows$decision[i] == "on_object") { on_object[span] <- TRUE; next }
+    on_object[span] <- FALSE
+    for (k in which(runs$values)) {
+      run <- starts[k]:ends[k]
+      if (!any(span[run])) next
+      shift <- max(rows$start_s[i] - time_s[starts[k]], time_s[ends[k]] - rows$end_s[i], 0)
+      if (shift > max_edge_shift_s) {
+        stop(sprintf("QC decision %s %s %.2f-%.2f s: the detected episode now runs %.2f-%.2f s; review it again",
+                     file, target, rows$start_s[i], rows$end_s[i], time_s[starts[k]], time_s[ends[k]]))
+      }
+      on_object[run] <- FALSE
+    }
   }
   on_object
 }

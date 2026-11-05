@@ -108,7 +108,9 @@ an assay applies it with `landmark_repair: true` (so far SocP).
 0. **Outside.** A landmark more than `landmark_repair_outside_cm` outside the
    arena corners is removed: no part of the animal can be there. A mouse
    climbing a cup projects up to 14 cm beyond the floor outline (42
-   recordings, 2026-11-05), so the limit is 15 cm.
+   recordings, 2026-11-05), so the limit is 15 cm. Of all 348 recordings,
+   12 frames lose landmarks that the skeleton vote alone would have kept:
+   all with hands in the arena.
 1. **Flag.** For every pair of body landmarks the typical distance is its
    median over the recording. A pair is broken in a frame when its distance
    exceeds that median by more than `max(landmark_repair_margin_cm,
@@ -116,8 +118,9 @@ an assay applies it with `landmark_repair: true` (so far SocP).
    least `landmark_repair_min_share` of the other landmarks present is
    removed. When fewer than `landmark_repair_min_landmarks` landmarks remain,
    the frame keeps a mutually consistent group that holds a majority of the
-   landmarks present (a split skeleton: the landmark with the most broken
-   pairs is dropped until none is left). Without such a group the skeleton
+   landmarks present and at least `landmark_repair_min_landmarks` (a split
+   skeleton: the landmark with the most broken pairs is dropped until none is
+   left). Without such a group the skeleton
    has collapsed (the animal hidden, or hands in the arena): all its body
    landmarks are removed and the frame stays untracked.
 2. **Rebuild.** Each target (`landmark_repair_targets`: nose, body centre)
@@ -409,7 +412,10 @@ in the same places at normal size. Every candidate episode and its decision is
 written to `on_cup_episodes.csv` (extended spans of neighbouring episodes can
 overlap; `onCup*` counts their union); reviewed corrections go in
 `qc_decisions_file` (`file, target, start_s, end_s, decision, reason,
-reviewer`; decision `on_object` or `not_on_object`).
+reviewer`; decision `on_object` or `not_on_object`). A `not_on_object`
+decision clears every detected episode overlapping its window, as long as
+the episode reaches no more than 0.5 s beyond it (edges move by a few frames
+when the tracking changes); otherwise the run stops for a new review.
 
 Exp9 values (4 cm, 2 cm, 10 cm, 1.08, 0.5 s, 0.2 s, size window 0.5 s) come
 from all 348 recordings: floor-level body centres stay at least ~5 cm from

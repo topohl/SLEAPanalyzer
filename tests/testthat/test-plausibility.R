@@ -79,12 +79,16 @@ test_that("an episode shorter than the minimum is reported, not accepted", {
 test_that("reviewed decisions override the automatic mask", {
   tracking <- climb_fixture()
   mask <- detect_right(tracking)$on_object
-  decisions <- data.frame(file = "synthetic", target = "socr", start_s = 1, end_s = 1.5,
+  expect_equal(which(mask), 31:75)                       # frame i lies at (i - 1) / 30 s: 1.00 to 2.47 s
+  decisions <- data.frame(file = "synthetic", target = "socr", start_s = 1.1, end_s = 2.3,
                           decision = "not_on_object", reason = "", reviewer = "", stringsAsFactors = FALSE)
-  forced <- apply_qc_decisions(mask, decisions, "synthetic", "socr", fps = 30)
-  # Frame i lies at (i - 1) / 30 s: frames 31 to 46 span 1.0 to 1.5 s.
-  expect_equal(which(forced), 47:75)
+  # the reviewed episode, its edges moved by up to 0.5 s: cleared as a whole
+  expect_false(any(apply_qc_decisions(mask, decisions, "synthetic", "socr", fps = 30)))
   expect_identical(apply_qc_decisions(mask, decisions, "other", "socr", 30), mask)
+  # an episode reaching well beyond the reviewed window is not the one reviewed
+  expect_error(apply_qc_decisions(mask, transform(decisions, end_s = 1.5), "synthetic", "socr", 30), "review it again")
+  forced <- apply_qc_decisions(mask, transform(decisions, start_s = 3, end_s = 3.2, decision = "on_object"), "synthetic", "socr", 30)
+  expect_equal(which(forced), c(31:75, 91:97))           # 3.0 to 3.2 s forced on, the detected episode kept
 
   path <- tempfile(fileext = ".csv")
   utils::write.csv(transform(decisions, decision = "maybe"), path, row.names = FALSE)

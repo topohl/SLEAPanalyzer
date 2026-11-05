@@ -104,6 +104,11 @@ test_that("landmarks far outside the arena are removed before the skeleton vote"
   expect_true("outside_arena" %in% fixed$repair$episodes$check)
   without <- repair_landmarks(tr)                                     # the vote alone keeps the larger, wrong group
   expect_true(all(is.na(without$data$tailbase$x[100:130])))
+  for (p in names(m$truth)) points[[p]][200:205, ] <- cbind(60 + 0.3 * match(p, names(m$truth)), 50)
+  gone <- repair_landmarks(make_tracking(frames = 0:(n - 1), fps = 30, points = points, distance_unit = "cm"),
+                           corners = c("tl", "tr", "br", "bl"), max_outside = 15)
+  expect_true(all(gone$repair$collapse[200:205]))                     # every landmark outside: a collapsed skeleton
+  expect_true(all(is.na(gone$data$nose$x[200:205])))
 })
 
 test_that("rebuilt frames survive interpolation and count as valid but not as observed", {
