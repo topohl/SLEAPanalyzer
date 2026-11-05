@@ -141,6 +141,7 @@ test_that("anchor pairs with too large an error are not used", {
 test_that("a nose short of a hidden head is put back at the median head length, along the head", {
   m <- synthetic_mouse()
   tr <- m$tracking
+  tr$data$nose$status <- factor(rep("observed", 300), levels = FRAME_STATUS_LEVELS)
   ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
   k <- 50:80                                                             # head under a lid: the nose seen at 40% of the head
   tr$data$nose$x[k] <- ex[k] + 0.4 * (m$truth$nose[k, "x"] - ex[k]); tr$data$nose$y[k] <- ey[k] + 0.4 * (m$truth$nose[k, "y"] - ey[k])
@@ -148,10 +149,29 @@ test_that("a nose short of a hidden head is put back at the median head length, 
   expect_equal(out$head_length$median, 1.5, tolerance = 0.02)
   err <- sqrt((out$data$nose$x[k] - m$truth$nose[k, "x"])^2 + (out$data$nose$y[k] - m$truth$nose[k, "y"])^2)
   expect_lt(max(err), 0.1)
-  long <- which(out$head_length$length >= out$head_length$median)       # a head at least the median length is left as it is
-  expect_equal(out$data$nose$x[long], tr$data$nose$x[long])
-  expect_lte(max(out$head_length$shift), out$head_length$median)
+  expect_equal(which(out$head_length$moved), k)                         # only the clearly short heads
+  expect_equal(out$data$nose$x[-k], tr$data$nose$x[-k])
+  expect_true(all(as.character(out$data$nose$status[k]) == "reconstructed"))
+  expect_true(all(as.character(out$data$nose$status[-k]) == "observed"))
   expect_equal(out$data$leftEar$x, tr$data$leftEar$x)
+})
+
+test_that("a head near its median length is left as it is; a short head turned sideways is restored along its own direction", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
+  bx <- ex - tr$data$bodycentre$x; by <- ey - tr$data$bodycentre$y; bl <- sqrt(bx^2 + by^2)
+  side <- 60:70                                                          # short and at right angles to the body axis
+  tr$data$nose$x[side] <- ex[side] - 0.6 * by[side] / bl[side]; tr$data$nose$y[side] <- ey[side] + 0.6 * bx[side] / bl[side]
+  near <- 100:110                                                        # 0.9 of the median: not clearly short
+  tr$data$nose$x[near] <- ex[near] + 0.9 * (m$truth$nose[near, "x"] - ex[near]); tr$data$nose$y[near] <- ey[near] + 0.9 * (m$truth$nose[near, "y"] - ey[near])
+  out <- restore_head_length(tr)
+  expect_false(any(out$head_length$moved[near]))
+  expect_equal(out$data$nose$x[near], tr$data$nose$x[near])
+  expect_true(all(out$head_length$moved[side]))
+  turned <- sqrt((out$data$nose$x[side] - ex[side])^2 + (out$data$nose$y[side] - ey[side])^2)
+  expect_equal(turned, rep(out$head_length$median, length(side)), tolerance = 1e-9)   # full length, still at right angles
+  expect_lte(max(out$head_length$shift), out$head_length$median)
 })
 
 test_that("head length restoration leaves frames without both ears, and takes its median from observed noses only", {
@@ -167,5 +187,15 @@ test_that("head length restoration leaves frames without both ears, and takes it
   out <- restore_head_length(tr)
   expect_equal(out$data$nose$x[10:20], tr$data$nose$x[10:20])
   expect_equal(out$head_length$median, 1.5, tolerance = 0.02)
-  expect_equal(out$data$nose$status, tr$data$nose$status)
+  expect_true(all(out$head_length$moved[k]))
+})
+
+test_that("without an observed nose and both ears, head length restoration warns and changes nothing", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  tr$data$nose$status <- factor(rep("reconstructed", 300), levels = FRAME_STATUS_LEVELS)
+  expect_warning(out <- restore_head_length(tr), "no frame with an observed nose")
+  expect_equal(out$data$nose$x, tr$data$nose$x)
+  expect_true(is.na(out$head_length$median))
+  expect_false(any(out$head_length$moved))
 })

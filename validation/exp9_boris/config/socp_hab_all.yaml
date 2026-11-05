@@ -65,12 +65,14 @@ landmark_repair_outside_cm: 15
 
 # A mouse investigating a cup under its lid (the lid overhangs the cup on the
 # corner side) keeps only the back of its head in view, and the pose model puts
-# the nose at the lid edge, up to several cm short of the cup. The nose is put
-# back at the head's median length along the ear-to-nose direction, after the
-# on-cup detection. Checked against the frame-by-frame manual scoring of batch
-# 1 (2026-11-05, scripts/26_frame_agreement.R); see "Hidden head" in
+# the nose at the lid edge, up to several cm short of the cup. A clearly short
+# head (below 0.75 of its median length, set in advance) is put back at its
+# median length along the ear-to-nose direction, after the on-cup detection.
+# Checked against the frame-by-frame manual scoring of batch 1
+# (scripts/26_frame_agreement.R); see "A head hidden under the cup lid" in
 # docs/assay_definitions.md.
 head_length_restore: true
+head_length_restore_below: 0.75
 
 min_bout_s: 0.0
 max_gap_s: 0.0

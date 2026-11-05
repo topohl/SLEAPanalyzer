@@ -6,7 +6,7 @@
 # analysis uses it (rebuilt by the landmark repair, or restored to the head
 # length). This script finds the coordinates (in video pixels) by running the
 # analysis steps of DLCA_SocP on each recording; tools/figure_stills.py draws
-# them on the frames.
+# them on the frames, with the cup point and the contact distance where a cup is given.
 #
 #   Rscript 27_figure_stills.R <out_dir>
 #   python -I tools/figure_stills.py <out_dir>/stills.csv <out_dir>
@@ -31,34 +31,53 @@ video_path <- function(batch, code, phase) {
   pat <- if (batch == "B1") sprintf("^%s_GX.*_%s[.]mp4$", code, phase) else sprintf("^E9_SIS_%s_%s_%s[.]mp4$", batch, code, phase)
   hit <- list.files(file.path(VROOT, VDIR[[batch]]), pat, full.names = TRUE); stopifnot(length(hit) == 1); hit }
 
-# kind: what happened to the nose; frames chosen from the repair review (qc/landmark_repair/review) and 26
-picks <- data.table(
-  still = c("fixed_spot", "object_outside", "under_lid"),
-  batch = c("B4", "B1", "B1"), Code = c("L9K1", "H9J5", "K4T2"), phase = c("S1", "S1", "S1"), frame = c(4129L, 1138L, 2776L),
-  cup = c(NA, NA, "socr"),
-  kind = c("nose placed on a fixed spot at the image edge", "nose placed on a tube outside the arena", "head under the cup lid, nose at the lid edge"))
-rows <- list()
-for (i in seq_len(nrow(picks))) {
-  p <- picks[i]
-  src <- file.path(STAGE, p$batch, p$phase, paste0(p$Code, "_", p$phase, ".csv"))
-  raw <- read_tracking_csv(file = src, fps = config$fps)
+# The analysis steps of DLCA_SocP up to the nose it scores: raw, repaired and interpolated, restored.
+prepare <- function(batch, code, phase) {
+  raw <- read_tracking_csv(file = file.path(STAGE, batch, phase, paste0(code, "_", phase, ".csv")), fps = config$fps)
   tr <- CalibrateTrackingData(raw, method = "area", in.metric = config$arena_width_cm * config$arena_height_cm, points = config$arena_corner_names)
   tr <- repair_landmarks(tr, landmarks = config$landmark_repair_landmarks, targets = config$landmark_repair_targets,
     margin = config$landmark_repair_margin_cm, margin_fraction = config$landmark_repair_margin_fraction, min_share = config$landmark_repair_min_share,
     min_landmarks = config$landmark_repair_min_landmarks, max_anchor_error = config$landmark_repair_max_anchor_error_cm,
     corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm)
   tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = config$max_interpolation_gap_s, likelihood_cutoff = config$likelihood_cutoff)
-  rs <- restore_head_length(tr)
-  f <- p$frame; k <- tr$px.to.cm
-  st <- as.character(tr$data$nose$status[f])
-  used <- c(x = rs$data$nose$x[f] / k, y = rs$data$nose$y[f] / k)
+  list(raw = raw, tr = tr, rs = restore_head_length(tr, below = config$head_length_restore_below))
+}
+
+# The head under the lid: in the phase-1 recordings of batch 1 camera 2, the longest run of frames in which the restoration moves the
+# nose at the lid edge to within the contact distance of a cup; its middle frame.
+lid <- rbindlist(lapply(c("C7E2", "F9L3", "K4T2", "M1M3", "P9X0", "R8O3", "T2H7", "V2P0", "Y0F3"), function(code) {
+  x <- prepare("B1", code, "S1"); rbindlist(lapply(c("socl", "socr"), function(cup) {
+    cx <- stats::median(x$tr$data[[cup]]$x, na.rm = TRUE); cy <- stats::median(x$tr$data[[cup]]$y, na.rm = TRUE)
+    d0 <- sqrt((x$tr$data$nose$x - cx)^2 + (x$tr$data$nose$y - cy)^2); d1 <- sqrt((x$rs$data$nose$x - cx)^2 + (x$rs$data$nose$y - cy)^2)
+    o <- if (cup == "socl") "socr" else "socl"; ox <- stats::median(x$tr$data[[o]]$x, na.rm = TRUE)
+    rx <- (x$tr$data$nose$x - cx) * sign(ox - cx); ry <- (x$tr$data$nose$y - cy) * (if (cup == "socl") 1 else -1)
+    # the lid edge as in 26: beyond the contact distance, on the lid side, behind the cup point
+    hit <- x$rs$head_length$moved & !is.na(d0) & d0 > config$contact_distance_cm + 0.3 & d1 <= config$contact_distance_cm & ry > 3.8 & rx < -2.5
+    if (!any(hit)) return(NULL)
+    r <- rle(hit); end <- cumsum(r$lengths); start <- end - r$lengths + 1; k <- which(r$values)
+    data.table(Code = code, cup = cup, start = start[k], length = r$lengths[k]) })) }))
+best <- lid[which.max(length)]
+cat(sprintf("head under the lid: %s S1 %s, %d frames from frame %d\n", best$Code, best$cup, best$length, best$start))
+
+# kind: what happened to the nose; the first two frames chosen from the repair review (qc/landmark_repair/review)
+picks <- data.table(
+  still = c("fixed_spot", "object_outside", "under_lid"),
+  batch = c("B4", "B1", "B1"), Code = c("L9K1", "H9J5", best$Code), phase = c("S1", "S1", "S1"),
+  frame = c(4129L, 1138L, as.integer(best$start + best$length %/% 2)), cup = c(NA, NA, best$cup),
+  kind = c("nose placed on a fixed spot at the image edge", "nose placed on a tube outside the arena", "head under the cup lid, nose at the lid edge"))
+rows <- list()
+for (i in seq_len(nrow(picks))) {
+  p <- picks[i]; x <- prepare(p$batch, p$Code, p$phase)
+  f <- p$frame; k <- x$tr$px.to.cm
+  cup <- if (is.na(p$cup)) c(NA_real_, NA_real_) else c(stats::median(x$raw$data[[p$cup]]$x, na.rm = TRUE), stats::median(x$raw$data[[p$cup]]$y, na.rm = TRUE))
+  tracked <- c(x$raw$data$nose$x[f], x$raw$data$nose$y[f]); used <- c(x$rs$data$nose$x[f], x$rs$data$nose$y[f]) / k
   rows[[i]] <- data.table(still = p$still, kind = p$kind, batch = p$batch, Code = p$Code, phase = p$phase, frame = f, video = video_path(p$batch, p$Code, p$phase),
-    tracked_x = raw$data$nose$x[f], tracked_y = raw$data$nose$y[f], used_x = used[["x"]], used_y = used[["y"]], nose_status = st,
-    head_ratio = rs$head_length$length[f] / rs$head_length$median,
-    cup_x = if (is.na(p$cup)) NA_real_ else stats::median(raw$data[[p$cup]]$x, na.rm = TRUE),
-    cup_y = if (is.na(p$cup)) NA_real_ else stats::median(raw$data[[p$cup]]$y, na.rm = TRUE), px_per_cm = 1 / k)
+    tracked_x = tracked[1], tracked_y = tracked[2], used_x = used[1], used_y = used[2], nose_status = as.character(x$rs$data$nose$status[f]),
+    head_ratio = x$rs$head_length$length[f] / x$rs$head_length$median, cup_x = cup[1], cup_y = cup[2], px_per_cm = 1 / k,
+    tracked_to_cup_cm = sqrt(sum((tracked - cup)^2)) * k, used_to_cup_cm = sqrt(sum((used - cup)^2)) * k)
 }
 out <- rbindlist(rows)
 stopifnot("the first two noses were rebuilt by the repair" = all(out$nose_status[1:2] == "reconstructed"),
-          "the third was restored to the head length" = out$nose_status[3] == "observed" && out$head_ratio[3] < .75)
-fwrite(out, file.path(OUT, "stills.csv")); print(out[, .(still, Code, frame, nose_status, round(head_ratio, 2))])
+          "the third was restored into contact" = out$nose_status[3] == "reconstructed" && out$head_ratio[3] < config$head_length_restore_below &&
+            out$tracked_to_cup_cm[3] > config$contact_distance_cm && out$used_to_cup_cm[3] <= config$contact_distance_cm)
+fwrite(out, file.path(OUT, "stills.csv")); print(out[, .(still, Code, frame, nose_status, round(head_ratio, 2), round(tracked_to_cup_cm, 1), round(used_to_cup_cm, 1))])

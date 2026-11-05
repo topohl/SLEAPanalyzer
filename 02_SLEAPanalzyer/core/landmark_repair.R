@@ -277,37 +277,47 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
 #' An animal that pushes its head under an overhang (the lid of a wire cup)
 #' keeps only the back of its head in view, and the pose model puts the nose
 #' at the edge of what it can see: the tracked head is too short and the nose
-#' sits short of where it is. The nose is moved along the direction from the
-#' ear midpoint to the nose until the head has its median length in the
-#' recording (frames whose nose was observed); a head at least that long, and
-#' frames without both ears, are left as they are. The nose moves by at most
-#' the median head length, so a misplaced landmark cannot carry it far.
+#' sits short of where it is. Where the visible head (ear midpoint to nose) is
+#' shorter than `below` times its median in the recording (frames whose nose
+#' was observed), the nose is moved along the direction from the ear midpoint
+#' to the nose until the head has that median length; frames without both
+#' ears are left as they are. The nose moves by at most the median head
+#' length. A moved nose has the status `reconstructed`. (A limit on the angle
+#' between head and body axis was tried and removed: a mouse investigating a
+#' cup turns its head, and the limit undid real recoveries.)
 #'
 #' Apply it after interpolation and after anything that measures the animal's
 #' size (`apparent_body_size()` uses nose-ear separations), so that it changes
 #' only measurements made from the nose.
 #'
 #' @param nose,ears the nose and the two ear landmarks
+#' @param below a head shorter than this share of its median is restored
 #' @return the TrackingData object with the nose moved; `$head_length` holds
 #'   the median head length (`median`), the visible head length per frame
-#'   (`length`) and the shift of the nose per frame (`shift`, 0 where unmoved)
-restore_head_length <- function(tracking, nose = "nose", ears = c("leftEar", "rightEar")) {
+#'   (`length`), which frames were moved (`moved`) and the shift of the nose
+#'   per frame (`shift`, 0 where unmoved)
+restore_head_length <- function(tracking, nose = "nose", ears = c("leftEar", "rightEar"), below = 0.75) {
   validate_tracking_data(tracking, required_landmarks = c(nose, ears))
   n <- tracking$data[[nose]]; a <- tracking$data[[ears[1]]]; b <- tracking$data[[ears[2]]]
   ex <- (a$x + b$x) / 2; ey <- (a$y + b$y) / 2
   dx <- n$x - ex; dy <- n$y - ey; len <- sqrt(dx^2 + dy^2)
   status <- if (is.null(n$status)) rep("observed", length(len)) else as.character(n$status)
   reference <- is.finite(len) & len > 0 & status == "observed"
+  none <- rep(FALSE, length(len))
   if (!any(reference)) {
     warning("restore_head_length: no frame with an observed nose and both ears; the nose is left as it is")
-    tracking$head_length <- list(median = NA_real_, length = len, shift = rep(0, length(len)))
+    tracking$head_length <- list(median = NA_real_, length = len, moved = none, shift = rep(0, length(len)))
     return(tracking)
   }
   m <- stats::median(len[reference])
-  move <- is.finite(len) & len > 0 & len < m
+  move <- is.finite(len) & len > 0 & len < below * m
   scale <- ifelse(move, m / len, 1)
   tracking$data[[nose]]$x <- ifelse(move, ex + dx * scale, n$x)
   tracking$data[[nose]]$y <- ifelse(move, ey + dy * scale, n$y)
-  tracking$head_length <- list(median = m, length = len, shift = ifelse(move, m - len, 0))
+  if (!is.null(n$status)) {
+    s <- as.character(n$status); s[move] <- "reconstructed"
+    tracking$data[[nose]]$status <- factor(s, levels = FRAME_STATUS_LEVELS)
+  }
+  tracking$head_length <- list(median = m, length = len, moved = move, shift = ifelse(move, m - len, 0))
   tracking
 }

@@ -1,309 +1,565 @@
-nose,manual_contact,bin_cm,time_s
-as tracked,FALSE,0.125,0.0333333333333333
-as tracked,FALSE,0.625,0.133333333333333
-as tracked,FALSE,0.875,0.133333333333333
-as tracked,FALSE,1.125,0.333333333333333
-as tracked,FALSE,1.375,0.466666666666667
-as tracked,FALSE,1.625,1.03333333333333
-as tracked,FALSE,1.875,1.03333333333333
-as tracked,FALSE,2.125,1.5
-as tracked,FALSE,2.375,1.56666666666667
-as tracked,FALSE,2.625,2.56666666666667
-as tracked,FALSE,2.875,3.13333333333333
-as tracked,FALSE,3.125,4.4
-as tracked,FALSE,3.375,4.53333333333333
-as tracked,FALSE,3.625,5.66666666666667
-as tracked,FALSE,3.875,10.3333333333333
-as tracked,FALSE,4.125,25.4
-as tracked,FALSE,4.375,53.5666666666667
-as tracked,FALSE,4.625,64.1
-as tracked,FALSE,4.875,65.9
-as tracked,FALSE,5.125,65.9
-as tracked,FALSE,5.375,81.1
-as tracked,FALSE,5.625,81.9
-as tracked,FALSE,5.875,86.3
-as tracked,FALSE,6.125,97.9666666666667
-as tracked,FALSE,6.375,98.9
-as tracked,FALSE,6.625,120.266666666667
-as tracked,FALSE,6.875,140.3
-as tracked,FALSE,7.125,122.6
-as tracked,FALSE,7.375,122.133333333333
-as tracked,FALSE,7.625,123.9
-as tracked,FALSE,7.875,123
-as tracked,FALSE,8.125,121.7
-as tracked,FALSE,8.375,131.3
-as tracked,FALSE,8.625,138.2
-as tracked,FALSE,8.875,141.633333333333
-as tracked,FALSE,9.125,152.833333333333
-as tracked,FALSE,9.375,157.9
-as tracked,FALSE,9.625,154.566666666667
-as tracked,FALSE,9.875,145.033333333333
-as tracked,FALSE,10.125,130.6
-as tracked,FALSE,10.375,134.366666666667
-as tracked,FALSE,10.625,130.966666666667
-as tracked,FALSE,10.875,124.733333333333
-as tracked,FALSE,11.125,119.433333333333
-as tracked,FALSE,11.375,119.533333333333
-as tracked,FALSE,11.625,121.1
-as tracked,FALSE,11.875,108.466666666667
-as tracked,FALSE,12.125,116.3
-as tracked,FALSE,12.375,114.8
-as tracked,FALSE,12.625,112.7
-as tracked,FALSE,12.875,107.666666666667
-as tracked,FALSE,13.125,124.766666666667
-as tracked,FALSE,13.375,108.2
-as tracked,FALSE,13.625,102.433333333333
-as tracked,FALSE,13.875,104.233333333333
-as tracked,FALSE,14.125,103.733333333333
-as tracked,FALSE,14.375,99.3333333333333
-as tracked,FALSE,14.625,104.833333333333
-as tracked,FALSE,14.875,102.366666666667
-as tracked,FALSE,15.125,105.033333333333
-as tracked,FALSE,15.375,97.0333333333333
-as tracked,FALSE,15.625,89.0333333333333
-as tracked,FALSE,15.875,87.7
-as tracked,FALSE,16.125,93
-as tracked,FALSE,16.375,92.3333333333333
-as tracked,FALSE,16.625,92.8666666666667
-as tracked,FALSE,16.875,87.4333333333333
-as tracked,FALSE,17.125,82.6
-as tracked,FALSE,17.375,79.0333333333333
-as tracked,FALSE,17.625,86.2
-as tracked,FALSE,17.875,79.8666666666667
-as tracked,FALSE,18.125,76.6
-as tracked,FALSE,18.375,79.7666666666667
-as tracked,FALSE,18.625,78.8666666666667
-as tracked,FALSE,18.875,79.8333333333333
-as tracked,FALSE,19.125,81.4666666666667
-as tracked,FALSE,19.375,82.3666666666667
-as tracked,FALSE,19.625,78.8666666666667
-as tracked,FALSE,19.875,82.2333333333333
-as tracked,TRUE,1.375,0.433333333333333
-as tracked,TRUE,1.625,1.4
-as tracked,TRUE,1.875,2.1
-as tracked,TRUE,2.125,2.66666666666667
-as tracked,TRUE,2.375,5.1
-as tracked,TRUE,2.625,8.3
-as tracked,TRUE,2.875,12.3
-as tracked,TRUE,3.125,15.2333333333333
-as tracked,TRUE,3.375,21.5333333333333
-as tracked,TRUE,3.625,40.6333333333333
-as tracked,TRUE,3.875,94.8
-as tracked,TRUE,4.125,280.366666666667
-as tracked,TRUE,4.375,678.1
-as tracked,TRUE,4.625,774.2
-as tracked,TRUE,4.875,525.6
-as tracked,TRUE,5.125,361.4
-as tracked,TRUE,5.375,241.6
-as tracked,TRUE,5.625,174.9
-as tracked,TRUE,5.875,137.8
-as tracked,TRUE,6.125,131.633333333333
-as tracked,TRUE,6.375,95.9
-as tracked,TRUE,6.625,69.7333333333333
-as tracked,TRUE,6.875,52.5
-as tracked,TRUE,7.125,38.6666666666667
-as tracked,TRUE,7.375,31.8666666666667
-as tracked,TRUE,7.625,21.3333333333333
-as tracked,TRUE,7.875,15.7333333333333
-as tracked,TRUE,8.125,10.5333333333333
-as tracked,TRUE,8.375,8.5
-as tracked,TRUE,8.625,7.26666666666667
-as tracked,TRUE,8.875,7.1
-as tracked,TRUE,9.125,5.26666666666667
-as tracked,TRUE,9.375,4.46666666666667
-as tracked,TRUE,9.625,4.86666666666667
-as tracked,TRUE,9.875,4.83333333333333
-as tracked,TRUE,10.125,3.3
-as tracked,TRUE,10.375,3.06666666666667
-as tracked,TRUE,10.625,3.96666666666667
-as tracked,TRUE,10.875,2.73333333333333
-as tracked,TRUE,11.125,3.13333333333333
-as tracked,TRUE,11.375,2.43333333333333
-as tracked,TRUE,11.625,2.36666666666667
-as tracked,TRUE,11.875,2.36666666666667
-as tracked,TRUE,12.125,1.93333333333333
-as tracked,TRUE,12.375,1.26666666666667
-as tracked,TRUE,12.625,1.23333333333333
-as tracked,TRUE,12.875,1.1
-as tracked,TRUE,13.125,1.3
-as tracked,TRUE,13.375,0.833333333333333
-as tracked,TRUE,13.625,1.03333333333333
-as tracked,TRUE,13.875,0.866666666666667
-as tracked,TRUE,14.125,1.16666666666667
-as tracked,TRUE,14.375,1
-as tracked,TRUE,14.625,0.766666666666667
-as tracked,TRUE,14.875,1.1
-as tracked,TRUE,15.125,0.666666666666667
-as tracked,TRUE,15.375,0.8
-as tracked,TRUE,15.625,0.566666666666667
-as tracked,TRUE,15.875,0.533333333333333
-as tracked,TRUE,16.125,0.466666666666667
-as tracked,TRUE,16.375,0.833333333333333
-as tracked,TRUE,16.625,0.966666666666667
-as tracked,TRUE,16.875,1.13333333333333
-as tracked,TRUE,17.125,1.36666666666667
-as tracked,TRUE,17.375,1.63333333333333
-as tracked,TRUE,17.625,1.36666666666667
-as tracked,TRUE,17.875,0.933333333333333
-as tracked,TRUE,18.125,0.7
-as tracked,TRUE,18.375,0.833333333333333
-as tracked,TRUE,18.625,0.566666666666667
-as tracked,TRUE,18.875,0.633333333333333
-as tracked,TRUE,19.125,0.833333333333333
-as tracked,TRUE,19.375,0.9
-as tracked,TRUE,19.625,2.13333333333333
-as tracked,TRUE,19.875,1.26666666666667
-head length restored,FALSE,0.125,0.0333333333333333
-head length restored,FALSE,0.625,0.133333333333333
-head length restored,FALSE,0.875,0.133333333333333
-head length restored,FALSE,1.125,0.333333333333333
-head length restored,FALSE,1.375,0.433333333333333
-head length restored,FALSE,1.625,0.866666666666667
-head length restored,FALSE,1.875,0.933333333333333
-head length restored,FALSE,2.125,1.63333333333333
-head length restored,FALSE,2.375,1.66666666666667
-head length restored,FALSE,2.625,2.5
-head length restored,FALSE,2.875,3
-head length restored,FALSE,3.125,4.4
-head length restored,FALSE,3.375,4.5
-head length restored,FALSE,3.625,6.03333333333333
-head length restored,FALSE,3.875,17.7333333333333
-head length restored,FALSE,4.125,43.6
-head length restored,FALSE,4.375,65.7333333333333
-head length restored,FALSE,4.625,67
-head length restored,FALSE,4.875,66.2333333333333
-head length restored,FALSE,5.125,69.7666666666667
-head length restored,FALSE,5.375,84.9666666666667
-head length restored,FALSE,5.625,83.1333333333333
-head length restored,FALSE,5.875,83.0333333333333
-head length restored,FALSE,6.125,94.7333333333333
-head length restored,FALSE,6.375,90.6666666666667
-head length restored,FALSE,6.625,109.4
-head length restored,FALSE,6.875,125.733333333333
-head length restored,FALSE,7.125,118.633333333333
-head length restored,FALSE,7.375,114.133333333333
-head length restored,FALSE,7.625,114.6
-head length restored,FALSE,7.875,119.866666666667
-head length restored,FALSE,8.125,121.3
-head length restored,FALSE,8.375,128.133333333333
-head length restored,FALSE,8.625,136.066666666667
-head length restored,FALSE,8.875,138.633333333333
-head length restored,FALSE,9.125,147.4
-head length restored,FALSE,9.375,158.166666666667
-head length restored,FALSE,9.625,155.166666666667
-head length restored,FALSE,9.875,140.966666666667
-head length restored,FALSE,10.125,136.266666666667
-head length restored,FALSE,10.375,131.9
-head length restored,FALSE,10.625,131.7
-head length restored,FALSE,10.875,128.2
-head length restored,FALSE,11.125,121.933333333333
-head length restored,FALSE,11.375,124.7
-head length restored,FALSE,11.625,126.533333333333
-head length restored,FALSE,11.875,109.3
-head length restored,FALSE,12.125,119.233333333333
-head length restored,FALSE,12.375,116.233333333333
-head length restored,FALSE,12.625,110.4
-head length restored,FALSE,12.875,104.033333333333
-head length restored,FALSE,13.125,121.4
-head length restored,FALSE,13.375,108.433333333333
-head length restored,FALSE,13.625,106
-head length restored,FALSE,13.875,105.033333333333
-head length restored,FALSE,14.125,104.166666666667
-head length restored,FALSE,14.375,98.4333333333333
-head length restored,FALSE,14.625,106.766666666667
-head length restored,FALSE,14.875,100.533333333333
-head length restored,FALSE,15.125,97.6333333333334
-head length restored,FALSE,15.375,98.6666666666667
-head length restored,FALSE,15.625,89.2
-head length restored,FALSE,15.875,91.4
-head length restored,FALSE,16.125,92.9666666666667
-head length restored,FALSE,16.375,90.6666666666667
-head length restored,FALSE,16.625,93.8333333333333
-head length restored,FALSE,16.875,89.7333333333333
-head length restored,FALSE,17.125,83.0333333333333
-head length restored,FALSE,17.375,81.3333333333333
-head length restored,FALSE,17.625,82.2
-head length restored,FALSE,17.875,78.9666666666667
-head length restored,FALSE,18.125,74.6
-head length restored,FALSE,18.375,74.0333333333333
-head length restored,FALSE,18.625,76.1666666666667
-head length restored,FALSE,18.875,77.9666666666667
-head length restored,FALSE,19.125,82.3
-head length restored,FALSE,19.375,81.2333333333333
-head length restored,FALSE,19.625,83.1
-head length restored,FALSE,19.875,81.6666666666667
-head length restored,TRUE,1.375,0.433333333333333
-head length restored,TRUE,1.625,1.4
-head length restored,TRUE,1.875,2.16666666666667
-head length restored,TRUE,2.125,2.66666666666667
-head length restored,TRUE,2.375,5.1
-head length restored,TRUE,2.625,8.3
-head length restored,TRUE,2.875,12.2666666666667
-head length restored,TRUE,3.125,15.4
-head length restored,TRUE,3.375,21.7666666666667
-head length restored,TRUE,3.625,51.9333333333333
-head length restored,TRUE,3.875,209.633333333333
-head length restored,TRUE,4.125,560.566666666667
-head length restored,TRUE,4.375,738
-head length restored,TRUE,4.625,614.733333333333
-head length restored,TRUE,4.875,428.4
-head length restored,TRUE,5.125,324.533333333333
-head length restored,TRUE,5.375,229.933333333333
-head length restored,TRUE,5.625,161.133333333333
-head length restored,TRUE,5.875,104.4
-head length restored,TRUE,6.125,80.6
-head length restored,TRUE,6.375,62.1
-head length restored,TRUE,6.625,45.8
-head length restored,TRUE,6.875,39.5666666666667
-head length restored,TRUE,7.125,32.1666666666667
-head length restored,TRUE,7.375,27.5666666666667
-head length restored,TRUE,7.625,21.6333333333333
-head length restored,TRUE,7.875,22.2
-head length restored,TRUE,8.125,14.8333333333333
-head length restored,TRUE,8.375,11
-head length restored,TRUE,8.625,8.66666666666667
-head length restored,TRUE,8.875,7.36666666666667
-head length restored,TRUE,9.125,6.63333333333333
-head length restored,TRUE,9.375,5.43333333333333
-head length restored,TRUE,9.625,5.53333333333333
-head length restored,TRUE,9.875,4.9
-head length restored,TRUE,10.125,4.83333333333333
-head length restored,TRUE,10.375,3.03333333333333
-head length restored,TRUE,10.625,3
-head length restored,TRUE,10.875,2.26666666666667
-head length restored,TRUE,11.125,2.3
-head length restored,TRUE,11.375,2.6
-head length restored,TRUE,11.625,2.16666666666667
-head length restored,TRUE,11.875,2.43333333333333
-head length restored,TRUE,12.125,2.26666666666667
-head length restored,TRUE,12.375,1.7
-head length restored,TRUE,12.625,1.23333333333333
-head length restored,TRUE,12.875,0.933333333333333
-head length restored,TRUE,13.125,1.3
-head length restored,TRUE,13.375,0.933333333333333
-head length restored,TRUE,13.625,0.866666666666667
-head length restored,TRUE,13.875,0.8
-head length restored,TRUE,14.125,1.16666666666667
-head length restored,TRUE,14.375,1.13333333333333
-head length restored,TRUE,14.625,0.733333333333333
-head length restored,TRUE,14.875,1.16666666666667
-head length restored,TRUE,15.125,0.766666666666667
-head length restored,TRUE,15.375,0.7
-head length restored,TRUE,15.625,0.566666666666667
-head length restored,TRUE,15.875,0.6
-head length restored,TRUE,16.125,0.433333333333333
-head length restored,TRUE,16.375,0.733333333333333
-head length restored,TRUE,16.625,1.13333333333333
-head length restored,TRUE,16.875,1.1
-head length restored,TRUE,17.125,1.23333333333333
-head length restored,TRUE,17.375,1.66666666666667
-head length restored,TRUE,17.625,1.36666666666667
-head length restored,TRUE,17.875,0.733333333333333
-head length restored,TRUE,18.125,0.766666666666667
-head length restored,TRUE,18.375,0.866666666666667
-head length restored,TRUE,18.625,0.366666666666667
-head length restored,TRUE,18.875,0.533333333333333
-head length restored,TRUE,19.125,0.833333333333333
-head length restored,TRUE,19.375,0.666666666666667
-head length restored,TRUE,19.625,1.4
-head length restored,TRUE,19.875,1.2
+camera,manual_contact,bin_cm,time_s,nose
+camera 1,FALSE,2.125,0.1,restored
+camera 1,FALSE,2.375,0.0666666666666667,restored
+camera 1,FALSE,2.625,0.366666666666667,restored
+camera 1,FALSE,2.875,0.4,restored
+camera 1,FALSE,3.125,0.7,restored
+camera 1,FALSE,3.375,1.16666666666667,restored
+camera 1,FALSE,3.625,2.76666666666667,restored
+camera 1,FALSE,3.875,6.76666666666667,restored
+camera 1,FALSE,4.125,14.1666666666667,restored
+camera 1,FALSE,4.375,29.4,restored
+camera 1,FALSE,4.625,45.2,restored
+camera 1,FALSE,4.875,54.7333333333333,restored
+camera 1,FALSE,5.125,64.9333333333333,restored
+camera 1,FALSE,5.375,77.4666666666667,restored
+camera 1,FALSE,5.625,94.9333333333333,restored
+camera 1,FALSE,5.875,114.466666666667,restored
+camera 1,FALSE,6.125,119.833333333333,restored
+camera 1,FALSE,6.375,137.366666666667,restored
+camera 1,FALSE,6.625,152.933333333333,restored
+camera 1,FALSE,6.875,165.366666666667,restored
+camera 1,FALSE,7.125,165.6,restored
+camera 1,FALSE,7.375,166.9,restored
+camera 1,FALSE,7.625,173.866666666667,restored
+camera 1,FALSE,7.875,173.733333333333,restored
+camera 1,FALSE,8.125,191.133333333333,restored
+camera 1,FALSE,8.375,180.6,restored
+camera 1,FALSE,8.625,185.666666666667,restored
+camera 1,FALSE,8.875,191.2,restored
+camera 1,FALSE,9.125,192.366666666667,restored
+camera 1,FALSE,9.375,193.5,restored
+camera 1,FALSE,9.625,198.5,restored
+camera 1,FALSE,9.875,193.033333333333,restored
+camera 1,FALSE,10.125,173.9,restored
+camera 1,FALSE,10.375,175.4,restored
+camera 1,FALSE,10.625,181.433333333333,restored
+camera 1,FALSE,10.875,177.2,restored
+camera 1,FALSE,11.125,175.933333333333,restored
+camera 1,FALSE,11.375,183.666666666667,restored
+camera 1,FALSE,11.625,177.133333333333,restored
+camera 1,FALSE,11.875,174.666666666667,restored
+camera 1,FALSE,12.125,176.466666666667,restored
+camera 1,FALSE,12.375,168.866666666667,restored
+camera 1,FALSE,12.625,176.4,restored
+camera 1,FALSE,12.875,169.2,restored
+camera 1,FALSE,13.125,172.8,restored
+camera 1,FALSE,13.375,176.1,restored
+camera 1,FALSE,13.625,174.866666666667,restored
+camera 1,FALSE,13.875,178.733333333333,restored
+camera 1,FALSE,14.125,160.966666666667,restored
+camera 1,FALSE,14.375,159.266666666667,restored
+camera 1,FALSE,14.625,162,restored
+camera 1,FALSE,14.875,155.733333333333,restored
+camera 1,FALSE,15.125,156.2,restored
+camera 1,FALSE,15.375,166.333333333333,restored
+camera 1,FALSE,15.625,151.1,restored
+camera 1,FALSE,15.875,153.733333333333,restored
+camera 1,FALSE,16.125,159.466666666667,restored
+camera 1,FALSE,16.375,163.466666666667,restored
+camera 1,FALSE,16.625,161.2,restored
+camera 1,FALSE,16.875,158.3,restored
+camera 1,FALSE,17.125,166.366666666667,restored
+camera 1,FALSE,17.375,159.9,restored
+camera 1,FALSE,17.625,174.033333333333,restored
+camera 1,FALSE,17.875,163.233333333333,restored
+camera 1,FALSE,18.125,158.033333333333,restored
+camera 1,FALSE,18.375,152.166666666667,restored
+camera 1,FALSE,18.625,159.666666666667,restored
+camera 1,FALSE,18.875,157.5,restored
+camera 1,FALSE,19.125,156.9,restored
+camera 1,FALSE,19.375,154.066666666667,restored
+camera 1,FALSE,19.625,167.866666666667,restored
+camera 1,FALSE,19.875,161.6,restored
+camera 1,TRUE,0.875,0.366666666666667,restored
+camera 1,TRUE,1.125,0.666666666666667,restored
+camera 1,TRUE,1.375,2.16666666666667,restored
+camera 1,TRUE,1.625,3.93333333333333,restored
+camera 1,TRUE,1.875,6.8,restored
+camera 1,TRUE,2.125,7.5,restored
+camera 1,TRUE,2.375,10.9333333333333,restored
+camera 1,TRUE,2.625,12.6666666666667,restored
+camera 1,TRUE,2.875,17.5,restored
+camera 1,TRUE,3.125,20.5333333333333,restored
+camera 1,TRUE,3.375,29.9333333333333,restored
+camera 1,TRUE,3.625,82.7,restored
+camera 1,TRUE,3.875,201.5,restored
+camera 1,TRUE,4.125,383.366666666667,restored
+camera 1,TRUE,4.375,514.733333333333,restored
+camera 1,TRUE,4.625,559.366666666667,restored
+camera 1,TRUE,4.875,542.366666666667,restored
+camera 1,TRUE,5.125,439.733333333333,restored
+camera 1,TRUE,5.375,311.5,restored
+camera 1,TRUE,5.625,220.633333333333,restored
+camera 1,TRUE,5.875,155.666666666667,restored
+camera 1,TRUE,6.125,112.966666666667,restored
+camera 1,TRUE,6.375,87.6,restored
+camera 1,TRUE,6.625,67.1,restored
+camera 1,TRUE,6.875,52.1333333333333,restored
+camera 1,TRUE,7.125,40.1666666666667,restored
+camera 1,TRUE,7.375,30.5333333333333,restored
+camera 1,TRUE,7.625,24.7,restored
+camera 1,TRUE,7.875,18.7333333333333,restored
+camera 1,TRUE,8.125,16.5333333333333,restored
+camera 1,TRUE,8.375,12.6666666666667,restored
+camera 1,TRUE,8.625,8.36666666666667,restored
+camera 1,TRUE,8.875,7.16666666666667,restored
+camera 1,TRUE,9.125,4.73333333333333,restored
+camera 1,TRUE,9.375,3.36666666666667,restored
+camera 1,TRUE,9.625,2.5,restored
+camera 1,TRUE,9.875,1.86666666666667,restored
+camera 1,TRUE,10.125,1.16666666666667,restored
+camera 1,TRUE,10.375,1.03333333333333,restored
+camera 1,TRUE,10.625,0.766666666666667,restored
+camera 1,TRUE,10.875,0.7,restored
+camera 1,TRUE,11.125,0.666666666666667,restored
+camera 1,TRUE,11.375,0.4,restored
+camera 1,TRUE,11.625,0.533333333333333,restored
+camera 1,TRUE,11.875,0.4,restored
+camera 1,TRUE,12.125,0.2,restored
+camera 1,TRUE,12.375,0.3,restored
+camera 1,TRUE,12.625,0.2,restored
+camera 1,TRUE,12.875,0.133333333333333,restored
+camera 1,TRUE,13.125,0.133333333333333,restored
+camera 1,TRUE,13.375,0.166666666666667,restored
+camera 1,TRUE,13.625,0.1,restored
+camera 1,TRUE,13.875,0.0666666666666667,restored
+camera 1,TRUE,14.875,0.0333333333333333,restored
+camera 1,TRUE,16.125,0.0333333333333333,restored
+camera 1,TRUE,19.125,0.0333333333333333,restored
+camera 2,FALSE,0.125,0.0333333333333333,restored
+camera 2,FALSE,0.625,0.133333333333333,restored
+camera 2,FALSE,0.875,0.133333333333333,restored
+camera 2,FALSE,1.125,0.333333333333333,restored
+camera 2,FALSE,1.375,0.466666666666667,restored
+camera 2,FALSE,1.625,1.03333333333333,restored
+camera 2,FALSE,1.875,1.03333333333333,restored
+camera 2,FALSE,2.125,1.36666666666667,restored
+camera 2,FALSE,2.375,1.33333333333333,restored
+camera 2,FALSE,2.625,1.7,restored
+camera 2,FALSE,2.875,2.33333333333333,restored
+camera 2,FALSE,3.125,2.83333333333333,restored
+camera 2,FALSE,3.375,3.9,restored
+camera 2,FALSE,3.625,5.63333333333333,restored
+camera 2,FALSE,3.875,9.3,restored
+camera 2,FALSE,4.125,18.8666666666667,restored
+camera 2,FALSE,4.375,38.3333333333333,restored
+camera 2,FALSE,4.625,61.4,restored
+camera 2,FALSE,4.875,74.0333333333333,restored
+camera 2,FALSE,5.125,82.8666666666667,restored
+camera 2,FALSE,5.375,97.9333333333333,restored
+camera 2,FALSE,5.625,119.233333333333,restored
+camera 2,FALSE,5.875,135.033333333333,restored
+camera 2,FALSE,6.125,154.233333333333,restored
+camera 2,FALSE,6.375,162.166666666667,restored
+camera 2,FALSE,6.625,179.666666666667,restored
+camera 2,FALSE,6.875,206,restored
+camera 2,FALSE,7.125,202.933333333333,restored
+camera 2,FALSE,7.375,200.266666666667,restored
+camera 2,FALSE,7.625,209.733333333333,restored
+camera 2,FALSE,7.875,218.333333333333,restored
+camera 2,FALSE,8.125,220.166666666667,restored
+camera 2,FALSE,8.375,223.533333333333,restored
+camera 2,FALSE,8.625,235.433333333333,restored
+camera 2,FALSE,8.875,242.566666666667,restored
+camera 2,FALSE,9.125,244.5,restored
+camera 2,FALSE,9.375,263,restored
+camera 2,FALSE,9.625,254.633333333333,restored
+camera 2,FALSE,9.875,247.333333333333,restored
+camera 2,FALSE,10.125,247.033333333333,restored
+camera 2,FALSE,10.375,243.433333333333,restored
+camera 2,FALSE,10.625,236.4,restored
+camera 2,FALSE,10.875,232.266666666667,restored
+camera 2,FALSE,11.125,216.2,restored
+camera 2,FALSE,11.375,228.533333333333,restored
+camera 2,FALSE,11.625,223.9,restored
+camera 2,FALSE,11.875,204.966666666667,restored
+camera 2,FALSE,12.125,214.833333333333,restored
+camera 2,FALSE,12.375,203.066666666667,restored
+camera 2,FALSE,12.625,195.866666666667,restored
+camera 2,FALSE,12.875,199.633333333333,restored
+camera 2,FALSE,13.125,218.766666666667,restored
+camera 2,FALSE,13.375,190.866666666667,restored
+camera 2,FALSE,13.625,183.833333333333,restored
+camera 2,FALSE,13.875,185.366666666667,restored
+camera 2,FALSE,14.125,179.8,restored
+camera 2,FALSE,14.375,179.266666666667,restored
+camera 2,FALSE,14.625,180.866666666667,restored
+camera 2,FALSE,14.875,175.3,restored
+camera 2,FALSE,15.125,172.8,restored
+camera 2,FALSE,15.375,177.366666666667,restored
+camera 2,FALSE,15.625,164.466666666667,restored
+camera 2,FALSE,15.875,162.3,restored
+camera 2,FALSE,16.125,172.533333333333,restored
+camera 2,FALSE,16.375,177.066666666667,restored
+camera 2,FALSE,16.625,173.6,restored
+camera 2,FALSE,16.875,168.6,restored
+camera 2,FALSE,17.125,158.433333333333,restored
+camera 2,FALSE,17.375,158.833333333333,restored
+camera 2,FALSE,17.625,160.566666666667,restored
+camera 2,FALSE,17.875,160.566666666667,restored
+camera 2,FALSE,18.125,150.933333333333,restored
+camera 2,FALSE,18.375,147.966666666667,restored
+camera 2,FALSE,18.625,154.633333333333,restored
+camera 2,FALSE,18.875,162.266666666667,restored
+camera 2,FALSE,19.125,166.1,restored
+camera 2,FALSE,19.375,170,restored
+camera 2,FALSE,19.625,167.266666666667,restored
+camera 2,FALSE,19.875,167.366666666667,restored
+camera 2,TRUE,1.375,0.466666666666667,restored
+camera 2,TRUE,1.625,1.93333333333333,restored
+camera 2,TRUE,1.875,3.46666666666667,restored
+camera 2,TRUE,2.125,5.76666666666667,restored
+camera 2,TRUE,2.375,11.2666666666667,restored
+camera 2,TRUE,2.625,16.7,restored
+camera 2,TRUE,2.875,23.7666666666667,restored
+camera 2,TRUE,3.125,29.2,restored
+camera 2,TRUE,3.375,35.7666666666667,restored
+camera 2,TRUE,3.625,69.1666666666667,restored
+camera 2,TRUE,3.875,178.833333333333,restored
+camera 2,TRUE,4.125,411.033333333333,restored
+camera 2,TRUE,4.375,825.633333333333,restored
+camera 2,TRUE,4.625,904.5,restored
+camera 2,TRUE,4.875,662.066666666667,restored
+camera 2,TRUE,5.125,496.466666666667,restored
+camera 2,TRUE,5.375,370.966666666667,restored
+camera 2,TRUE,5.625,267.733333333333,restored
+camera 2,TRUE,5.875,192.966666666667,restored
+camera 2,TRUE,6.125,142.266666666667,restored
+camera 2,TRUE,6.375,117.766666666667,restored
+camera 2,TRUE,6.625,90.5,restored
+camera 2,TRUE,6.875,76.5666666666667,restored
+camera 2,TRUE,7.125,63.5333333333333,restored
+camera 2,TRUE,7.375,51.9666666666667,restored
+camera 2,TRUE,7.625,37.5666666666667,restored
+camera 2,TRUE,7.875,34.3666666666667,restored
+camera 2,TRUE,8.125,23.8333333333333,restored
+camera 2,TRUE,8.375,17.1666666666667,restored
+camera 2,TRUE,8.625,14.2666666666667,restored
+camera 2,TRUE,8.875,10.9,restored
+camera 2,TRUE,9.125,11.2333333333333,restored
+camera 2,TRUE,9.375,8.5,restored
+camera 2,TRUE,9.625,6.73333333333333,restored
+camera 2,TRUE,9.875,6.33333333333333,restored
+camera 2,TRUE,10.125,4.23333333333333,restored
+camera 2,TRUE,10.375,3.7,restored
+camera 2,TRUE,10.625,3.46666666666667,restored
+camera 2,TRUE,10.875,2.06666666666667,restored
+camera 2,TRUE,11.125,1.56666666666667,restored
+camera 2,TRUE,11.375,1.3,restored
+camera 2,TRUE,11.625,0.933333333333333,restored
+camera 2,TRUE,11.875,0.7,restored
+camera 2,TRUE,12.125,1.1,restored
+camera 2,TRUE,12.375,0.7,restored
+camera 2,TRUE,12.625,1.46666666666667,restored
+camera 2,TRUE,12.875,0.633333333333333,restored
+camera 2,TRUE,13.125,0.6,restored
+camera 2,TRUE,13.375,0.5,restored
+camera 2,TRUE,13.625,0.733333333333333,restored
+camera 2,TRUE,13.875,0.666666666666667,restored
+camera 2,TRUE,14.125,0.366666666666667,restored
+camera 2,TRUE,14.375,0.333333333333333,restored
+camera 2,TRUE,14.625,0.4,restored
+camera 2,TRUE,14.875,0.466666666666667,restored
+camera 2,TRUE,15.125,0.7,restored
+camera 2,TRUE,15.375,0.833333333333333,restored
+camera 2,TRUE,15.625,0.466666666666667,restored
+camera 2,TRUE,15.875,0.366666666666667,restored
+camera 2,TRUE,16.125,0.4,restored
+camera 2,TRUE,16.375,0.266666666666667,restored
+camera 2,TRUE,16.625,0.3,restored
+camera 2,TRUE,16.875,0.333333333333333,restored
+camera 2,TRUE,17.125,0.5,restored
+camera 2,TRUE,17.375,0.8,restored
+camera 2,TRUE,17.625,0.933333333333333,restored
+camera 2,TRUE,17.875,0.966666666666667,restored
+camera 2,TRUE,18.125,0.833333333333333,restored
+camera 2,TRUE,18.375,0.333333333333333,restored
+camera 2,TRUE,18.625,0.433333333333333,restored
+camera 2,TRUE,18.875,0.866666666666667,restored
+camera 2,TRUE,19.125,0.333333333333333,restored
+camera 2,TRUE,19.375,0.333333333333333,restored
+camera 2,TRUE,19.625,0.433333333333333,restored
+camera 2,TRUE,19.875,0.4,restored
+camera 1,FALSE,2.125,0.1,without restoration
+camera 1,FALSE,2.375,0.0666666666666667,without restoration
+camera 1,FALSE,2.625,0.366666666666667,without restoration
+camera 1,FALSE,2.875,0.4,without restoration
+camera 1,FALSE,3.125,0.7,without restoration
+camera 1,FALSE,3.375,1.16666666666667,without restoration
+camera 1,FALSE,3.625,2.73333333333333,without restoration
+camera 1,FALSE,3.875,5.46666666666667,without restoration
+camera 1,FALSE,4.125,11.5666666666667,without restoration
+camera 1,FALSE,4.375,23.4,without restoration
+camera 1,FALSE,4.625,37.3666666666667,without restoration
+camera 1,FALSE,4.875,48.0333333333333,without restoration
+camera 1,FALSE,5.125,59.9666666666667,without restoration
+camera 1,FALSE,5.375,70.1666666666667,without restoration
+camera 1,FALSE,5.625,89.2333333333333,without restoration
+camera 1,FALSE,5.875,112.466666666667,without restoration
+camera 1,FALSE,6.125,123.1,without restoration
+camera 1,FALSE,6.375,140.633333333333,without restoration
+camera 1,FALSE,6.625,159.566666666667,without restoration
+camera 1,FALSE,6.875,176.6,without restoration
+camera 1,FALSE,7.125,177.633333333333,without restoration
+camera 1,FALSE,7.375,168.066666666667,without restoration
+camera 1,FALSE,7.625,173.266666666667,without restoration
+camera 1,FALSE,7.875,178.5,without restoration
+camera 1,FALSE,8.125,194.1,without restoration
+camera 1,FALSE,8.375,181.633333333333,without restoration
+camera 1,FALSE,8.625,186.666666666667,without restoration
+camera 1,FALSE,8.875,194.533333333333,without restoration
+camera 1,FALSE,9.125,193.8,without restoration
+camera 1,FALSE,9.375,200.7,without restoration
+camera 1,FALSE,9.625,198.866666666667,without restoration
+camera 1,FALSE,9.875,193.433333333333,without restoration
+camera 1,FALSE,10.125,174.933333333333,without restoration
+camera 1,FALSE,10.375,174.333333333333,without restoration
+camera 1,FALSE,10.625,183,without restoration
+camera 1,FALSE,10.875,178.4,without restoration
+camera 1,FALSE,11.125,180.166666666667,without restoration
+camera 1,FALSE,11.375,184.833333333333,without restoration
+camera 1,FALSE,11.625,174.766666666667,without restoration
+camera 1,FALSE,11.875,172.633333333333,without restoration
+camera 1,FALSE,12.125,171.166666666667,without restoration
+camera 1,FALSE,12.375,164.066666666667,without restoration
+camera 1,FALSE,12.625,176.266666666667,without restoration
+camera 1,FALSE,12.875,171.433333333333,without restoration
+camera 1,FALSE,13.125,173.466666666667,without restoration
+camera 1,FALSE,13.375,172.766666666667,without restoration
+camera 1,FALSE,13.625,171.7,without restoration
+camera 1,FALSE,13.875,176.866666666667,without restoration
+camera 1,FALSE,14.125,160.266666666667,without restoration
+camera 1,FALSE,14.375,159.866666666667,without restoration
+camera 1,FALSE,14.625,164.033333333333,without restoration
+camera 1,FALSE,14.875,152.933333333333,without restoration
+camera 1,FALSE,15.125,155.933333333333,without restoration
+camera 1,FALSE,15.375,167.166666666667,without restoration
+camera 1,FALSE,15.625,154.333333333333,without restoration
+camera 1,FALSE,15.875,158.533333333333,without restoration
+camera 1,FALSE,16.125,161.266666666667,without restoration
+camera 1,FALSE,16.375,164.266666666667,without restoration
+camera 1,FALSE,16.625,160.666666666667,without restoration
+camera 1,FALSE,16.875,160.833333333333,without restoration
+camera 1,FALSE,17.125,169.166666666667,without restoration
+camera 1,FALSE,17.375,161.233333333333,without restoration
+camera 1,FALSE,17.625,174.433333333333,without restoration
+camera 1,FALSE,17.875,166.9,without restoration
+camera 1,FALSE,18.125,162.966666666667,without restoration
+camera 1,FALSE,18.375,163.666666666667,without restoration
+camera 1,FALSE,18.625,163.933333333333,without restoration
+camera 1,FALSE,18.875,162.566666666667,without restoration
+camera 1,FALSE,19.125,159.933333333333,without restoration
+camera 1,FALSE,19.375,154.566666666667,without restoration
+camera 1,FALSE,19.625,164.266666666667,without restoration
+camera 1,FALSE,19.875,155.4,without restoration
+camera 1,TRUE,0.875,0.366666666666667,without restoration
+camera 1,TRUE,1.125,0.666666666666667,without restoration
+camera 1,TRUE,1.375,2.16666666666667,without restoration
+camera 1,TRUE,1.625,3.93333333333333,without restoration
+camera 1,TRUE,1.875,6.8,without restoration
+camera 1,TRUE,2.125,7.5,without restoration
+camera 1,TRUE,2.375,10.9333333333333,without restoration
+camera 1,TRUE,2.625,12.6666666666667,without restoration
+camera 1,TRUE,2.875,17.5,without restoration
+camera 1,TRUE,3.125,20.3666666666667,without restoration
+camera 1,TRUE,3.375,28.7333333333333,without restoration
+camera 1,TRUE,3.625,70.2666666666667,without restoration
+camera 1,TRUE,3.875,171.2,without restoration
+camera 1,TRUE,4.125,340.366666666667,without restoration
+camera 1,TRUE,4.375,482.266666666667,without restoration
+camera 1,TRUE,4.625,543.333333333333,without restoration
+camera 1,TRUE,4.875,535.2,without restoration
+camera 1,TRUE,5.125,425.933333333333,without restoration
+camera 1,TRUE,5.375,293.466666666667,without restoration
+camera 1,TRUE,5.625,235.366666666667,without restoration
+camera 1,TRUE,5.875,188.8,without restoration
+camera 1,TRUE,6.125,163.966666666667,without restoration
+camera 1,TRUE,6.375,124.9,without restoration
+camera 1,TRUE,6.625,92.8666666666667,without restoration
+camera 1,TRUE,6.875,72.3,without restoration
+camera 1,TRUE,7.125,45.5666666666667,without restoration
+camera 1,TRUE,7.375,33.2,without restoration
+camera 1,TRUE,7.625,24.1333333333333,without restoration
+camera 1,TRUE,7.875,15.7,without restoration
+camera 1,TRUE,8.125,13.3,without restoration
+camera 1,TRUE,8.375,9.73333333333333,without restoration
+camera 1,TRUE,8.625,6.2,without restoration
+camera 1,TRUE,8.875,5.83333333333333,without restoration
+camera 1,TRUE,9.125,4.06666666666667,without restoration
+camera 1,TRUE,9.375,2.93333333333333,without restoration
+camera 1,TRUE,9.625,2.2,without restoration
+camera 1,TRUE,9.875,1.56666666666667,without restoration
+camera 1,TRUE,10.125,0.9,without restoration
+camera 1,TRUE,10.375,0.866666666666667,without restoration
+camera 1,TRUE,10.625,0.766666666666667,without restoration
+camera 1,TRUE,10.875,0.666666666666667,without restoration
+camera 1,TRUE,11.125,0.566666666666667,without restoration
+camera 1,TRUE,11.375,0.4,without restoration
+camera 1,TRUE,11.625,0.533333333333333,without restoration
+camera 1,TRUE,11.875,0.366666666666667,without restoration
+camera 1,TRUE,12.125,0.2,without restoration
+camera 1,TRUE,12.375,0.3,without restoration
+camera 1,TRUE,12.625,0.2,without restoration
+camera 1,TRUE,12.875,0.133333333333333,without restoration
+camera 1,TRUE,13.125,0.133333333333333,without restoration
+camera 1,TRUE,13.375,0.166666666666667,without restoration
+camera 1,TRUE,13.625,0.1,without restoration
+camera 1,TRUE,13.875,0.0666666666666667,without restoration
+camera 1,TRUE,14.875,0.0333333333333333,without restoration
+camera 1,TRUE,16.125,0.0333333333333333,without restoration
+camera 1,TRUE,19.125,0.0333333333333333,without restoration
+camera 2,FALSE,0.125,0.0333333333333333,without restoration
+camera 2,FALSE,0.625,0.133333333333333,without restoration
+camera 2,FALSE,0.875,0.133333333333333,without restoration
+camera 2,FALSE,1.125,0.333333333333333,without restoration
+camera 2,FALSE,1.375,0.466666666666667,without restoration
+camera 2,FALSE,1.625,1.03333333333333,without restoration
+camera 2,FALSE,1.875,1.06666666666667,without restoration
+camera 2,FALSE,2.125,1.4,without restoration
+camera 2,FALSE,2.375,1.26666666666667,without restoration
+camera 2,FALSE,2.625,1.73333333333333,without restoration
+camera 2,FALSE,2.875,2.46666666666667,without restoration
+camera 2,FALSE,3.125,2.96666666666667,without restoration
+camera 2,FALSE,3.375,3.83333333333333,without restoration
+camera 2,FALSE,3.625,5.16666666666667,without restoration
+camera 2,FALSE,3.875,7.86666666666667,without restoration
+camera 2,FALSE,4.125,13.5333333333333,without restoration
+camera 2,FALSE,4.375,28.7333333333333,without restoration
+camera 2,FALSE,4.625,50.3,without restoration
+camera 2,FALSE,4.875,63.7,without restoration
+camera 2,FALSE,5.125,70.8,without restoration
+camera 2,FALSE,5.375,91.3,without restoration
+camera 2,FALSE,5.625,111.633333333333,without restoration
+camera 2,FALSE,5.875,136.9,without restoration
+camera 2,FALSE,6.125,158.166666666667,without restoration
+camera 2,FALSE,6.375,170.466666666667,without restoration
+camera 2,FALSE,6.625,194.266666666667,without restoration
+camera 2,FALSE,6.875,219.366666666667,without restoration
+camera 2,FALSE,7.125,207.166666666667,without restoration
+camera 2,FALSE,7.375,208.3,without restoration
+camera 2,FALSE,7.625,216.566666666667,without restoration
+camera 2,FALSE,7.875,222.666666666667,without restoration
+camera 2,FALSE,8.125,219.733333333333,without restoration
+camera 2,FALSE,8.375,226.1,without restoration
+camera 2,FALSE,8.625,234,without restoration
+camera 2,FALSE,8.875,250.1,without restoration
+camera 2,FALSE,9.125,257.233333333333,without restoration
+camera 2,FALSE,9.375,263.966666666667,without restoration
+camera 2,FALSE,9.625,255.433333333333,without restoration
+camera 2,FALSE,9.875,253.466666666667,without restoration
+camera 2,FALSE,10.125,243.366666666667,without restoration
+camera 2,FALSE,10.375,248.433333333333,without restoration
+camera 2,FALSE,10.625,238.733333333333,without restoration
+camera 2,FALSE,10.875,229.5,without restoration
+camera 2,FALSE,11.125,214.8,without restoration
+camera 2,FALSE,11.375,219.6,without restoration
+camera 2,FALSE,11.625,217.833333333333,without restoration
+camera 2,FALSE,11.875,200.666666666667,without restoration
+camera 2,FALSE,12.125,211.566666666667,without restoration
+camera 2,FALSE,12.375,201.3,without restoration
+camera 2,FALSE,12.625,198.033333333333,without restoration
+camera 2,FALSE,12.875,203.833333333333,without restoration
+camera 2,FALSE,13.125,223.3,without restoration
+camera 2,FALSE,13.375,189.166666666667,without restoration
+camera 2,FALSE,13.625,181.5,without restoration
+camera 2,FALSE,13.875,182.566666666667,without restoration
+camera 2,FALSE,14.125,179.933333333333,without restoration
+camera 2,FALSE,14.375,176.4,without restoration
+camera 2,FALSE,14.625,181.933333333333,without restoration
+camera 2,FALSE,14.875,180.766666666667,without restoration
+camera 2,FALSE,15.125,181.333333333333,without restoration
+camera 2,FALSE,15.375,176.1,without restoration
+camera 2,FALSE,15.625,165.3,without restoration
+camera 2,FALSE,15.875,160.4,without restoration
+camera 2,FALSE,16.125,173.166666666667,without restoration
+camera 2,FALSE,16.375,176.133333333333,without restoration
+camera 2,FALSE,16.625,171.833333333333,without restoration
+camera 2,FALSE,16.875,166.833333333333,without restoration
+camera 2,FALSE,17.125,161.433333333333,without restoration
+camera 2,FALSE,17.375,159.966666666667,without restoration
+camera 2,FALSE,17.625,166.233333333333,without restoration
+camera 2,FALSE,17.875,160.833333333333,without restoration
+camera 2,FALSE,18.125,155.233333333333,without restoration
+camera 2,FALSE,18.375,158.8,without restoration
+camera 2,FALSE,18.625,163.4,without restoration
+camera 2,FALSE,18.875,164.8,without restoration
+camera 2,FALSE,19.125,165.333333333333,without restoration
+camera 2,FALSE,19.375,165.933333333333,without restoration
+camera 2,FALSE,19.625,159.4,without restoration
+camera 2,FALSE,19.875,163.433333333333,without restoration
+camera 2,TRUE,1.375,0.466666666666667,without restoration
+camera 2,TRUE,1.625,1.93333333333333,without restoration
+camera 2,TRUE,1.875,3.4,without restoration
+camera 2,TRUE,2.125,5.76666666666667,without restoration
+camera 2,TRUE,2.375,11.2666666666667,without restoration
+camera 2,TRUE,2.625,16.7333333333333,without restoration
+camera 2,TRUE,2.875,23.8,without restoration
+camera 2,TRUE,3.125,29.1666666666667,without restoration
+camera 2,TRUE,3.375,35.6666666666667,without restoration
+camera 2,TRUE,3.625,59.8333333333333,without restoration
+camera 2,TRUE,3.875,123.4,without restoration
+camera 2,TRUE,4.125,329.366666666667,without restoration
+camera 2,TRUE,4.375,786.466666666667,without restoration
+camera 2,TRUE,4.625,926.133333333333,without restoration
+camera 2,TRUE,4.875,676.733333333333,without restoration
+camera 2,TRUE,5.125,492.233333333333,without restoration
+camera 2,TRUE,5.375,346.033333333333,without restoration
+camera 2,TRUE,5.625,268,without restoration
+camera 2,TRUE,5.875,225.166666666667,without restoration
+camera 2,TRUE,6.125,204.333333333333,without restoration
+camera 2,TRUE,6.375,159.366666666667,without restoration
+camera 2,TRUE,6.625,125.233333333333,without restoration
+camera 2,TRUE,6.875,100.066666666667,without restoration
+camera 2,TRUE,7.125,70.3333333333333,without restoration
+camera 2,TRUE,7.375,53.2,without restoration
+camera 2,TRUE,7.625,35.2333333333333,without restoration
+camera 2,TRUE,7.875,27.2,without restoration
+camera 2,TRUE,8.125,20.4666666666667,without restoration
+camera 2,TRUE,8.375,16.0666666666667,without restoration
+camera 2,TRUE,8.625,12.6333333333333,without restoration
+camera 2,TRUE,8.875,9.93333333333333,without restoration
+camera 2,TRUE,9.125,8.93333333333333,without restoration
+camera 2,TRUE,9.375,6.6,without restoration
+camera 2,TRUE,9.625,5.83333333333333,without restoration
+camera 2,TRUE,9.875,5.6,without restoration
+camera 2,TRUE,10.125,3.53333333333333,without restoration
+camera 2,TRUE,10.375,3.46666666666667,without restoration
+camera 2,TRUE,10.625,3.36666666666667,without restoration
+camera 2,TRUE,10.875,1.86666666666667,without restoration
+camera 2,TRUE,11.125,1.46666666666667,without restoration
+camera 2,TRUE,11.375,1.3,without restoration
+camera 2,TRUE,11.625,0.933333333333333,without restoration
+camera 2,TRUE,11.875,0.633333333333333,without restoration
+camera 2,TRUE,12.125,1.06666666666667,without restoration
+camera 2,TRUE,12.375,0.666666666666667,without restoration
+camera 2,TRUE,12.625,1.46666666666667,without restoration
+camera 2,TRUE,12.875,0.666666666666667,without restoration
+camera 2,TRUE,13.125,0.633333333333333,without restoration
+camera 2,TRUE,13.375,0.633333333333333,without restoration
+camera 2,TRUE,13.625,0.666666666666667,without restoration
+camera 2,TRUE,13.875,0.466666666666667,without restoration
+camera 2,TRUE,14.125,0.366666666666667,without restoration
+camera 2,TRUE,14.375,0.366666666666667,without restoration
+camera 2,TRUE,14.625,0.466666666666667,without restoration
+camera 2,TRUE,14.875,0.5,without restoration
+camera 2,TRUE,15.125,0.7,without restoration
+camera 2,TRUE,15.375,0.8,without restoration
+camera 2,TRUE,15.625,0.466666666666667,without restoration
+camera 2,TRUE,15.875,0.333333333333333,without restoration
+camera 2,TRUE,16.125,0.433333333333333,without restoration
+camera 2,TRUE,16.375,0.233333333333333,without restoration
+camera 2,TRUE,16.625,0.333333333333333,without restoration
+camera 2,TRUE,16.875,0.333333333333333,without restoration
+camera 2,TRUE,17.125,0.533333333333333,without restoration
+camera 2,TRUE,17.375,0.866666666666667,without restoration
+camera 2,TRUE,17.625,0.966666666666667,without restoration
+camera 2,TRUE,17.875,1.1,without restoration
+camera 2,TRUE,18.125,0.6,without restoration
+camera 2,TRUE,18.375,0.366666666666667,without restoration
+camera 2,TRUE,18.625,0.433333333333333,without restoration
+camera 2,TRUE,18.875,0.9,without restoration
+camera 2,TRUE,19.125,0.3,without restoration
+camera 2,TRUE,19.375,0.333333333333333,without restoration
+camera 2,TRUE,19.625,0.333333333333333,without restoration
+camera 2,TRUE,19.875,0.433333333333333,without restoration

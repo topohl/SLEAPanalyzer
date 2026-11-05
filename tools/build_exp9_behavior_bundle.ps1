@@ -224,7 +224,12 @@ try {
         '02_SLEAPanalzyer\core\geometry.R',
         '02_SLEAPanalzyer\core\interpolation.R',
         '02_SLEAPanalzyer\core\io.R',
-        '02_SLEAPanalzyer\core\validation.R'
+        '02_SLEAPanalzyer\core\validation.R',
+        '02_SLEAPanalzyer\core\assay_config.R',
+        '02_SLEAPanalzyer\core\landmark_repair.R',
+        '02_SLEAPanalzyer\core\plausibility.R',
+        '02_SLEAPanalzyer\core\tracking_data.R',
+        '02_SLEAPanalzyer\DLCA_SocP v.1.1.0.R'
     )
     foreach ($relative in $analysisCode) {
         Copy-RecordedFile `
