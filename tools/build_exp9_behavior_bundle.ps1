@@ -193,7 +193,7 @@ try {
     }
 
     $configDir = Join-Path $repoRoot 'validation\exp9_boris\config'
-    foreach ($name in 'epm_all.yaml','nor_all.yaml','nor_hab_all.yaml','socp_all.yaml','socp_hab_all.yaml','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
+    foreach ($name in 'epm_all.yaml','nor_all.yaml','nor_hab_all.yaml','socp_all.yaml','socp_hab_all.yaml','qc_decisions_socp.csv','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
         Copy-RecordedFile `
             -Source (Join-Path $configDir $name) `
             -Destination (Join-Path $releaseRoot "provenance\configs\$name")

@@ -135,7 +135,8 @@ rolling_median <- function(x, window_frames) {
 #' @return list: `on_object`, a logical vector (every accepted episode,
 #'   extended), and `episodes`, one row per candidate episode with its decision
 #'   ("on_object", "normal_size" or "too_short"); `start_frame`/`end_frame`
-#'   of accepted episodes include the extension
+#'   of accepted episodes include the extension, so neighbouring accepted
+#'   episodes can overlap: `on_object` is their union
 detect_on_object <- function(tracking, object, corners, footprint_radius,
                              beyond = NULL, max_distance = Inf,
                              min_apparent_size = 1.08, merge_gap_s = 0.5,

@@ -66,6 +66,36 @@ missing. Nothing forward-fills, so a dropout never becomes a stationary animal.
 legacy onsets-plus-offsets formula and is roughly double; it is retained for
 continuity only.
 
+### Plausibility checks
+
+Session QC (`qc.R`) says whether a recording is usable. `plausibility.R` finds
+the stretches inside a usable recording that the scoring rules do not expect.
+Every check returns per-frame flags and an episode table; none changes a score
+unless an assay applies it through its configuration (so far only SocP,
+`on_cup_exclusion`).
+
+| Check | Flags |
+|---|---|
+| `apparent_body_size()` | Landmark separations relative to the recording's median; a raised animal is imaged larger |
+| `detect_on_object()` | The animal on top of a static object (see SocP) |
+| `jump_episodes()` | A landmark faster than a plausible speed |
+| `skeleton_episodes()` | Nose-tailbase length far from its median |
+| `outside_arena_episodes()` | A landmark outside the arena corners |
+
+The review loop: `validation/exp9_boris/scripts/23_plausibility_screen.R` runs
+every check on every staged Exp9 recording and writes
+`results/plausibility_episodes.csv` and `results/plausibility_summary.csv`;
+`tools/qc_review.py` renders a still strip and a short clip of any selection of
+episodes, with an `index.html`; a reviewed verdict goes into the assay's
+`qc_decisions_file`, which the next run applies.
+
+NOR objects (report only). In batch 1 the manual scoring codes 28 climbing
+bouts; SLEAP contact inside them is 11.4 of 538.8 s, because most full climbs
+already fail the head-angle rule and what remains are partial mounts.
+`detect_on_object()` at 3.5 cm and 1.04 removes 2.5 s of that at 96%
+precision, and across all six batches it would change NOR D2 by more than 0.05
+in one recording, so the NOR scoring is left as it is.
+
 ---
 
 ## Open Field Test (OFT)
@@ -335,7 +365,8 @@ It is then extended while the mouse stays raised within
 `on_cup_max_distance_cm`, which covers the lid edge. Position alone is not
 enough: a mouse squeezed between cup and wall, or a misplaced body point, sits
 in the same places at normal size. Every candidate episode and its decision is
-written to `on_cup_episodes.csv`; reviewed corrections go in
+written to `on_cup_episodes.csv` (extended spans of neighbouring episodes can
+overlap; `onCup*` counts their union); reviewed corrections go in
 `qc_decisions_file` (`file, target, start_s, end_s, decision, reason,
 reviewer`; decision `on_object` or `not_on_object`).
 
@@ -344,7 +375,10 @@ from all 348 recordings: floor-level body centres stay at least ~5 cm from
 the cup point (rearing at the wire about 4.2 cm), and raised episodes measure
 1.10-1.40 against at most 1.03 for floor episodes. In a blind review of 123
 frames (two independent passes, 98% agreement) the rule removed 34 of 35
-frames judged on top of the cup and none of 85 floor frames.
+frames judged on top of the cup and none of 85 floor frames. Against the raw
+manual scoring of 10 batch 1 animals (20 sessions), none of the on-cup time was
+scored as interaction or rearing, and where the scorer coded climbing (50.0 s,
+one session) the rule finds 41.2 s.
 
 ---
 
