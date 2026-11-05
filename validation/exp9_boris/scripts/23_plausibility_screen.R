@@ -115,7 +115,9 @@ screen_one <- function(r) {
         decision = d$decision, contact_s = vapply(seq_len(nrow(d)), function(i) sum(contact[d$start_frame[i]:d$end_frame[i]]) / FPS, 0))
     }
   }
-  list(episodes = episode_table(r, rbindlist(out, fill = TRUE)), frames = n)
+  e <- rbindlist(out, fill = TRUE)
+  for (cn in c("decision", "contact_s")) if (nrow(e) && !cn %in% names(e)) e[, (cn) := NA]
+  list(episodes = episode_table(r, e), frames = n)
 }
 
 eps <- list(); summ <- list()
