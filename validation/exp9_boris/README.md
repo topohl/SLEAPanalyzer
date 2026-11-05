@@ -99,10 +99,16 @@ untracked or excluded on a cup, contact before and after against a reference rel
 the anchor models, the reviewed decisions, the batch 1 manual check and the screen of
 `23` (report only). `Rscript 24_qc_report.R <socp_output_root> <reference_release> <out_dir>`.
 
+**`25` — repair review.** Picks repaired episodes of the social preference test (the
+longest rebuilt noses, the named cases, every collapsed and the longest split
+skeletons), writes those recordings' tracking after the repair and the lists for
+`tools/qc_review.py`, which draws the original and the repaired nose and body centre
+on stills and clips.
+
 ## Layout
 
 ```
-scripts/    24 R scripts, as described above
+scripts/    25 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

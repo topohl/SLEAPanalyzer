@@ -7,10 +7,13 @@ usage:
 
 episodes.csv  one row per episode. Required columns: episode_id, tracking_file, start_frame, end_frame (1-based
               positions in the tracking file, as written by SLEAPanalyzer), label (free text shown on the clip).
-              Optional: target (a landmark drawn as a cross, e.g. socr), group (index section), note.
+              Optional: target (a landmark drawn as a cross, e.g. socr), group (index section), note,
+              repaired_file (a tracking file in the same layout, e.g. after the landmark repair: its nose and
+              body centre are drawn as larger rings, cyan and magenta, next to the original).
 videos.csv    tracking_file, video_path: the video each tracking file was made from (rows = video frames).
 
-Markers: red = nose, green = body centre, blue = tail base, yellow cross = target landmark. Frames inside the
+Markers: red = nose, green = body centre, blue = tail base, yellow cross = target landmark; cyan / magenta ring =
+nose / body centre of repaired_file. Frames inside the
 episode carry an orange border and the label; the padding before and after has no border.
 """
 import argparse, csv, html, os, subprocess, sys
@@ -37,14 +40,17 @@ def read_tracking(path):
     return get, data.shape[0]
 
 
-def annotate(img, get_pts, frame, target, inside, text):
-    for name, colour in (("nose", (0, 0, 255)), ("bodycentre", (0, 255, 0)), ("tailbase", (255, 0, 0))):
-        pts = get_pts.get(name)
+def annotate(img, get_pts, frame, target, inside, text, repaired=None):
+    marks = [(get_pts, name, colour, 7) for name, colour in (("nose", (0, 0, 255)), ("bodycentre", (0, 255, 0)), ("tailbase", (255, 0, 0)))]
+    if repaired is not None:
+        marks += [(repaired, "nose", (255, 255, 0), 12), (repaired, "bodycentre", (255, 0, 255), 12)]
+    for source, name, colour, radius in marks:
+        pts = source.get(name)
         if pts is None or frame >= len(pts[0]):
             continue
         x, y = pts[0][frame], pts[1][frame]
         if np.isfinite(x) and np.isfinite(y):
-            cv2.circle(img, (int(x), int(y)), 7, colour, 2)
+            cv2.circle(img, (int(x), int(y)), radius, colour, 2)
     if target is not None:
         cv2.drawMarker(img, target, (0, 255, 255), cv2.MARKER_CROSS, 20, 2)
     h, w = img.shape[:2]
@@ -77,6 +83,14 @@ def main():
             pts = {k: get(k) for k in ("nose", "bodycentre", "tailbase")}
             cache[tf] = (get, n, pts)
         get, n, pts = cache[tf]
+        repaired = None
+        if ep.get("repaired_file"):
+            if ep["repaired_file"] not in cache:
+                rget, rn = read_tracking(ep["repaired_file"])
+                if rn != n:
+                    sys.exit(f"{ep['repaired_file']} has {rn} rows, {tf} has {n}")
+                cache[ep["repaired_file"]] = (rget, rn, {k: rget(k) for k in ("nose", "bodycentre")})
+            repaired = cache[ep["repaired_file"]][2]
         target = None
         if ep.get("target"):
             t = get(ep["target"])
@@ -106,7 +120,7 @@ def main():
                     break
                 inside = first <= f <= last
                 text = f"{eid}  t={f / fps:6.1f}s  {ep['label'] if inside else ''}"
-                img = annotate(img, pts, f, target, inside, text)
+                img = annotate(img, pts, f, target, inside, text, repaired)
                 if f in want:
                     stills.append(img.copy())
                 if proc is None:
@@ -134,12 +148,13 @@ def main():
     parts = ["<!doctype html><meta charset='utf-8'><title>QC review</title>",
              "<style>body{font-family:sans-serif;margin:16px} img{width:100%;max-width:1400px} "
              "td{vertical-align:top;padding:6px;border-bottom:1px solid #ccc}</style>",
-             "<p>Red = nose, green = body centre, blue = tail base, yellow cross = cup or object point. "
+             "<p>Red = nose, green = body centre, blue = tail base, yellow cross = cup or object point; "
+             "cyan / magenta ring = nose / body centre after the repair (where given). "
              "Orange border = frames inside the episode. Stills: first, one-third, two-thirds and last episode frame.</p>"]
     for g, rs in groups.items():
         parts.append(f"<h2>{html.escape(g)} ({len(rs)})</h2><table>")
         for r in rs:
-            meta = html.escape(" | ".join(f"{k}: {r[k]}" for k in r if k not in ("still", "clip", "tracking_file", "group") and r[k]))
+            meta = html.escape(" | ".join(f"{k}: {r[k]}" for k in r if k not in ("still", "clip", "tracking_file", "repaired_file", "group") and r[k]))
             parts.append(f"<tr><td><b>{html.escape(r['episode_id'])}</b><br>{meta}<br>"
                          f"<a href='{r['clip']}'>clip</a></td><td><img src='{r['still']}'></td></tr>")
         parts.append("</table>")
