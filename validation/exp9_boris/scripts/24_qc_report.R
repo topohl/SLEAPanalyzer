@@ -164,9 +164,9 @@ save_fig(p1, "repairs_by_recording", 183, 78)
 
 cl <- melt(rec, id.vars = c("Code", "sex", "phase_label", "Group"), measure.vars = list(c("novel_before_s", "familiar_before_s"), c("novel_after_s", "familiar_after_s")),
            variable.name = "side", value.name = c("before", "after"))
-cl[, side := factor(side, 1:2, c("novel side", "familiar side"))]
-cl[, panel := factor(paste0(c(`Habituation (empty cups)` = "Habituation", `Phase 1 (mouse vs empty cup)` = "Phase 1", `Phase 2 (new vs familiar mouse)` = "Phase 2")[as.character(phase_label)], ", ", side),
-                     paste0(rep(c("Habituation", "Phase 1", "Phase 2"), each = 2), ", ", c("novel side", "familiar side")))]
+# novel / familiar side: in habituation the side of the stranger to come, in phase 1 the mouse and the empty cup
+PANELS <- c("Habituation, stranger side", "Habituation, other side", "Phase 1, mouse", "Phase 1, empty cup", "Phase 2, new mouse", "Phase 2, familiar mouse")
+cl[, panel := factor(PANELS[(match(as.character(phase_label), PHASE_LABEL) - 1) * 2 + as.integer(side)], PANELS)]
 p2 <- ggplot(cl, aes(before, after, colour = Group)) + geom_abline(slope = 1, intercept = 0, linetype = "22", linewidth = PAL$line$reference_pt / 2.13, colour = "grey55") +
   geom_point(shape = 16, size = 0.9, alpha = 0.8) + scale_colour_manual(values = GC, drop = FALSE) + facet_grid(sex ~ panel) + coord_equal() +
   labs(x = "Cup contact before the repair (s)", y = "After (s)", colour = NULL) + th
