@@ -56,7 +56,7 @@ if (isTRUE(config$on_cup_exclusion)) {
 # Landmark repair (repair_landmarks()): every setting must be stated in the configuration.
 repair_fields <- c("landmark_repair_landmarks", "landmark_repair_targets", "landmark_repair_margin_cm",
                    "landmark_repair_margin_fraction", "landmark_repair_min_share", "landmark_repair_min_landmarks",
-                   "landmark_repair_max_anchor_error_cm")
+                   "landmark_repair_max_anchor_error_cm", "landmark_repair_outside_cm")
 if (isTRUE(config$landmark_repair)) {
   unset <- repair_fields[vapply(repair_fields, function(f) is.null(config[[f]]), logical(1))]
   if (length(unset) > 0) stop("landmark_repair is on but unset: ", paste(unset, collapse = ", "))
@@ -115,7 +115,9 @@ for (batch in batches) {
           margin_fraction = config$landmark_repair_margin_fraction,
           min_share = config$landmark_repair_min_share,
           min_landmarks = config$landmark_repair_min_landmarks,
-          max_anchor_error = config$landmark_repair_max_anchor_error_cm
+          max_anchor_error = config$landmark_repair_max_anchor_error_cm,
+          corners = config$arena_corner_names,
+          max_outside = config$landmark_repair_outside_cm
         )
         rp <- tracking$repair
         s <- rp$summary

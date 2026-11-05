@@ -61,6 +61,51 @@ test_that("a collapsed skeleton is removed, not rebuilt", {
   expect_true("skeleton_collapse" %in% fixed$repair$episodes$check)
 })
 
+test_that("a split skeleton keeps its consistent majority; without one it collapses", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  head <- c("nose", "leftEar", "rightEar", "spine1", "rightArm")       # 5 of 11 moved together, off the animal
+  for (p in head) { tr$data[[p]]$x[100:130] <- tr$data[[p]]$x[100:130] - 15; tr$data[[p]]$y[100:130] <- tr$data[[p]]$y[100:130] + 40 }
+  expect_true(all(skeleton_outliers(tr)[100:130, ]))                   # the vote alone flags every landmark
+  fixed <- repair_landmarks(tr)
+  expect_false(any(fixed$repair$collapse))
+  expect_true(all(fixed$repair$split[100:130]))
+  expect_false(any(fixed$repair$split[-(100:130)]))
+  expect_true(all(is.na(fixed$data$leftEar$x[100:130])))
+  expect_equal(fixed$data$tailbase$x, tr$data$tailbase$x)
+  err <- sqrt((fixed$data$nose$x[100:130] - m$truth$nose[100:130, "x"])^2 + (fixed$data$nose$y[100:130] - m$truth$nose[100:130, "y"])^2)
+  expect_lt(max(err), 0.25)
+  expect_true(all(as.character(fixed$data$nose$status[100:130]) == "reconstructed"))
+  expect_true("skeleton_split" %in% fixed$repair$episodes$check)
+  tr$data$tailbase$x[100:130] <- 40; tr$data$tailbase$y[100:130] <- 2  # now 5 against 5 and one: no majority
+  even <- repair_landmarks(tr)
+  expect_true(all(even$repair$collapse[100:130]))
+  expect_false(any(even$repair$split))
+})
+
+test_that("landmarks far outside the arena are removed before the skeleton vote", {
+  m <- synthetic_mouse()
+  n <- nrow(m$truth$nose)
+  corner <- function(x, y) cbind(x = rep(x, n), y = rep(y, n))
+  points <- c(m$truth, list(tl = corner(0, 24), tr = corner(44, 24), br = corner(44, 0), bl = corner(0, 0)))
+  out <- c("nose", "leftEar", "rightEar", "spine1", "rightArm", "leftArm")   # 6 of 11 stuck on one spot 30 cm outside
+  for (p in out) points[[p]][100:130, ] <- cbind(-30 + 0.3 * match(p, out), 10)
+  tr <- make_tracking(frames = 0:(n - 1), fps = 30, points = points, distance_unit = "cm")
+  expect_equal(distance_outside_polygon(c(22, -3, 50, NA), c(12, 12, 30, 1), rbind(c(0, 24), c(44, 24), c(44, 0), c(0, 0))), c(0, 3, sqrt(72), NA))
+  fixed <- repair_landmarks(tr, corners = c("tl", "tr", "br", "bl"), max_outside = 15)
+  expect_false(any(fixed$repair$collapse))
+  err <- sqrt((fixed$data$nose$x[100:130] - m$truth$nose[100:130, "x"])^2 + (fixed$data$nose$y[100:130] - m$truth$nose[100:130, "y"])^2)
+  expect_lt(max(err), 0.25)
+  expect_equal(fixed$data$tailbase$x, tr$data$tailbase$x)
+  s <- fixed$repair$summary
+  expect_equal(s$outside_s[s$landmark == "leftEar"], 31 / 30)
+  expect_equal(s$outside_s[s$landmark == "tailbase"], 0)
+  expect_true(all(fixed$repair$frames_flagged[100:130]))
+  expect_true("outside_arena" %in% fixed$repair$episodes$check)
+  without <- repair_landmarks(tr)                                     # the vote alone keeps the larger, wrong group
+  expect_true(all(is.na(without$data$tailbase$x[100:130])))
+})
+
 test_that("rebuilt frames survive interpolation and count as valid but not as observed", {
   m <- synthetic_mouse()
   tr <- m$tracking

@@ -22,6 +22,25 @@ landmark_matrix <- function(tracking, landmarks) {
   })
 }
 
+#' Distance of each point outside a polygon to its nearest edge.
+#'
+#' @param polygon matrix with columns x, y (the vertices in order)
+#' @return 0 inside or on the polygon, NA where the point is unknown
+distance_outside_polygon <- function(x, y, polygon) {
+  d <- rep(NA_real_, length(x))
+  ok <- is.finite(x) & is.finite(y)
+  if (!any(ok)) return(d)
+  px <- x[ok]; py <- y[ok]; k <- nrow(polygon)
+  edge <- vapply(seq_len(k), function(i) {
+    a <- polygon[i, ]; b <- polygon[i %% k + 1, ]; dx <- b[1] - a[1]; dy <- b[2] - a[2]
+    t <- pmin(1, pmax(0, ((px - a[1]) * dx + (py - a[2]) * dy) / (dx^2 + dy^2)))
+    sqrt((px - a[1] - t * dx)^2 + (py - a[2] - t * dy)^2)
+  }, numeric(length(px)))
+  inside <- points_in_polygon(px, py, data.frame(x = polygon[, 1], y = polygon[, 2]))
+  d[ok] <- ifelse(inside, 0, apply(matrix(edge, ncol = k), 1, min))
+  d
+}
+
 #' Landmarks inconsistent with the rest of the skeleton.
 #'
 #' For every pair of landmarks the typical distance is its median over the
@@ -34,7 +53,8 @@ landmark_matrix <- function(tracking, landmarks) {
 #'
 #' @param margin absolute tolerance, in coordinate units (cm after calibration)
 #' @return logical matrix, frames x landmarks; attribute "medians" holds the
-#'   typical pair distances
+#'   typical pair distances, "ratio" each pair's distance over its limit
+#'   (frames x pairs, broken above 1) and "pairs" the pairs
 skeleton_outliers <- function(tracking, landmarks = default_body_landmarks(),
                               margin = 3, margin_fraction = 0.6, min_share = 0.5) {
   validate_tracking_data(tracking, required_landmarks = landmarks)
@@ -60,7 +80,37 @@ skeleton_outliers <- function(tracking, landmarks = default_body_landmarks(),
   }, logical(nrow(D)))
   flags <- matrix(flags, ncol = length(landmarks), dimnames = list(NULL, landmarks))
   attr(flags, "medians") <- stats::setNames(typical, paste(pairs[1, ], pairs[2, ], sep = "-"))
+  attr(flags, "ratio") <- sweep(D, 2, limit, "/")
+  attr(flags, "pairs") <- pairs
   flags
+}
+
+#' A mutually consistent group of landmarks, frame by frame.
+#'
+#' Starting from `active`, the landmark broken against the most others still
+#' in the group (ties: the larger summed excess over the limits) is removed,
+#' one at a time, until no broken pair is left. When a skeleton is split
+#' between the animal and something else, this keeps the larger part.
+#'
+#' @param ratio frames x pairs, distance over limit (attribute of skeleton_outliers())
+#' @param active logical matrix, frames x landmarks: the landmarks to start from
+#' @return logical matrix like `active`: the group kept
+consistent_group <- function(ratio, pairs, landmarks, active) {
+  ends <- vapply(landmarks, function(point) (pairs[1, ] == point | pairs[2, ] == point) * 1, numeric(ncol(pairs)))
+  ends <- matrix(ends, ncol = length(landmarks))
+  broken <- !is.na(ratio) & ratio > 1
+  excess <- ifelse(broken, ratio - 1, 0)
+  for (step in seq_along(landmarks)) {
+    open <- broken & ((active * 1) %*% t(ends)) == 2
+    rows <- which(rowSums(open) > 0)
+    if (!length(rows)) break
+    count <- (open[rows, , drop = FALSE] * 1) %*% ends
+    extra <- (open[rows, , drop = FALSE] * excess[rows, , drop = FALSE]) %*% ends
+    score <- count + extra / (extra + 1)
+    score[!active[rows, , drop = FALSE]] <- -1
+    active[cbind(rows, max.col(score, ties.method = "first"))] <- FALSE
+  }
+  active
 }
 
 #' Position of a landmark in the frame of two others.
@@ -94,10 +144,15 @@ predict_from_anchor <- function(L, model, rows) {
 
 #' Find implausible landmarks, rebuild the ones a measurement needs, report.
 #'
+#' 0. With `corners`, a landmark more than `max_outside` outside the arena
+#'    polygon is removed first: no part of the animal can be there.
 #' 1. skeleton_outliers() flags misplaced landmarks; their coordinates are
-#'    removed. A frame with fewer than `min_landmarks` unflagged landmarks has
-#'    a collapsed skeleton (the animal hidden or confused with something else):
-#'    every body landmark of that frame is removed.
+#'    removed. A frame with fewer than `min_landmarks` unflagged landmarks
+#'    keeps a consistent group that holds a majority of the landmarks present
+#'    and at least `min_landmarks` (a split skeleton, consistent_group());
+#'    otherwise the skeleton has collapsed (the
+#'    animal hidden or confused with something else) and every body landmark
+#'    of that frame is removed.
 #' 2. Each `target` missing in a frame (removed above, or never tracked) is
 #'    rebuilt from the best anchor pair present in that frame. Anchor models
 #'    are fitted on the recording's own trusted frames, ranked by error, and
@@ -110,18 +165,44 @@ predict_from_anchor <- function(L, model, rows) {
 repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
                              targets = c("nose", "bodycentre"), margin = 3,
                              margin_fraction = 0.6, min_share = 0.5,
-                             min_landmarks = 4, max_anchor_error = 2) {
+                             min_landmarks = 4, max_anchor_error = 2,
+                             corners = NULL, max_outside = NULL) {
   validate_tracking_data(tracking, required_landmarks = unique(c(landmarks, targets)))
   if (!all(targets %in% landmarks)) stop("every repair target must be one of the checked landmarks")
   validate_positive_integer(min_landmarks, "min_landmarks")
   validate_scalar_number(max_anchor_error, "max_anchor_error", positive = TRUE)
   fps <- get_tracking_fps(tracking)
+  n <- length(tracking$data[[landmarks[1]]]$x)
+  far <- matrix(FALSE, n, length(landmarks), dimnames = list(NULL, landmarks))
+  if (!is.null(corners)) {
+    validate_scalar_number(max_outside, "max_outside", positive = TRUE)
+    polygon <- do.call(rbind, lapply(corners, function(point) static_point(tracking, point)))
+    for (point in landmarks) {
+      d <- distance_outside_polygon(tracking$data[[point]]$x, tracking$data[[point]]$y, polygon)
+      far[, point] <- !is.na(d) & d > max_outside
+      tracking$data[[point]]$x[far[, point]] <- NA_real_; tracking$data[[point]]$y[far[, point]] <- NA_real_
+    }
+  }
   flags <- skeleton_outliers(tracking, landmarks, margin, margin_fraction, min_share)
   L <- landmark_matrix(tracking, landmarks)
   present <- vapply(L, function(m) is.finite(m[, 1]) & is.finite(m[, 2]), logical(nrow(flags)))
   present <- matrix(present, ncol = length(landmarks), dimnames = dimnames(flags))
   collapse <- rowSums(present & !flags) < min_landmarks & rowSums(present) > 0
-  removed <- (flags & present) | (collapse & present)
+  # When nearly half the landmarks are wrong, every landmark is broken against
+  # half of the others. The frame is kept if one consistent group holds a
+  # majority of the landmarks present, and at least min_landmarks (a split
+  # skeleton); a few scattered points that happen to agree do not.
+  split <- rep(FALSE, length(collapse))
+  rows <- which(collapse)
+  if (length(rows)) {
+    kept <- consistent_group(attr(flags, "ratio")[rows, , drop = FALSE], attr(flags, "pairs"), landmarks,
+                             present[rows, , drop = FALSE])
+    clear <- rowSums(kept) >= min_landmarks & rowSums(kept) > rowSums(present[rows, , drop = FALSE]) / 2
+    flags[rows[clear], ] <- present[rows[clear], , drop = FALSE] & !kept[clear, , drop = FALSE]
+    split[rows[clear]] <- TRUE
+    collapse[rows[clear]] <- FALSE
+  }
+  removed <- (flags & present) | (collapse & present) | far
   trusted <- present & !removed
   status <- lapply(stats::setNames(landmarks, landmarks), function(point) {
     s <- tracking$data[[point]]$status
@@ -164,22 +245,28 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
   # flagged_s: the landmark alone was inconsistent; collapse_s: the whole skeleton was (the same for every landmark).
   summary <- data.frame(
     landmark = landmarks,
+    outside_s = colSums(far) / fps,
     flagged_s = colSums(flags & present & !collapse) / fps,
     collapse_s = colSums(collapse & present) / fps,
     reconstructed_s = colSums(rebuilt) / fps,
     still_missing_s = vapply(landmarks, function(p) sum(!is.finite(tracking$data[[p]]$x)) / fps, numeric(1)),
     stringsAsFactors = FALSE, row.names = NULL)
+  landmark_episodes <- function(flag, check) lapply(landmarks, function(point) {
+    e <- episode_rows(flag[, point], fps, 0, check = check, target = point)
+    if (!nrow(e)) return(NULL)
+    e$reconstructed_share <- vapply(seq_len(nrow(e)), function(i) mean(rebuilt[e$start_frame[i]:e$end_frame[i], point]), numeric(1))
+    e })
   episodes <- do.call(rbind, c(
-    lapply(landmarks, function(point) {
-      e <- episode_rows(removed[, point] & !collapse, fps, 0, check = "inconsistent_landmark", target = point)
-      if (!nrow(e)) return(NULL)
-      e$reconstructed_share <- vapply(seq_len(nrow(e)), function(i) mean(rebuilt[e$start_frame[i]:e$end_frame[i], point]), numeric(1))
-      e }),
+    landmark_episodes(far, "outside_arena"),
+    landmark_episodes(removed & !far & !collapse, "inconsistent_landmark"),
     list({ e <- episode_rows(collapse, fps, 0, check = "skeleton_collapse", target = "body")
-           if (nrow(e)) { e$reconstructed_share <- 0; e } else NULL })))
+           if (nrow(e)) { e$reconstructed_share <- 0; e } else NULL },
+         { e <- episode_rows(split, fps, 0, check = "skeleton_split", target = "body")
+           if (nrow(e)) { e$reconstructed_share <- NA_real_; e } else NULL })))
   tracking$repair <- list(summary = summary, episodes = episodes, models = models,
-                          frames_flagged = rowSums(flags & present) > 0, collapse = collapse,
+                          frames_flagged = rowSums((flags & present) | far) > 0, collapse = collapse, split = split,
                           settings = list(margin = margin, margin_fraction = margin_fraction, min_share = min_share,
-                                          min_landmarks = min_landmarks, max_anchor_error = max_anchor_error))
+                                          min_landmarks = min_landmarks, max_anchor_error = max_anchor_error,
+                                          max_outside = max_outside))
   tracking
 }

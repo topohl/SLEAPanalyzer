@@ -18,6 +18,12 @@
 #                  accepted episode; SocP uses the release rule (on_cup_*),
 #                  NOR the setting in NOR_ON_OBJECT below (not applied by the
 #                  NOR scoring: report only)
+#   repair         repair_landmarks() with the SocP settings (the plus maze
+#                  without the outside-arena step): seconds with a removed
+#                  landmark, with a split or collapsed skeleton, with a rebuilt
+#                  nose or body centre; for the novel-object test also contact
+#                  with each object before and after (report only: only SocP
+#                  applies the repair)
 #
 # Writes results/plausibility_episodes.csv (one row per episode) and
 # results/plausibility_summary.csv (one row per recording: seconds and
@@ -77,7 +83,7 @@ prepare <- function(r) {
   tr
 }
 novel_side <- function(r) {
-  p <- if (r$assay == "SocP") file.path(STAGE, "SocP", r$batch, r$phase, paste0("novelLoc", r$phase, ".txt")) else file.path(NOR$metadata_dir, NOR$novel_location_file)
+  p <- if (r$assay == "SocP") file.path(STAGE, "SocP", r$batch, r$phase, paste0("novelLoc", r$phase, ".txt")) else file.path(NOR$metadata_dir, r$batch, NOR$novel_location_file)
   x <- read_metadata_table(p, c("Code", "NovelLoc"), sep = "\t", if_missing = "empty"); metadata_lookup(x, r$Code, "NovelLoc")
 }
 episode_table <- function(r, rows) if (nrow(rows)) cbind(data.table(assay = r$assay, phase = r$phase, batch = r$batch, Code = r$Code), rows) else NULL
@@ -117,7 +123,26 @@ screen_one <- function(r) {
   }
   e <- rbindlist(out, fill = TRUE)
   for (cn in c("decision", "contact_s")) if (nrow(e) && !cn %in% names(e)) e[, (cn) := NA]
-  list(episodes = episode_table(r, e), frames = n)
+  # Landmark repair with the SocP settings (report only here): what it would flag and rebuild, and for the novel-object
+  # test what it would change in contact and D2.
+  rp <- tryCatch(repair_landmarks(tr, landmarks = intersect(SOCP$landmark_repair_landmarks, names(tr$data)), targets = SOCP$landmark_repair_targets,
+                                  margin = SOCP$landmark_repair_margin_cm, margin_fraction = SOCP$landmark_repair_margin_fraction,
+                                  min_share = SOCP$landmark_repair_min_share, min_landmarks = SOCP$landmark_repair_min_landmarks,
+                                  max_anchor_error = SOCP$landmark_repair_max_anchor_error_cm,
+                                  corners = if (r$assay != "EPM") CORNERS, max_outside = SOCP$landmark_repair_outside_cm), error = function(e) NULL)
+  repair <- if (is.null(rp)) NULL else { rs <- rp$repair$summary
+    list(repair_flagged_s = sum(rp$repair$frames_flagged & !rp$repair$collapse) / FPS, repair_split_s = sum(rp$repair$split) / FPS,
+         repair_collapse_s = sum(rp$repair$collapse) / FPS,
+         nose_rebuilt_s = rs$reconstructed_s[rs$landmark == "nose"], body_rebuilt_s = rs$reconstructed_s[rs$landmark == "bodycentre"]) }
+  if (!is.null(rp) && r$assay == "NOR" && r$phase == "NOV") {
+    sc <- function(t) { t <- interpolate_tracking(t, landmarks = c("nose", "bodycentre"), max_gap_s = NOR$max_interpolation_gap_s)
+      compute_nor_metrics(t, novel_side(r), FPS, contact_geometry = NOR$contact_geometry, contact_distance = NOR$contact_distance_cm,
+        body_exclusion_distance = NOR$body_exclusion_distance_cm, object_box_width = NOR$object_box_width_cm, object_box_height = NOR$object_box_height_cm,
+        contact_angle = NOR$contact_angle_deg, proximity_range = NOR$proximity_range_cm, proximity_angle = NOR$proximity_angle_deg)$summary }
+    b <- sc(tr); a <- sc(rp)
+    repair <- c(repair, list(nor_novel_before = b$contactNov, nor_novel_after = a$contactNov, nor_familiar_before = b$contactFam, nor_familiar_after = a$contactFam))
+  }
+  list(episodes = episode_table(r, e), frames = n, repair = repair)
 }
 
 eps <- list(); summ <- list()
@@ -134,6 +159,7 @@ for (i in seq_len(nrow(recordings))) {
   x <- if (is.null(e)) NULL else e[check == "on_object" & decision == "on_object"]
   s[, on_object_n := if (is.null(x)) 0L else nrow(x)][, on_object_s := if (is.null(x)) 0 else round(sum(x$duration_s), 2)]
   s[, on_object_contact_s := if (is.null(x)) 0 else round(sum(x$contact_s), 2)]
+  if (!is.null(res$repair)) for (nm in names(res$repair)) s[, (nm) := round(res$repair[[nm]], 3)]
   summ[[i]] <- s
   if (i %% 50 == 0) cat(i, "of", nrow(recordings), "\n")
 }

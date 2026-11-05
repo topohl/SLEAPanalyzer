@@ -61,6 +61,7 @@ landmark_repair_margin_fraction: 0.6
 landmark_repair_min_share: 0.5
 landmark_repair_min_landmarks: 4
 landmark_repair_max_anchor_error_cm: 2
+landmark_repair_outside_cm: 15
 
 min_bout_s: 0.0
 max_gap_s: 0.0

@@ -45,7 +45,8 @@ common_assay_schema <- function() {
     landmark_repair_margin_fraction = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
     landmark_repair_min_share = config_field("number", positive = TRUE, required = FALSE),
     landmark_repair_min_landmarks = config_field("integer", required = FALSE),
-    landmark_repair_max_anchor_error_cm = config_field("number", positive = TRUE, required = FALSE)
+    landmark_repair_max_anchor_error_cm = config_field("number", positive = TRUE, required = FALSE),
+    landmark_repair_outside_cm = config_field("number", positive = TRUE, required = FALSE)
   )
 }
 

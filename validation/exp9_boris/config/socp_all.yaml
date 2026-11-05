@@ -55,9 +55,11 @@ on_cup_size_window_s: 0.5
 # Reviewed episodes the rule gets wrong (one row each, with the reason).
 qc_decisions_file: qc_decisions_socp.csv
 
-# Landmarks the skeleton contradicts (a nose on an object outside the arena,
-# points on the reflection) are removed; nose and body centre are rebuilt from
-# rigid neighbours, collapsed frames stay untracked. See "Landmark repair" in
+# Landmarks far outside the arena or contradicted by the skeleton (a nose on
+# an object outside the arena, points on the reflection) are removed; nose and
+# body centre are rebuilt from rigid neighbours, collapsed frames stay
+# untracked. Real landmarks of a climbing mouse project up to 14 cm beyond the
+# floor outline (2026-11-05, 42 recordings). See "Landmark repair" in
 # docs/assay_definitions.md.
 landmark_repair: true
 landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]
@@ -67,6 +69,7 @@ landmark_repair_margin_fraction: 0.6
 landmark_repair_min_share: 0.5
 landmark_repair_min_landmarks: 4
 landmark_repair_max_anchor_error_cm: 2
+landmark_repair_outside_cm: 15
 
 min_bout_s: 0.0
 max_gap_s: 0.0
