@@ -50,6 +50,7 @@ on_cup_min_apparent_size: 1.08
 on_cup_merge_gap_s: 0.5
 on_cup_min_episode_s: 0.2
 on_cup_size_window_s: 0.5
+qc_decisions_file: qc_decisions_socp.csv
 
 min_bout_s: 0.0
 max_gap_s: 0.0

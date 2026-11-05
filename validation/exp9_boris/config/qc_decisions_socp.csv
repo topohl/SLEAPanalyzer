@@ -1,0 +1,2 @@
+file,target,start_s,end_s,decision,reason,reviewer
+Q5M7_HAB,socr,328.3,329.0,not_on_object,"rearing at the cup wire on the floor; its reflection in the glass wall merges with the mouse, so the tracked mouse looks 1.8x its size (review item on_B4_Q5M7_HAB_01)","video check 2026-11-05, to be confirmed by Tobias Pohl"

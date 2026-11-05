@@ -86,6 +86,11 @@ effect of the improved NOR pipeline on the classification (`22`).
 **Do not run `14`–`22` for new work.** They predate the 20 September 2026 workbook
 correction and use the older 39-animal susceptible list.
 
+**`23` — plausibility screen.** Every check of `core/plausibility.R` on every staged
+recording of the four assays (report only): `results/plausibility_episodes.csv`,
+`results/plausibility_summary.csv`. Review any episode with `tools/qc_review.py`. See
+"Plausibility checks" in `docs/assay_definitions.md`.
+
 ## Layout
 
 ```
