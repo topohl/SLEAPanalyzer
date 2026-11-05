@@ -113,10 +113,16 @@ contact distance. `Rscript 26_frame_agreement.R <reference_release>`; results in
 `results/socp_frame_*.csv`. See "A head hidden under the cup lid" in
 `docs/assay_definitions.md`.
 
+**`27` — figure stills.** One video frame per kind of misplaced nose (a fixed spot at the
+image edge, an object outside the arena, a head under the cup lid), with the nose as tracked
+and as the analysis uses it: this script finds the coordinates, `tools/figure_stills.py`
+draws them. `Rscript 27_figure_stills.R <out_dir>`, then
+`python -I tools/figure_stills.py <out_dir>/stills.csv <out_dir>`.
+
 ## Layout
 
 ```
-scripts/    26 R scripts, as described above
+scripts/    27 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv
