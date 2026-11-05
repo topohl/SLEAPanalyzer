@@ -384,6 +384,7 @@ as rearing. It has not been validated against manual scoring.
 | `latency*`, `frequency*`, `entries*` | Core | Shared event engine |
 | `onCupLeft` / `onCupRight`, `onCupNovel` / `onCupFamiliar` | Configurable | Time on top of the cup (`on_cup_exclusion`) |
 | `contactRemovedLeft` / `contactRemovedRight` | Configurable | Contact time the on-cup rule removed |
+| `headLengthCm`, `headShortS` | Configurable | Median head length (ear midpoint to nose) and time the visible head was below 75% of it (`head_length_restore`) |
 
 The same detector is applied to both chambers. Unlike NOR, no head-orientation
 criterion is applied by default; this preserves the established SocP
@@ -426,6 +427,37 @@ frames judged on top of the cup and none of 85 floor frames. Against the raw
 manual scoring of 10 batch 1 animals (20 sessions), none of the on-cup time was
 scored as interaction or rearing, and where the scorer coded climbing (50.0 s,
 one session) the rule finds 41.2 s.
+
+### A head hidden under the cup lid
+
+Each cup carries a square lid that overhangs it on the corner side. A mouse
+investigating the cup there pushes its head under the lid, and the pose model
+puts the nose at the lid edge, where the head disappears: the tracked head is
+short, and the nose up to several centimetres short of the cup. With
+`head_length_restore: true`, `restore_head_length()` (core
+`landmark_repair.R`) moves the nose along the direction from the ear midpoint
+to the nose until the head has its median length in the recording (frames
+with an observed nose); a head at least that long is left as it is. It runs
+after the on-cup detection, whose size measure uses the nose, so it changes
+contact and proximity only. It has no parameter of its own, and the contact
+distance stays at 6 cm.
+
+Validation against the manual scoring of batch 1 frame by frame
+(`validation/exp9_boris/scripts/26_frame_agreement.R`, results
+`socp_frame_*.csv`; raw events of 9 animals, 36 cup sessions): where noses
+stopped at the lid edge, the frames the scorer counted as contact had a
+visible head of 0.63 of its median length, the frames not counted 1.01. With
+the head restored, frame agreement (F1) rose from 0.848 to 0.859 and the
+bias of the totals from -4.1 to +0.5 s (limits of agreement ±18.5 to
+±15.7 s); 6 cm is then the contact distance with the best concordance. On
+the 10 animals of the other camera, which had no part in finding the rule
+(totals only), the contact with the stranger mouse moved from 14.8 to 5.3 s
+(phase 1) and from 11.2 to 4.3 s (phase 2) below the manual totals, and the
+mean absolute difference about halved; the empty and familiar cups were
+unchanged. A contact distance of 6.25 cm without the restoration does about as
+well on the mouse cups but worse on the empty cup, and it would be fitted to
+the manual scoring. Directly behind the lid most manually scored time is still
+missed: there the hidden part is longer than a head.
 
 ---
 
@@ -480,7 +512,9 @@ repository**. Each requires it before use as a primary outcome.
 1. **NOR contact distance and orientation angle** — against your object size,
    camera height and species.
 2. **NOR proximity band** (`proximity_range_cm`).
-3. **SocP contact distance and proximity band** — against your apparatus.
+3. **SocP contact distance and proximity band** — against your apparatus
+   (the Exp9 contact distance was checked frame by frame: see "A head hidden
+   under the cup lid").
 4. **SocInt contact, proximity, follow and avoidance distances** — currently in
    pixels and specific to one camera setup.
 5. **SocInt following and avoidance** as behavioural categories.

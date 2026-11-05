@@ -105,10 +105,18 @@ skeletons), writes those recordings' tracking after the repair and the lists for
 `tools/qc_review.py`, which draws the original and the repaired nose and body centre
 on stills and clips.
 
+**`26` — frame agreement.** The social-preference contact against the raw manual
+events of batch 1 frame by frame (9 animals; the other 10 by their totals), with the
+nose as tracked and with the head length restored (`restore_head_length()`): where
+contact is missed or added, by side of the cup, along the cup lid, against the
+contact distance. `Rscript 26_frame_agreement.R <reference_release>`; results in
+`results/socp_frame_*.csv`. See "A head hidden under the cup lid" in
+`docs/assay_definitions.md`.
+
 ## Layout
 
 ```
-scripts/    25 R scripts, as described above
+scripts/    26 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

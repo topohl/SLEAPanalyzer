@@ -142,7 +142,11 @@ assay_schema <- function(assay) {
       on_cup_merge_gap_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
       on_cup_min_episode_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
       on_cup_size_window_s = config_field("number", positive = TRUE, required = FALSE),
-      qc_decisions_file = config_field("path", required = FALSE)
+      qc_decisions_file = config_field("path", required = FALSE),
+
+      # A nose hidden under a cup lid is put back at the head's median length
+      # (restore_head_length(), landmark_repair.R). Off unless set.
+      head_length_restore = config_field("logical", required = FALSE)
     ),
     stop("Unknown assay: ", assay)
   )

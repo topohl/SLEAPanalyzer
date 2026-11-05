@@ -1,0 +1,309 @@
+nose,manual_contact,bin_cm,time_s
+as tracked,FALSE,0.125,0.0333333333333333
+as tracked,FALSE,0.625,0.133333333333333
+as tracked,FALSE,0.875,0.133333333333333
+as tracked,FALSE,1.125,0.333333333333333
+as tracked,FALSE,1.375,0.466666666666667
+as tracked,FALSE,1.625,1.03333333333333
+as tracked,FALSE,1.875,1.03333333333333
+as tracked,FALSE,2.125,1.5
+as tracked,FALSE,2.375,1.56666666666667
+as tracked,FALSE,2.625,2.56666666666667
+as tracked,FALSE,2.875,3.13333333333333
+as tracked,FALSE,3.125,4.4
+as tracked,FALSE,3.375,4.53333333333333
+as tracked,FALSE,3.625,5.66666666666667
+as tracked,FALSE,3.875,10.3333333333333
+as tracked,FALSE,4.125,25.4
+as tracked,FALSE,4.375,53.5666666666667
+as tracked,FALSE,4.625,64.1
+as tracked,FALSE,4.875,65.9
+as tracked,FALSE,5.125,65.9
+as tracked,FALSE,5.375,81.1
+as tracked,FALSE,5.625,81.9
+as tracked,FALSE,5.875,86.3
+as tracked,FALSE,6.125,97.9666666666667
+as tracked,FALSE,6.375,98.9
+as tracked,FALSE,6.625,120.266666666667
+as tracked,FALSE,6.875,140.3
+as tracked,FALSE,7.125,122.6
+as tracked,FALSE,7.375,122.133333333333
+as tracked,FALSE,7.625,123.9
+as tracked,FALSE,7.875,123
+as tracked,FALSE,8.125,121.7
+as tracked,FALSE,8.375,131.3
+as tracked,FALSE,8.625,138.2
+as tracked,FALSE,8.875,141.633333333333
+as tracked,FALSE,9.125,152.833333333333
+as tracked,FALSE,9.375,157.9
+as tracked,FALSE,9.625,154.566666666667
+as tracked,FALSE,9.875,145.033333333333
+as tracked,FALSE,10.125,130.6
+as tracked,FALSE,10.375,134.366666666667
+as tracked,FALSE,10.625,130.966666666667
+as tracked,FALSE,10.875,124.733333333333
+as tracked,FALSE,11.125,119.433333333333
+as tracked,FALSE,11.375,119.533333333333
+as tracked,FALSE,11.625,121.1
+as tracked,FALSE,11.875,108.466666666667
+as tracked,FALSE,12.125,116.3
+as tracked,FALSE,12.375,114.8
+as tracked,FALSE,12.625,112.7
+as tracked,FALSE,12.875,107.666666666667
+as tracked,FALSE,13.125,124.766666666667
+as tracked,FALSE,13.375,108.2
+as tracked,FALSE,13.625,102.433333333333
+as tracked,FALSE,13.875,104.233333333333
+as tracked,FALSE,14.125,103.733333333333
+as tracked,FALSE,14.375,99.3333333333333
+as tracked,FALSE,14.625,104.833333333333
+as tracked,FALSE,14.875,102.366666666667
+as tracked,FALSE,15.125,105.033333333333
+as tracked,FALSE,15.375,97.0333333333333
+as tracked,FALSE,15.625,89.0333333333333
+as tracked,FALSE,15.875,87.7
+as tracked,FALSE,16.125,93
+as tracked,FALSE,16.375,92.3333333333333
+as tracked,FALSE,16.625,92.8666666666667
+as tracked,FALSE,16.875,87.4333333333333
+as tracked,FALSE,17.125,82.6
+as tracked,FALSE,17.375,79.0333333333333
+as tracked,FALSE,17.625,86.2
+as tracked,FALSE,17.875,79.8666666666667
+as tracked,FALSE,18.125,76.6
+as tracked,FALSE,18.375,79.7666666666667
+as tracked,FALSE,18.625,78.8666666666667
+as tracked,FALSE,18.875,79.8333333333333
+as tracked,FALSE,19.125,81.4666666666667
+as tracked,FALSE,19.375,82.3666666666667
+as tracked,FALSE,19.625,78.8666666666667
+as tracked,FALSE,19.875,82.2333333333333
+as tracked,TRUE,1.375,0.433333333333333
+as tracked,TRUE,1.625,1.4
+as tracked,TRUE,1.875,2.1
+as tracked,TRUE,2.125,2.66666666666667
+as tracked,TRUE,2.375,5.1
+as tracked,TRUE,2.625,8.3
+as tracked,TRUE,2.875,12.3
+as tracked,TRUE,3.125,15.2333333333333
+as tracked,TRUE,3.375,21.5333333333333
+as tracked,TRUE,3.625,40.6333333333333
+as tracked,TRUE,3.875,94.8
+as tracked,TRUE,4.125,280.366666666667
+as tracked,TRUE,4.375,678.1
+as tracked,TRUE,4.625,774.2
+as tracked,TRUE,4.875,525.6
+as tracked,TRUE,5.125,361.4
+as tracked,TRUE,5.375,241.6
+as tracked,TRUE,5.625,174.9
+as tracked,TRUE,5.875,137.8
+as tracked,TRUE,6.125,131.633333333333
+as tracked,TRUE,6.375,95.9
+as tracked,TRUE,6.625,69.7333333333333
+as tracked,TRUE,6.875,52.5
+as tracked,TRUE,7.125,38.6666666666667
+as tracked,TRUE,7.375,31.8666666666667
+as tracked,TRUE,7.625,21.3333333333333
+as tracked,TRUE,7.875,15.7333333333333
+as tracked,TRUE,8.125,10.5333333333333
+as tracked,TRUE,8.375,8.5
+as tracked,TRUE,8.625,7.26666666666667
+as tracked,TRUE,8.875,7.1
+as tracked,TRUE,9.125,5.26666666666667
+as tracked,TRUE,9.375,4.46666666666667
+as tracked,TRUE,9.625,4.86666666666667
+as tracked,TRUE,9.875,4.83333333333333
+as tracked,TRUE,10.125,3.3
+as tracked,TRUE,10.375,3.06666666666667
+as tracked,TRUE,10.625,3.96666666666667
+as tracked,TRUE,10.875,2.73333333333333
+as tracked,TRUE,11.125,3.13333333333333
+as tracked,TRUE,11.375,2.43333333333333
+as tracked,TRUE,11.625,2.36666666666667
+as tracked,TRUE,11.875,2.36666666666667
+as tracked,TRUE,12.125,1.93333333333333
+as tracked,TRUE,12.375,1.26666666666667
+as tracked,TRUE,12.625,1.23333333333333
+as tracked,TRUE,12.875,1.1
+as tracked,TRUE,13.125,1.3
+as tracked,TRUE,13.375,0.833333333333333
+as tracked,TRUE,13.625,1.03333333333333
+as tracked,TRUE,13.875,0.866666666666667
+as tracked,TRUE,14.125,1.16666666666667
+as tracked,TRUE,14.375,1
+as tracked,TRUE,14.625,0.766666666666667
+as tracked,TRUE,14.875,1.1
+as tracked,TRUE,15.125,0.666666666666667
+as tracked,TRUE,15.375,0.8
+as tracked,TRUE,15.625,0.566666666666667
+as tracked,TRUE,15.875,0.533333333333333
+as tracked,TRUE,16.125,0.466666666666667
+as tracked,TRUE,16.375,0.833333333333333
+as tracked,TRUE,16.625,0.966666666666667
+as tracked,TRUE,16.875,1.13333333333333
+as tracked,TRUE,17.125,1.36666666666667
+as tracked,TRUE,17.375,1.63333333333333
+as tracked,TRUE,17.625,1.36666666666667
+as tracked,TRUE,17.875,0.933333333333333
+as tracked,TRUE,18.125,0.7
+as tracked,TRUE,18.375,0.833333333333333
+as tracked,TRUE,18.625,0.566666666666667
+as tracked,TRUE,18.875,0.633333333333333
+as tracked,TRUE,19.125,0.833333333333333
+as tracked,TRUE,19.375,0.9
+as tracked,TRUE,19.625,2.13333333333333
+as tracked,TRUE,19.875,1.26666666666667
+head length restored,FALSE,0.125,0.0333333333333333
+head length restored,FALSE,0.625,0.133333333333333
+head length restored,FALSE,0.875,0.133333333333333
+head length restored,FALSE,1.125,0.333333333333333
+head length restored,FALSE,1.375,0.433333333333333
+head length restored,FALSE,1.625,0.866666666666667
+head length restored,FALSE,1.875,0.933333333333333
+head length restored,FALSE,2.125,1.63333333333333
+head length restored,FALSE,2.375,1.66666666666667
+head length restored,FALSE,2.625,2.5
+head length restored,FALSE,2.875,3
+head length restored,FALSE,3.125,4.4
+head length restored,FALSE,3.375,4.5
+head length restored,FALSE,3.625,6.03333333333333
+head length restored,FALSE,3.875,17.7333333333333
+head length restored,FALSE,4.125,43.6
+head length restored,FALSE,4.375,65.7333333333333
+head length restored,FALSE,4.625,67
+head length restored,FALSE,4.875,66.2333333333333
+head length restored,FALSE,5.125,69.7666666666667
+head length restored,FALSE,5.375,84.9666666666667
+head length restored,FALSE,5.625,83.1333333333333
+head length restored,FALSE,5.875,83.0333333333333
+head length restored,FALSE,6.125,94.7333333333333
+head length restored,FALSE,6.375,90.6666666666667
+head length restored,FALSE,6.625,109.4
+head length restored,FALSE,6.875,125.733333333333
+head length restored,FALSE,7.125,118.633333333333
+head length restored,FALSE,7.375,114.133333333333
+head length restored,FALSE,7.625,114.6
+head length restored,FALSE,7.875,119.866666666667
+head length restored,FALSE,8.125,121.3
+head length restored,FALSE,8.375,128.133333333333
+head length restored,FALSE,8.625,136.066666666667
+head length restored,FALSE,8.875,138.633333333333
+head length restored,FALSE,9.125,147.4
+head length restored,FALSE,9.375,158.166666666667
+head length restored,FALSE,9.625,155.166666666667
+head length restored,FALSE,9.875,140.966666666667
+head length restored,FALSE,10.125,136.266666666667
+head length restored,FALSE,10.375,131.9
+head length restored,FALSE,10.625,131.7
+head length restored,FALSE,10.875,128.2
+head length restored,FALSE,11.125,121.933333333333
+head length restored,FALSE,11.375,124.7
+head length restored,FALSE,11.625,126.533333333333
+head length restored,FALSE,11.875,109.3
+head length restored,FALSE,12.125,119.233333333333
+head length restored,FALSE,12.375,116.233333333333
+head length restored,FALSE,12.625,110.4
+head length restored,FALSE,12.875,104.033333333333
+head length restored,FALSE,13.125,121.4
+head length restored,FALSE,13.375,108.433333333333
+head length restored,FALSE,13.625,106
+head length restored,FALSE,13.875,105.033333333333
+head length restored,FALSE,14.125,104.166666666667
+head length restored,FALSE,14.375,98.4333333333333
+head length restored,FALSE,14.625,106.766666666667
+head length restored,FALSE,14.875,100.533333333333
+head length restored,FALSE,15.125,97.6333333333334
+head length restored,FALSE,15.375,98.6666666666667
+head length restored,FALSE,15.625,89.2
+head length restored,FALSE,15.875,91.4
+head length restored,FALSE,16.125,92.9666666666667
+head length restored,FALSE,16.375,90.6666666666667
+head length restored,FALSE,16.625,93.8333333333333
+head length restored,FALSE,16.875,89.7333333333333
+head length restored,FALSE,17.125,83.0333333333333
+head length restored,FALSE,17.375,81.3333333333333
+head length restored,FALSE,17.625,82.2
+head length restored,FALSE,17.875,78.9666666666667
+head length restored,FALSE,18.125,74.6
+head length restored,FALSE,18.375,74.0333333333333
+head length restored,FALSE,18.625,76.1666666666667
+head length restored,FALSE,18.875,77.9666666666667
+head length restored,FALSE,19.125,82.3
+head length restored,FALSE,19.375,81.2333333333333
+head length restored,FALSE,19.625,83.1
+head length restored,FALSE,19.875,81.6666666666667
+head length restored,TRUE,1.375,0.433333333333333
+head length restored,TRUE,1.625,1.4
+head length restored,TRUE,1.875,2.16666666666667
+head length restored,TRUE,2.125,2.66666666666667
+head length restored,TRUE,2.375,5.1
+head length restored,TRUE,2.625,8.3
+head length restored,TRUE,2.875,12.2666666666667
+head length restored,TRUE,3.125,15.4
+head length restored,TRUE,3.375,21.7666666666667
+head length restored,TRUE,3.625,51.9333333333333
+head length restored,TRUE,3.875,209.633333333333
+head length restored,TRUE,4.125,560.566666666667
+head length restored,TRUE,4.375,738
+head length restored,TRUE,4.625,614.733333333333
+head length restored,TRUE,4.875,428.4
+head length restored,TRUE,5.125,324.533333333333
+head length restored,TRUE,5.375,229.933333333333
+head length restored,TRUE,5.625,161.133333333333
+head length restored,TRUE,5.875,104.4
+head length restored,TRUE,6.125,80.6
+head length restored,TRUE,6.375,62.1
+head length restored,TRUE,6.625,45.8
+head length restored,TRUE,6.875,39.5666666666667
+head length restored,TRUE,7.125,32.1666666666667
+head length restored,TRUE,7.375,27.5666666666667
+head length restored,TRUE,7.625,21.6333333333333
+head length restored,TRUE,7.875,22.2
+head length restored,TRUE,8.125,14.8333333333333
+head length restored,TRUE,8.375,11
+head length restored,TRUE,8.625,8.66666666666667
+head length restored,TRUE,8.875,7.36666666666667
+head length restored,TRUE,9.125,6.63333333333333
+head length restored,TRUE,9.375,5.43333333333333
+head length restored,TRUE,9.625,5.53333333333333
+head length restored,TRUE,9.875,4.9
+head length restored,TRUE,10.125,4.83333333333333
+head length restored,TRUE,10.375,3.03333333333333
+head length restored,TRUE,10.625,3
+head length restored,TRUE,10.875,2.26666666666667
+head length restored,TRUE,11.125,2.3
+head length restored,TRUE,11.375,2.6
+head length restored,TRUE,11.625,2.16666666666667
+head length restored,TRUE,11.875,2.43333333333333
+head length restored,TRUE,12.125,2.26666666666667
+head length restored,TRUE,12.375,1.7
+head length restored,TRUE,12.625,1.23333333333333
+head length restored,TRUE,12.875,0.933333333333333
+head length restored,TRUE,13.125,1.3
+head length restored,TRUE,13.375,0.933333333333333
+head length restored,TRUE,13.625,0.866666666666667
+head length restored,TRUE,13.875,0.8
+head length restored,TRUE,14.125,1.16666666666667
+head length restored,TRUE,14.375,1.13333333333333
+head length restored,TRUE,14.625,0.733333333333333
+head length restored,TRUE,14.875,1.16666666666667
+head length restored,TRUE,15.125,0.766666666666667
+head length restored,TRUE,15.375,0.7
+head length restored,TRUE,15.625,0.566666666666667
+head length restored,TRUE,15.875,0.6
+head length restored,TRUE,16.125,0.433333333333333
+head length restored,TRUE,16.375,0.733333333333333
+head length restored,TRUE,16.625,1.13333333333333
+head length restored,TRUE,16.875,1.1
+head length restored,TRUE,17.125,1.23333333333333
+head length restored,TRUE,17.375,1.66666666666667
+head length restored,TRUE,17.625,1.36666666666667
+head length restored,TRUE,17.875,0.733333333333333
+head length restored,TRUE,18.125,0.766666666666667
+head length restored,TRUE,18.375,0.866666666666667
+head length restored,TRUE,18.625,0.366666666666667
+head length restored,TRUE,18.875,0.533333333333333
+head length restored,TRUE,19.125,0.833333333333333
+head length restored,TRUE,19.375,0.666666666666667
+head length restored,TRUE,19.625,1.4
+head length restored,TRUE,19.875,1.2
