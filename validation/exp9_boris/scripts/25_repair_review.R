@@ -28,7 +28,8 @@ source(file.path(REPO, "02_SLEAPanalzyer", "DLCAnalyzer_Functions_final.R"))
 source(file.path(REPO, "02_SLEAPanalzyer", "Behavioral_Metrics_Phase1.R"))
 source(file.path(REPO, "02_SLEAPanalzyer", "core", "assay_config.R"))
 args <- commandArgs(TRUE); if (length(args) != 2) stop("usage: Rscript 25_repair_review.R <socp_output_root> <work_dir>")
-ROOT <- args[1]; WORK <- args[2]; dir.create(file.path(WORK, "tracking"), recursive = TRUE, showWarnings = FALSE)
+ROOT <- args[1]; WORK <- normalizePath(args[2], winslash = "/", mustWork = FALSE)
+dir.create(file.path(WORK, "tracking"), recursive = TRUE, showWarnings = FALSE)
 STAGE <- Sys.getenv("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
 SOCP <- load_assay_config(file.path(PROJ, "config", "socp_all.yaml"), "SocP")
 VROOT <- "//mdc-berlin.net/fs/RD_Hoernberg/Tobi/E9_SIS"
@@ -45,7 +46,9 @@ video_path <- function(batch, code, phase) {
 rd <- function(name) rbindlist(lapply(list.files(ROOT, paste0("^", name, "$"), recursive = TRUE, full.names = TRUE), function(f)
   if (file.size(f) > 5) fread(f)), fill = TRUE)
 ep <- rd("landmark_repair_episodes.csv"); co <- rd("combined_output.csv")
-stopifnot("repair episodes found" = nrow(ep) > 0)
+stopifnot("repair episodes found" = nrow(ep) > 0,
+          "every SocP output comes from a run with the landmark repair" = "noseReconstructedS" %in% names(co) && !anyNA(co$noseReconstructedS))
+cat("SocP outputs:", nrow(co), "recordings in", uniqueN(co[, paste(batch, phase)]), "batch/phase folders\n")
 nose <- ep[target == "nose" & check %in% c("inconsistent_landmark", "outside_arena") & duration_s >= 1 & reconstructed_share >= 0.5]
 top <- co[order(-noseReconstructedS)][1:12, .(batch, phase, Code)]
 picks <- rbind(
@@ -80,7 +83,7 @@ picks[, label := fifelse(check == "skeleton_collapse", "COLLAPSED: untracked", f
                          sprintf("%s REBUILT (%s)", toupper(target), check)))]
 ids <- unique(co[, .(Code, ID)])
 picks <- ids[picks, on = "Code"]
-fwrite(picks[, .(episode_id, group, ID, Code, batch, phase, check, target, start_frame, end_frame, start_s = round(start_s, 2),
+fwrite(picks[, .(episode_id, group, ID, Code, batch, phase, check, landmark = target, start_frame, end_frame, start_s = round(start_s, 2),
                  duration_s = round(duration_s, 2), reconstructed_share = round(reconstructed_share, 2), label, tracking_file, repaired_file)],
        file.path(WORK, "episodes.csv"))
 vids <- unique(picks[, .(batch, phase, Code, tracking_file)])

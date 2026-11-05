@@ -70,9 +70,9 @@ recordings <- rbindlist(list(
 recordings[, Code := str_extract(basename(file), "^[A-Za-z0-9]{4}")]
 cat(nrow(recordings), "recordings\n")
 
-prepare <- function(r) {
+prepare <- function(r, interpolate = TRUE) {
   tr <- read_tracking_csv(file = r$file, fps = FPS)
-  tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = 0.2, likelihood_cutoff = NULL)
+  if (interpolate) tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = 0.2, likelihood_cutoff = NULL)
   if (r$assay == "EPM") {
     tr <- CalibrateTrackingData(tr, method = "distance", in.metric = EPM$calibration_distance_cm, points = EPM$calibration_points)
   } else {
@@ -124,12 +124,14 @@ screen_one <- function(r) {
   e <- rbindlist(out, fill = TRUE)
   for (cn in c("decision", "contact_s")) if (nrow(e) && !cn %in% names(e)) e[, (cn) := NA]
   # Landmark repair with the SocP settings (report only here): what it would flag and rebuild, and for the novel-object
-  # test what it would change in contact and D2.
-  rp <- tryCatch(repair_landmarks(tr, landmarks = intersect(SOCP$landmark_repair_landmarks, names(tr$data)), targets = SOCP$landmark_repair_targets,
+  # test what it would change in contact and D2. In the order of DLCA_SocP: calibrate, repair, then interpolate.
+  raw <- prepare(r, interpolate = FALSE)
+  rp <- tryCatch(repair_landmarks(raw, landmarks = intersect(SOCP$landmark_repair_landmarks, names(tr$data)), targets = SOCP$landmark_repair_targets,
                                   margin = SOCP$landmark_repair_margin_cm, margin_fraction = SOCP$landmark_repair_margin_fraction,
                                   min_share = SOCP$landmark_repair_min_share, min_landmarks = SOCP$landmark_repair_min_landmarks,
                                   max_anchor_error = SOCP$landmark_repair_max_anchor_error_cm,
                                   corners = if (r$assay != "EPM") CORNERS, max_outside = SOCP$landmark_repair_outside_cm), error = function(e) NULL)
+  if (is.null(rp)) warning("landmark repair failed for ", basename(r$file))
   repair <- if (is.null(rp)) NULL else { rs <- rp$repair$summary
     list(repair_flagged_s = sum(rp$repair$frames_flagged & !rp$repair$collapse) / FPS, repair_split_s = sum(rp$repair$split) / FPS,
          repair_collapse_s = sum(rp$repair$collapse) / FPS,
@@ -139,7 +141,7 @@ screen_one <- function(r) {
       compute_nor_metrics(t, novel_side(r), FPS, contact_geometry = NOR$contact_geometry, contact_distance = NOR$contact_distance_cm,
         body_exclusion_distance = NOR$body_exclusion_distance_cm, object_box_width = NOR$object_box_width_cm, object_box_height = NOR$object_box_height_cm,
         contact_angle = NOR$contact_angle_deg, proximity_range = NOR$proximity_range_cm, proximity_angle = NOR$proximity_angle_deg)$summary }
-    b <- sc(tr); a <- sc(rp)
+    b <- sc(raw); a <- sc(rp)
     repair <- c(repair, list(nor_novel_before = b$contactNov, nor_novel_after = a$contactNov, nor_familiar_before = b$contactFam, nor_familiar_after = a$contactFam))
   }
   list(episodes = episode_table(r, e), frames = n, repair = repair)

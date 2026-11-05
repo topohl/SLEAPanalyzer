@@ -187,7 +187,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
   L <- landmark_matrix(tracking, landmarks)
   present <- vapply(L, function(m) is.finite(m[, 1]) & is.finite(m[, 2]), logical(nrow(flags)))
   present <- matrix(present, ncol = length(landmarks), dimnames = dimnames(flags))
-  collapse <- rowSums(present & !flags) < min_landmarks & rowSums(present) > 0
+  collapse <- rowSums(present & !flags) < min_landmarks & rowSums(present | far) > 0
   # When nearly half the landmarks are wrong, every landmark is broken against
   # half of the others. The frame is kept if one consistent group holds a
   # majority of the landmarks present, and at least min_landmarks (a split
@@ -242,7 +242,8 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
     }
   }
   for (point in landmarks) tracking$data[[point]]$status <- factor(status[[point]], levels = FRAME_STATUS_LEVELS)
-  # flagged_s: the landmark alone was inconsistent; collapse_s: the whole skeleton was (the same for every landmark).
+  # outside_s: the landmark was outside the arena; flagged_s: it alone was inconsistent; collapse_s: the whole skeleton was
+  # (frames in which the landmark was present; disjoint from outside_s).
   summary <- data.frame(
     landmark = landmarks,
     outside_s = colSums(far) / fps,

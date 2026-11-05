@@ -54,7 +54,9 @@ def test_repaired_file_is_drawn():
         fixed = os.path.join(d, "fixed.csv")
         lines = open(track).read().splitlines()
         rows = [l.split(",") for l in lines[3:]]
-        for r in rows: r[2] = str(float(r[2]) + 40)          # the repaired nose 40 px below the original
+        for r in rows:
+            r[2] = str(float(r[2]) + 40)                      # the repaired nose 40 px below the original
+            r[4] = str(float(r[4]) - 40)                      # the repaired body centre 40 px to the left
         open(fixed, "w").write("\n".join(lines[:3] + [",".join(r) for r in rows]) + "\n")
         eps = os.path.join(d, "episodes.csv"); vids = os.path.join(d, "videos.csv")
         with open(vids, "w", newline="") as fh:
@@ -69,8 +71,9 @@ def test_repaired_file_is_drawn():
             stills[name] = cv2.imread(os.path.join(out, "stills", "ep01.jpg"))
         diff = np.abs(stills["repaired"].astype(int) - stills["plain"].astype(int)).sum(axis=2)
         rows_changed = np.where(diff.max(axis=1) > 60)[0]
-        # the repaired nose ring (y = 120, radius 12) and the repaired body centre ring (same place as the original, y = 80)
-        assert len(rows_changed) and 60 <= rows_changed.min() and 125 <= rows_changed.max() <= 136
+        # the repaired nose ring (y = 120) and body centre ring (y = 80, 40 px left of the original), radius 12
+        assert any(66 <= r <= 94 for r in rows_changed) and any(106 <= r <= 136 for r in rows_changed)
+        assert 60 <= rows_changed.min() and rows_changed.max() <= 137
 
 
 if __name__ == "__main__":

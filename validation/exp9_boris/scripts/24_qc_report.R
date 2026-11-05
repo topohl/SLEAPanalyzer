@@ -43,7 +43,13 @@ hand <- fread(file.path(REF, "data", "exp9_sleap_all_animals.tsv"))
 meta <- hand[, .(Code, ID, Sex, Group = Phenotype)]
 dec <- fread(file.path(PROJ, "config", "qc_decisions_socp.csv"))
 screen_f <- file.path(PROJ, "results", "plausibility_summary.csv"); screen <- if (file.exists(screen_f)) fread(screen_f) else NULL
-stopifnot("every recording also in the reference release" = all(paste(now$batch, now$phase, now$Code) %in% paste(ref$batch, ref$phase, ref$Code)))
+stopifnot("every recording also in the reference release" = all(paste(now$batch, now$phase, now$Code) %in% paste(ref$batch, ref$phase, ref$Code)),
+          "every SocP output comes from a run with the landmark repair" = all(c("landmarksFlaggedS", "noseReconstructedS") %in% names(now)) &&
+            !anyNA(now$landmarksFlaggedS) && !anyNA(now$noseReconstructedS),
+          "a repair table for every recording" = all(paste(now$batch, now$phase, now$Code) %in% paste(reps$batch, reps$phase, reps$Code)))
+commits <- unique(unlist(lapply(BATCHES, function(b) lapply(PHASES, function(p) { f <- file.path(ROOT, b, p, "run_manifest.yaml")
+  if (file.exists(f)) yaml::read_yaml(f)$code$commit }))))
+cat("SocP outputs:", nrow(now), "recordings; SLEAPanalyzer commit(s):", paste(substr(commits, 1, 7), collapse = ", "), "\n")
 
 # ---------------------------------------------------------------- recordings
 k <- match(paste(now$batch, now$phase, now$Code), paste(ref$batch, ref$phase, ref$Code))
