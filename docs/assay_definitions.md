@@ -549,8 +549,10 @@ require the correct directional term but remain heuristics, hence the
 
 ## What needs empirical validation
 
-Nothing below has been validated against manually scored video **in this
-repository**. Each requires it before use as a primary outcome.
+These settings depend on the apparatus, the camera and the species. For the
+Exp9 apparatus, items 1, 3 and 6 were checked against manually scored video
+(`validation/exp9_boris/`); for any other setup, each needs its own check
+before use as a primary outcome.
 
 1. **NOR contact distance and orientation angle** — against your object size,
    camera height and species.

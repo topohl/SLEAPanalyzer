@@ -1,0 +1,4 @@
+pair,offset_frames,median_distance_cm,how
+SocP HAB B2 W2N9 = SocP S2 B2 V4F5,0,0,identical file
+SocP HAB B2 W2N9 = SocP S2 B2 V4F5,0,0,same track at an offset
+SocP S1 B2 G6K2 = SocP S2 B2 G6K2,-41,0.0150154251438745,same track at an offset

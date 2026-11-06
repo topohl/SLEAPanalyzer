@@ -1,7 +1,7 @@
 # Validation: SLEAPanalyzer v2 against manual BORIS scoring (Exp9)
 
 The evidence behind several parameter choices that ship in `config/`. Run against the
-Exp9 chronic social-defeat cohort — 117 animals, six cohorts, four assays (EPM, OFT,
+Exp9 social instability stress cohort — 117 animals, six batches, four assays (EPM, OFT,
 NOR, social preference) — with manual BORIS scoring as the comparator.
 
 > **Runnable, with one exception.** Paths resolve from each script's own location, and
@@ -16,6 +16,31 @@ NOR, social preference) — with manual BORIS scoring as the comparator.
 > `sleap_output/`, `sleap_output_all/`) is deliberately not versioned. Scripts `01`-`04`
 > therefore cannot be re-run from a clone alone. Scripts `07`-`10` can be run against
 > the external Exp9 inputs through the release builder below.
+
+## How the Exp9 scores are made
+
+Each test was filmed from above (GoPro, 29.97 frames per second; the scripts count one
+tracking row as 1/30 s), tracked with SLEAP (separate single-animal models for the mouse and
+for the fixed parts of the apparatus) and scored by its assay script with the `*_all.yaml`
+configuration in `config/`. Coordinates are scaled to cm per video from the tracked
+arena, and zones and contact regions are placed from tracked landmarks, never drawn by
+hand. Definitions are in [docs/assay_definitions.md](../../docs/assay_definitions.md).
+
+| Test | Script | Scale | Scored | Gaps |
+|---|---|---|---|---|
+| Open field, 10 min | `DLCA_OFT v1.2.0.R` | 49 x 49 cm floor | body centre in the centre zone (central square, half the side); moving = faster than 5 cm/s by majority over 11 frames | points outside the arena or moving more than 15 cm between frames removed; up to 0.5 s interpolated |
+| Plus maze, 5 min | `DLCA_EPM v1.0.0.R` | 60 cm, end to end of the open arms | body centre on open arms, closed arms, centre; head dips = head-centre point beyond the edge, body centre on the maze, neck not in a closed arm, majority over 41 frames | up to 0.2 s interpolated |
+| Novel object, 5 min | `DLCA_NOR v1.2.1.R` | 49 x 49 cm | nose in a 9 x 7 cm box at the rectangular novel object or within 4 cm of the round familiar one, body centre more than 1 cm from it, head not turned away (70 degrees or more); objects at fixed positions | up to 0.2 s |
+| Social preference, 3 x 10 min | `DLCA_SocP v.1.1.0.R` | 44 x 24 cm | nose within 6 cm of the cup centre; time on top of a cup is not contact | landmark repair first; up to 0.2 s |
+
+Quality control, in order: session QC in every assay (valid time, longest gap,
+interpolated time; a failure is recorded, never dropped), the frame-level plausibility
+screen (`23`), the light checks of every recording (`31`) and, for the social preference
+test, the reviews and validations behind its two corrections (`24`-`30`).
+
+The head-length restoration that `socp_all.yaml` switches on (2026-11-06, see "A head
+hidden under the cup lid") is not yet in the released scores; the release of 2026-11-05
+(landmark repair) is the one the paper uses.
 
 ## Canonical all-batch release bundle
 
@@ -140,10 +165,24 @@ truth is known: stretches of observed nose (0.3 to 10 s) are hidden and rebuilt 
 time constants for the pose of the moment (`landmark_repair_pose_decay_s`). `Rscript
 30_nose_rebuild_benchmark.R`; results in `results/socp_nose_rebuild_benchmark.csv`.
 
+**`31` — light checks.** One row per recording of every test: its length against the
+protocol, an open field last minute too short to count, the same trial twice (identical
+files, or two body-centre tracks that coincide at some offset), landmarks the test uses
+that are missing, arena shape, corner drift, corner loss and camera shift, the length and
+nose-tail order of the moving mouse, poses taken from another video frame, the novel object
+positions, plus maze time off every zone, open field time the scoring dropped, novel object
+total contact, and readouts more than 3.5 robust SD from their test and sex. Report only.
+`Rscript 31_light_checks.R` (about 20 min); results in `results/light_checks_*.csv`. The
+2026-11-06 run and its review on video found three input errors (two social preference
+trials from the wrong part of a video or from another animal, one plus maze video cut 39 s
+short), one open field recording whose poses run out of step with its video, and the
+partial last bin in the open field habituation slope (fixed in `DLCA_OFT v1.2.0.R`); see
+`Behavior/SLEAP/qc/light_checks` on the lab share.
+
 ## Layout
 
 ```
-scripts/    32 R scripts, as described above
+scripts/    33 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv
