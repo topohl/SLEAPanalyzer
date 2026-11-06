@@ -177,22 +177,27 @@ total contact, and readouts more than 3.5 robust SD from their test and sex. Rep
 trials from the wrong part of a video or from another animal, one plus maze video cut 39 s
 short), one open field recording whose poses run out of step with its video, and the
 partial last bin in the open field habituation slope (fixed in `DLCA_OFT v1.2.0.R`); see
-`Behavior/SLEAP/qc/light_checks` on the lab share.
+`Behavior/SLEAP/qc/light_checks` on the lab share. The outcome of each flag looked at is in
+`config/light_check_decisions.csv` (keep, correct, code_fixed or open, with the finding, the
+evidence and the md5 of the tracking file); `31` shows it under `reviewed` and lists only the
+flags without one, or on a tracking file changed since, under `to_review`.
 
 **`32` — video QC manifest.** The manifest for `tools/video_qc` (see the main README): every
 recording `31` checks, with the clip it was tracked from (matched by name; eight assigned by
 hand, with the evidence in the script), its test folder for the raw camera files, protocol
 length, arena size and objects. `31` then lists the tool's flags as `video:<check>:<flag>`.
-`Rscript 32_video_qc_manifest.R`, then `python -I tools/video_qc
-validation/exp9_boris/results/video_qc_manifest.csv validation/exp9_boris/results/video_qc
---checks frames,objects --stills` once per release (about 30 min); `sync` (about 1.5 h) and
-`clip` (several hours) can run later into the same folder.
+`frames` and `objects` take about 25 min, `sync` about 1.5 h and `clip` several hours; each
+can run on its own into the same folder.
+
+**Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks and `31`, copies
+the results for review to the lab share and ends with the flags to review (about 45 min;
+`-SkipVideo` for the light checks only, `-Checks sync` or `-Checks clip` to add a slower check).
 
 ## Layout
 
 ```
 scripts/    34 R scripts, as described above
-config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
+config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT) and the QC review decisions
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv
 results/    derived tables — sweeps, agreement statistics, audits; video_qc/ from tools/video_qc

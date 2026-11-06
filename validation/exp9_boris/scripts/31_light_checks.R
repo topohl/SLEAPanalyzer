@@ -54,6 +54,11 @@
 #   video      tools/video_qc flags, read from results/video_qc/video_qc.csv
 #              when it is there (manifest from 32_video_qc_manifest.R)
 #
+# Each flag looked at gets a row in config/light_check_decisions.csv
+# (outcome, finding, evidence, the md5 of the tracking file). The tables then
+# show it under `reviewed`; only flags without a decision, or on a tracking
+# file changed since, are listed under `to_review` and printed at the end.
+#
 # Writes results/light_checks_recordings.csv (one row per recording, values
 # and flags), results/light_checks_summary.csv (one row per test and trial)
 # and results/light_checks_duplicates.csv (pairs of recordings that are the
@@ -325,7 +330,36 @@ chk[, flags := apply(cbind(
 if ("video_flags" %in% names(chk))
   chk[, flags := mapply(function(f, v) paste(c(f[nzchar(f)], if (!v %in% c(NA, "none")) paste0("video:", strsplit(v, ";", fixed = TRUE)[[1]])),
                                              collapse = "; "), flags, video_flags, USE.NAMES = FALSE)]
-setcolorder(chk, c("assay", "phase", "batch", "Code", "Sex", "flags"))
+
+# ---- review decisions -----------------------------------------------------------------------------------------------------
+# config/light_check_decisions.csv: the outcome of each flag looked at (keep, correct, code_fixed, open), with the md5 of
+# the tracking file it was decided on. A flag with a decision on the same file goes to `reviewed` as "flag: outcome";
+# a new flag, or one on a tracking file changed since its decision, goes to `to_review`.
+DECISIONS <- Sys.getenv("EXP9_LIGHT_DECISIONS", file.path(PROJ, "config", "light_check_decisions.csv"))
+dec <- if (file.exists(DECISIONS)) fread(DECISIONS, colClasses = "character") else NULL
+dec <- if (!is.null(dec) && nrow(dec)) rbindlist(lapply(seq_len(nrow(dec)), function(i)
+  dec[i, .(id = paste(assay, phase, batch, Code), flag = trimws(strsplit(flags, ";", fixed = TRUE)[[1]]), outcome, tracking_md5)])) else
+  data.table(id = character(), flag = character(), outcome = character(), tracking_md5 = character())
+chk[, md5 := recordings$md5[match(paste(assay, phase, batch, Code), recordings[, paste(assay, phase, batch, Code)])]]
+seen <- character()
+rev_cols <- lapply(seq_len(nrow(chk)), function(i) {
+  f <- strsplit(chk$flags[i], "; ", fixed = TRUE)[[1]]; f <- f[nzchar(f)]
+  if (!length(f)) return(c(reviewed = "", to_review = ""))   # paste() would turn no flag into one
+  rid <- chk[i, paste(assay, phase, batch, Code)]
+  seen <<- c(seen, paste(rid, f))
+  j <- match(paste(rid, f), paste(dec$id, dec$flag))
+  ok <- !is.na(j) & dec$tracking_md5[j] %in% chk$md5[i]
+  changed <- !is.na(j) & !ok
+  c(reviewed = paste(if (any(ok)) paste0(f[ok], ": ", dec$outcome[j[ok]]), collapse = "; "),
+    to_review = paste(c(f[is.na(j)], if (any(changed)) paste(f[changed], "(tracking changed since its decision)")), collapse = "; "))
+})
+chk[, `:=`(reviewed = vapply(rev_cols, `[[`, "", "reviewed"), to_review = vapply(rev_cols, `[[`, "", "to_review"), md5 = NULL)]
+gone <- dec[id %in% chk[, paste(assay, phase, batch, Code)] & !paste(id, flag) %in% seen]
+cat(sprintf("\nreview decisions (%s): %d of %d flags decided; %d recordings with flags to look at\n", basename(DECISIONS),
+            sum(nzchar(unlist(strsplit(chk$reviewed, "; ", fixed = TRUE)))), length(seen), sum(nzchar(chk$to_review))))
+if (any(nzchar(chk$to_review))) print(as.data.frame(chk[nzchar(to_review), .(assay, phase, batch, Code, to_review)]))
+if (nrow(gone)) { cat("decisions whose flag is no longer set (corrected? then drop the row):\n"); print(as.data.frame(gone[, .(id, flag, outcome)])) }
+setcolorder(chk, c("assay", "phase", "batch", "Code", "Sex", "flags", "reviewed", "to_review"))
 setorder(chk, assay, phase, batch, Code)
 num <- names(chk)[vapply(chk, is.double, TRUE)]
 chk[, (num) := lapply(.SD, signif, 4), .SDcols = num]
@@ -355,6 +389,7 @@ summ <- chk[, .(recordings = .N, flagged = sum(nzchar(trimws(sub("; $", "", own(
 if ("video_flags" %in% names(chk))
   summ <- merge(summ, chk[, .(video_checked = sum(!is.na(video_flags)), video = sum(grepl("video:", flags, fixed = TRUE))), by = .(assay, phase)],
                 by = c("assay", "phase"), sort = FALSE)
+summ <- merge(summ, chk[, .(to_review = sum(nzchar(to_review))), by = .(assay, phase)], by = c("assay", "phase"), sort = FALSE)
 fwrite(summ, file.path(OUT, "light_checks_summary.csv"))
 print(as.data.frame(summ))
 cat("\nsame trial twice:\n"); print(as.data.frame(duplicates))
