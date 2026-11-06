@@ -1,14 +1,14 @@
 # ============================================================================
 # 29_head_restore_impact.R
 #
-# What the head check of the landmark repair and the head length restoration
-# change in every social-preference recording (all batches, habituation and
-# phases 1 and 2): contact with each cup, mapped to the stranger and the other
-# cup, (1) as released (repair without the head check, no restoration),
-# (2) with the head check, (3) with the head check and the restoration as
-# configured; the nose time rebuilt and refused, the time restored, the median
-# head length and the longest stretch without nose or body centre. Report only;
-# DLCA_SocP applies both itself.
+# What the landmark repair as now configured (head check, pose of the moment)
+# and the head length restoration change in every social-preference recording
+# (all batches, habituation and phases 1 and 2): contact with each cup, mapped
+# to the stranger and the other cup, (1) as released (repair without the head
+# check and the pose, no restoration), (2) repaired as configured, (3) repaired
+# and restored; the nose time rebuilt and refused, the time restored, the
+# median head length and the longest stretch without nose or body centre.
+# Report only; DLCA_SocP applies all of it itself.
 #
 #   Rscript 29_head_restore_impact.R      writes results/socp_head_restore_impact.csv
 # ============================================================================
@@ -36,11 +36,12 @@ for (cfg in c("socp_all.yaml", "socp_hab_all.yaml")) {
       name <- tools::file_path_sans_ext(basename(f)); code <- substr(name, 1, 4); loc <- metadata_lookup(nl, code, "NovelLoc")
       raw <- read_tracking_csv(file = f, fps = config$fps)
       raw <- CalibrateTrackingData(raw, method = "area", in.metric = config$arena_width_cm * config$arena_height_cm, points = config$arena_corner_names)
-      run <- function(head_check, restore) {
+      run <- function(as_released, restore) {
         tr <- repair_landmarks(raw, landmarks = config$landmark_repair_landmarks, targets = config$landmark_repair_targets,
           margin = config$landmark_repair_margin_cm, margin_fraction = config$landmark_repair_margin_fraction, min_share = config$landmark_repair_min_share,
           min_landmarks = config$landmark_repair_min_landmarks, max_anchor_error = config$landmark_repair_max_anchor_error_cm,
-          corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm, head_check = head_check)
+          corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm, head_check = !as_released,
+          pose_decay_s = if (as_released) 0 else config$landmark_repair_pose_decay_s)
         s <- tr$repair$summary
         tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = config$max_interpolation_gap_s, likelihood_cutoff = config$likelihood_cutoff)
         size <- apparent_body_size(tr)
@@ -58,10 +59,10 @@ for (cfg in c("socp_all.yaml", "socp_hab_all.yaml")) {
         list(m = m, rebuilt = s$reconstructed_s[s$landmark == "nose"], refused = s$refused_s[s$landmark == "nose"], restored = restored, head_cm = head_cm,
              gap_s = longest(gap) / config$fps, n = length(gap))
       }
-      a <- run(FALSE, FALSE); b <- run(TRUE, FALSE); c3 <- run(TRUE, TRUE)
+      a <- run(TRUE, FALSE); b <- run(FALSE, FALSE); c3 <- run(FALSE, TRUE)
       res[[length(res) + 1]] <- data.table(file = name, Code = code, batch, phase = ph, novelLoc = loc,
         left_released = a$m$contactLeft, right_released = a$m$contactRight, stranger_released = a$m$contactNovel, other_released = a$m$contactFamiliar,
-        left_head_check = b$m$contactLeft, right_head_check = b$m$contactRight, stranger_head_check = b$m$contactNovel, other_head_check = b$m$contactFamiliar,
+        left_repaired = b$m$contactLeft, right_repaired = b$m$contactRight, stranger_repaired = b$m$contactNovel, other_repaired = b$m$contactFamiliar,
         left_final = c3$m$contactLeft, right_final = c3$m$contactRight, stranger_final = c3$m$contactNovel, other_final = c3$m$contactFamiliar,
         nose_rebuilt_released_s = a$rebuilt, nose_rebuilt_s = b$rebuilt, nose_refused_s = b$refused, nose_restored_s = c3$restored, head_length_cm = c3$head_cm,
         longest_gap_released_s = a$gap_s, longest_gap_s = b$gap_s, total_s = c3$n / config$fps)
@@ -71,5 +72,5 @@ for (cfg in c("socp_all.yaml", "socp_hab_all.yaml")) {
 out <- rbindlist(res)
 stopifnot(nrow(out) == 348, !anyNA(out$novelLoc))
 fwrite(out, OUT)
-cat(nrow(out), "recordings; nose refused by the head check:", round(sum(out$nose_refused_s)), "s; longest gap above 5 s in",
+cat(nrow(out), "recordings; nose rebuilt", round(sum(out$nose_rebuilt_s)), "s, refused by the head check", round(sum(out$nose_refused_s)), "s; longest gap above 5 s in",
     sum(out$longest_gap_s > 5), "recordings (released:", sum(out$longest_gap_released_s > 5), ")\n")

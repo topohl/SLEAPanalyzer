@@ -131,7 +131,8 @@ screen_one <- function(r) {
                                   margin = SOCP$landmark_repair_margin_cm, margin_fraction = SOCP$landmark_repair_margin_fraction,
                                   min_share = SOCP$landmark_repair_min_share, min_landmarks = SOCP$landmark_repair_min_landmarks,
                                   max_anchor_error = SOCP$landmark_repair_max_anchor_error_cm,
-                                  corners = if (r$assay != "EPM") CORNERS, max_outside = SOCP$landmark_repair_outside_cm), error = function(e) NULL)
+                                  corners = if (r$assay != "EPM") CORNERS, max_outside = SOCP$landmark_repair_outside_cm,
+                                  pose_decay_s = SOCP$landmark_repair_pose_decay_s), error = function(e) NULL)
   if (is.null(rp)) warning("landmark repair failed for ", basename(r$file))
   repair <- if (is.null(rp)) NULL else { rs <- rp$repair$summary
     list(repair_flagged_s = sum(rp$repair$frames_flagged & !rp$repair$collapse) / FPS, repair_split_s = sum(rp$repair$split) / FPS,

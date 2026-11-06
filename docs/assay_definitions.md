@@ -125,21 +125,39 @@ an assay applies it with `landmark_repair: true` (so far SocP).
    landmarks are removed and the frame stays untracked.
 2. **Rebuild.** Each target (`landmark_repair_targets`: nose, body centre)
    missing in a frame is rebuilt from two rigid neighbours present in that
-   frame, at its typical position in their frame of reference (fitted on the
-   recording's own trusted frames). The pair with the smallest error is used
-   first; pairs whose 95th-percentile error on trusted frames exceeds
-   `landmark_repair_max_anchor_error_cm` are never used. The nose is rebuilt
-   only where both ears are present, and only where the result sits as this
-   animal's observed noses do: at a distance from the ear midpoint within their
-   1st to 99th percentile and at an angle to the body axis (body centre to ear
-   midpoint) no larger than their 99th percentile. Otherwise the next pair is
-   tried; a nose no pair can place stays missing (`refused_s`,
-   `noseRefusedS`). Without this check, a nose rebuilt from one ear and the
-   neck, or from body points, could land beside the head. Over all 348
-   recordings the check refuses 298 of 3,072 s of rebuilt nose (89
-   recordings, 208 s in batch 4); contact moves by more than 1 s in 30 cup
-   sessions, and three recordings now have an untracked stretch longer than
-   5 s (`validation/exp9_boris/scripts/29_head_restore_impact.R`).
+   frame (fitted on the recording's own trusted frames). The pair with the
+   smallest error is used first; pairs whose 95th-percentile error on trusted
+   frames exceeds `landmark_repair_max_anchor_error_cm` are never used. The
+   body centre is placed at its typical position relative to the pair. The
+   nose keeps the pose of the moment: its position relative to the pair is
+   the median of the 5 nearest frames on either side where nose and pair were
+   observed (pair at its usual length), interpolated across the gap, and fades
+   to its typical position with a time constant of
+   `landmark_repair_pose_decay_s` (1 s; 0 gives the typical position alone).
+   The nose is rebuilt only where both ears are present, and only where the
+   result sits as this animal's observed noses do: at a distance from the ear
+   midpoint within their 1st to 99th percentile and at an angle to the body
+   axis (body centre to ear midpoint) no larger than their 99th percentile. A
+   pose of the moment that fails this check gives way to the typical
+   position; if that fails too, the next pair is tried, and a nose no pair can
+   place stays missing (`refused_s`, `noseRefusedS`). Without the check, a nose
+   rebuilt from one ear and the neck, or from body points, could land beside
+   the head. Over all 348 recordings, rebuilt nose falls from 3,072 to
+   2,807 s and 294 s are refused (86 recordings, 206 s in batch 4); contact
+   moves by more than 1 s in 56 cup sessions, and three recordings have an
+   untracked stretch longer than 5 s
+   (`validation/exp9_boris/scripts/29_head_restore_impact.R`). The pose of the
+   moment was measured where the truth is known
+   (`scripts/30_nose_rebuild_benchmark.R`; 130 recordings of 67 animals: all
+   100 with at least 5 s of rebuilt nose and 30 others). With observed nose
+   hidden in stretches of 0.3, 1, 3 and 10 s, the 95th-percentile error of the
+   rebuilt nose fell from 1.05 to 0.57, 0.96 to 0.71, 0.95 to 0.85 and 0.99 to
+   0.95 cm; near a cup its contact decision agreed with the observed nose's in
+   97.4% instead of 95.2% of frames (0.3 s) and 94.4% instead of 94.2% (10 s).
+   At the edges of real gaps, where tracking is often already degraded (a head
+   going under a lid), the median error fell from 0.53 to 0.36 cm and the
+   contact decision near a cup agreed in 89.8% instead of 86.9%. Time
+   constants of 0.5 to 2 s perform alike; 1 s is a round value in that range.
 3. **Bridge.** Bounded interpolation then fills short gaps that remain.
 
 A rebuilt coordinate has the frame status `reconstructed`: it counts as valid
@@ -469,19 +487,18 @@ scorer counted as contact had a visible head of 0.64 to 0.68 of its median
 length, the frames not counted 0.97 to 1.00. With the head restored, frame
 agreement (F1) rose from 0.857 to 0.869 (camera 1: 0.862 to 0.875), and the
 totals per cup session agreed better: bias -5.0 to -1.4 s, limits of agreement
-±16.6 to ±11.8 s (camera 1: -3.4 to +0.2 s, ±16.0 to ±9.7 s). Most of the gain
-is at the stranger cup (camera 1 bias -11.3 to -3.6 s, camera 2 -8.8 to
+±16.6 to ±11.9 s (camera 1: -3.5 to +0.1 s, ±16.1 to ±9.8 s). Most of the gain
+is at the stranger cup (camera 1 bias -11.5 to -3.9 s, camera 2 -8.8 to
 -2.5 s); in the habituation trials, where agreement is lowest (F1 0.71 to
-0.77), camera 1 agreed slightly worse afterwards (concordance 0.963 to 0.947).
+0.77), camera 1 agreed slightly worse afterwards (concordance 0.966 to 0.950).
 With the restored head, 6 cm is at or next to the best contact distance on both
 cameras; without it, 6.25 cm agrees about as well on totals (camera 1 bias
-+2.6 s, ±10.7 s), but that distance is fitted to the manual scoring. A limit on
++2.4 s, ±10.8 s), but that distance is fitted to the manual scoring. A limit on
 the angle between head and body axis was tried and removed: a mouse
 investigating a cup turns its head, and the limit undid real recoveries on
-both cameras (camera 2 F1 0.857 with it, 0.864 without), so camera 1 is no
-longer a pure hold-out for that choice. Directly behind the lid most manually
-scored time is still missed (479 of 667 s): there the hidden part is longer
-than a head. One habituation trial was scored twice by hand: the two scorings
+both cameras, so camera 1 is no longer a pure hold-out for that choice.
+Directly behind the lid most manually scored time is still missed (477 of
+661 s): there the hidden part is longer than a head. One habituation trial was scored twice by hand: the two scorings
 agree with F1 0.843; the automated scoring of that trial agrees with them at
 0.73 and 0.77.
 

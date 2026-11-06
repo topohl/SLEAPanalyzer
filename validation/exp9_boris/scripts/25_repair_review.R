@@ -68,7 +68,8 @@ for (k in unique(picks[, paste(batch, phase, Code)])) {
   rp <- repair_landmarks(tr, landmarks = SOCP$landmark_repair_landmarks, targets = SOCP$landmark_repair_targets, margin = SOCP$landmark_repair_margin_cm,
                          margin_fraction = SOCP$landmark_repair_margin_fraction, min_share = SOCP$landmark_repair_min_share,
                          min_landmarks = SOCP$landmark_repair_min_landmarks, max_anchor_error = SOCP$landmark_repair_max_anchor_error_cm,
-                         corners = SOCP$arena_corner_names, max_outside = SOCP$landmark_repair_outside_cm)
+                         corners = SOCP$arena_corner_names, max_outside = SOCP$landmark_repair_outside_cm,
+                         pose_decay_s = SOCP$landmark_repair_pose_decay_s)
   head3 <- readLines(src, n = 3); body <- fread(src, skip = 3, header = FALSE)
   parts <- strsplit(head3[2], ",")[[1]]; coords <- strsplit(head3[3], ",")[[1]]
   stopifnot(nrow(body) == length(rp$data$nose$x))
