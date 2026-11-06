@@ -69,11 +69,16 @@ rows <- list()
 for (i in seq_len(nrow(picks))) {
   p <- picks[i]; x <- prepare(p$batch, p$Code, p$phase)
   f <- p$frame; k <- x$tr$px.to.cm
+  if (i <= 2) {   # a rebuilt nose the head check accepted: the frame nearest to the one listed
+    ok <- which(as.character(x$tr$data$nose$status) == "reconstructed"); stopifnot(length(ok) > 0)
+    f <- ok[which.min(abs(ok - f))]; stopifnot(abs(f - p$frame) <= 90)
+  }
   cup <- if (is.na(p$cup)) c(NA_real_, NA_real_) else c(stats::median(x$raw$data[[p$cup]]$x, na.rm = TRUE), stats::median(x$raw$data[[p$cup]]$y, na.rm = TRUE))
   tracked <- c(x$raw$data$nose$x[f], x$raw$data$nose$y[f]); used <- c(x$rs$data$nose$x[f], x$rs$data$nose$y[f]) / k
   rows[[i]] <- data.table(still = p$still, kind = p$kind, batch = p$batch, Code = p$Code, phase = p$phase, frame = f, video = video_path(p$batch, p$Code, p$phase),
     tracked_x = tracked[1], tracked_y = tracked[2], used_x = used[1], used_y = used[2], nose_status = as.character(x$rs$data$nose$status[f]),
     head_ratio = x$rs$head_length$length[f] / x$rs$head_length$median, cup_x = cup[1], cup_y = cup[2], px_per_cm = 1 / k,
+    lear_x = x$tr$data$leftEar$x[f] / k, lear_y = x$tr$data$leftEar$y[f] / k, rear_x = x$tr$data$rightEar$x[f] / k, rear_y = x$tr$data$rightEar$y[f] / k,
     tracked_to_cup_cm = sqrt(sum((tracked - cup)^2)) * k, used_to_cup_cm = sqrt(sum((used - cup)^2)) * k)
 }
 out <- rbindlist(rows)

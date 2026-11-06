@@ -111,7 +111,7 @@ for (batch in batches) {
         in.metric = config$arena_width_cm * config$arena_height_cm,
         points = config$arena_corner_names
       )
-      repairRow <- data.frame(landmarksFlaggedS = 0, skeletonCollapseS = 0, noseReconstructedS = 0,
+      repairRow <- data.frame(landmarksFlaggedS = 0, skeletonCollapseS = 0, noseReconstructedS = 0, noseRefusedS = 0,
                               bodycentreReconstructedS = 0, noseAnchorErrorP95 = NA_real_)
       if (isTRUE(config$landmark_repair)) {
         tracking <- repair_landmarks(
@@ -132,6 +132,7 @@ for (batch in batches) {
           landmarksFlaggedS = sum(rp$frames_flagged & !rp$collapse) / config$fps,
           skeletonCollapseS = sum(rp$collapse) / config$fps,
           noseReconstructedS = s$reconstructed_s[s$landmark == "nose"],
+          noseRefusedS = s$refused_s[s$landmark == "nose"],
           bodycentreReconstructedS = s$reconstructed_s[s$landmark == "bodycentre"],
           noseAnchorErrorP95 = if (is.null(rp$models$nose)) NA_real_ else rp$models$nose$error_p95[1]
         )

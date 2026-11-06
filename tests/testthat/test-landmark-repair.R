@@ -73,9 +73,13 @@ test_that("a split skeleton keeps its consistent majority; without one it collap
   expect_false(any(fixed$repair$split[-(100:130)]))
   expect_true(all(is.na(fixed$data$leftEar$x[100:130])))
   expect_equal(fixed$data$tailbase$x, tr$data$tailbase$x)
-  err <- sqrt((fixed$data$nose$x[100:130] - m$truth$nose[100:130, "x"])^2 + (fixed$data$nose$y[100:130] - m$truth$nose[100:130, "y"])^2)
+  # the head went with the removed group: without ears the nose cannot be checked against the head, so it stays missing
+  expect_true(all(is.na(fixed$data$nose$x[100:130])))
+  expect_equal(fixed$repair$summary$refused_s[fixed$repair$summary$landmark == "nose"], 31 / 30)
+  expect_true(all(is.finite(fixed$data$bodycentre$x[100:130])))
+  without <- repair_landmarks(tr, head_check = FALSE)                  # without the check it is rebuilt from the body
+  err <- sqrt((without$data$nose$x[100:130] - m$truth$nose[100:130, "x"])^2 + (without$data$nose$y[100:130] - m$truth$nose[100:130, "y"])^2)
   expect_lt(max(err), 0.25)
-  expect_true(all(as.character(fixed$data$nose$status[100:130]) == "reconstructed"))
   expect_true("skeleton_split" %in% fixed$repair$episodes$check)
   tr$data$tailbase$x[100:130] <- 40; tr$data$tailbase$y[100:130] <- 2  # now 5 against 5 and one: no majority
   even <- repair_landmarks(tr)
@@ -92,10 +96,11 @@ test_that("landmarks far outside the arena are removed before the skeleton vote"
   for (p in out) points[[p]][100:130, ] <- cbind(-30 + 0.3 * match(p, out), 10)
   tr <- make_tracking(frames = 0:(n - 1), fps = 30, points = points, distance_unit = "cm")
   expect_equal(distance_outside_polygon(c(22, -3, 50, NA), c(12, 12, 30, 1), rbind(c(0, 24), c(44, 24), c(44, 0), c(0, 0))), c(0, 3, sqrt(72), NA))
-  fixed <- repair_landmarks(tr, corners = c("tl", "tr", "br", "bl"), max_outside = 15)
+  fixed <- repair_landmarks(tr, corners = c("tl", "tr", "br", "bl"), max_outside = 15, head_check = FALSE)
   expect_false(any(fixed$repair$collapse))
   err <- sqrt((fixed$data$nose$x[100:130] - m$truth$nose[100:130, "x"])^2 + (fixed$data$nose$y[100:130] - m$truth$nose[100:130, "y"])^2)
   expect_lt(max(err), 0.25)
+  expect_true(all(is.na(repair_landmarks(tr, corners = c("tl", "tr", "br", "bl"), max_outside = 15)$data$nose$x[100:130])))   # ears gone: not rebuilt
   expect_equal(fixed$data$tailbase$x, tr$data$tailbase$x)
   s <- fixed$repair$summary
   expect_equal(s$outside_s[s$landmark == "leftEar"], 31 / 30)
@@ -198,4 +203,23 @@ test_that("without an observed nose and both ears, head length restoration warns
   expect_equal(out$data$nose$x, tr$data$nose$x)
   expect_true(is.na(out$head_length$median))
   expect_false(any(out$head_length$moved))
+})
+
+test_that("a rebuilt nose that would contradict the head is refused, not placed", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  tr$data$nose$x[50:80] <- NA; tr$data$nose$y[50:80] <- NA
+  ok <- repair_landmarks(tr)                                            # ears present and right: rebuilt in front of the head
+  err <- sqrt((ok$data$nose$x[50:80] - m$truth$nose[50:80, "x"])^2 + (ok$data$nose$y[50:80] - m$truth$nose[50:80, "y"])^2)
+  expect_lt(max(err), 0.25)
+  sw <- tr; sw$data$leftEar <- tr$data$rightEar; sw$data$rightEar <- tr$data$leftEar   # ears swapped: the ear pair points backwards
+  sw$data$leftEar$x[-(50:80)] <- tr$data$leftEar$x[-(50:80)]; sw$data$leftEar$y[-(50:80)] <- tr$data$leftEar$y[-(50:80)]
+  sw$data$rightEar$x[-(50:80)] <- tr$data$rightEar$x[-(50:80)]; sw$data$rightEar$y[-(50:80)] <- tr$data$rightEar$y[-(50:80)]
+  bad <- repair_landmarks(sw)
+  ex <- (sw$data$leftEar$x + sw$data$rightEar$x) / 2; ey <- (sw$data$leftEar$y + sw$data$rightEar$y) / 2
+  ax <- ex - sw$data$bodycentre$x; ay <- ey - sw$data$bodycentre$y
+  hx <- bad$data$nose$x - ex; hy <- bad$data$nose$y - ey
+  front <- (hx * ax + hy * ay)[50:80]
+  expect_true(all(is.na(front) | front > 0))                           # whatever is placed lies in front of the head
+  expect_gt(sum(is.finite(bad$data$nose$x[50:80])), 0)                 # the next anchor pair places it
 })

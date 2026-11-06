@@ -13,8 +13,9 @@
 # reference_release: the SLEAPanalyzer release the automated values without
 # the restoration must reproduce (its assay_summaries/SocP/B1).
 #
-# Each recording is processed as DLCA_SocP does (calibration, landmark repair,
-# interpolation, on-cup detection) and contact is scored with three noses:
+# Each recording is processed as DLCA_SocP does (calibration, landmark repair
+# with its head check, interpolation, on-cup detection; without the head check it
+# must reproduce the reference release) and contact is scored with three noses:
 # without restoration, restored as configured (restore_head_length(), heads
 # below 0.75 of their median length), and restored in every head shorter than
 # its median (sensitivity). BORIS times are seconds of video at 30 frames per
@@ -95,23 +96,27 @@ qcDecisions <- read_qc_decisions(config$qc_decisions_file)
 process <- function(code, ph) {
   cf <- configs[[ph]]; name <- paste0(code, "_", ph)
   tr <- read_tracking_csv(file = file.path(STAGE, ph, paste0(name, ".csv")), fps = cf$fps)
-  tr <- CalibrateTrackingData(tr, method = "area", in.metric = cf$arena_width_cm * cf$arena_height_cm, points = cf$arena_corner_names)
-  tr <- repair_landmarks(tr, landmarks = cf$landmark_repair_landmarks, targets = cf$landmark_repair_targets,
-    margin = cf$landmark_repair_margin_cm, margin_fraction = cf$landmark_repair_margin_fraction, min_share = cf$landmark_repair_min_share,
-    min_landmarks = cf$landmark_repair_min_landmarks, max_anchor_error = cf$landmark_repair_max_anchor_error_cm,
-    corners = cf$arena_corner_names, max_outside = cf$landmark_repair_outside_cm)
-  tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = cf$max_interpolation_gap_s, likelihood_cutoff = cf$likelihood_cutoff)
-  size <- apparent_body_size(tr)
-  on <- lapply(c(left = "socl", right = "socr"), function(cup) {
-    f <- detect_on_object(tr, cup, cf$arena_corner_names, footprint_radius = cf$on_cup_footprint_radius_cm, beyond = cf$on_cup_beyond_cm,
-      max_distance = cf$on_cup_max_distance_cm, min_apparent_size = cf$on_cup_min_apparent_size, merge_gap_s = cf$on_cup_merge_gap_s,
-      min_episode_s = cf$on_cup_min_episode_s, size_window_s = cf$on_cup_size_window_s, size = size)
-    apply_qc_decisions(f$on_object, qcDecisions, name, cup, cf$fps) })
-  score <- function(t) compute_socp_metrics(t, "R", cf$fps, contact_distance = cf$contact_distance_cm,
+  raw <- CalibrateTrackingData(tr, method = "area", in.metric = cf$arena_width_cm * cf$arena_height_cm, points = cf$arena_corner_names)
+  prepare <- function(head_check) {
+    t <- repair_landmarks(raw, landmarks = cf$landmark_repair_landmarks, targets = cf$landmark_repair_targets,
+      margin = cf$landmark_repair_margin_cm, margin_fraction = cf$landmark_repair_margin_fraction, min_share = cf$landmark_repair_min_share,
+      min_landmarks = cf$landmark_repair_min_landmarks, max_anchor_error = cf$landmark_repair_max_anchor_error_cm,
+      corners = cf$arena_corner_names, max_outside = cf$landmark_repair_outside_cm, head_check = head_check)
+    t <- interpolate_tracking(t, landmarks = c("nose", "bodycentre"), max_gap_s = cf$max_interpolation_gap_s, likelihood_cutoff = cf$likelihood_cutoff)
+    size <- apparent_body_size(t)
+    on <- lapply(c(left = "socl", right = "socr"), function(cup) {
+      f <- detect_on_object(t, cup, cf$arena_corner_names, footprint_radius = cf$on_cup_footprint_radius_cm, beyond = cf$on_cup_beyond_cm,
+        max_distance = cf$on_cup_max_distance_cm, min_apparent_size = cf$on_cup_min_apparent_size, merge_gap_s = cf$on_cup_merge_gap_s,
+        min_episode_s = cf$on_cup_min_episode_s, size_window_s = cf$on_cup_size_window_s, size = size)
+      apply_qc_decisions(f$on_object, qcDecisions, name, cup, cf$fps) })
+    list(t = t, on = on)
+  }
+  score <- function(t, on) compute_socp_metrics(t, "R", cf$fps, contact_distance = cf$contact_distance_cm,
     body_exclusion_distance = cf$body_exclusion_distance_cm, proximity_range = cf$proximity_range_cm, threshold_unit = "cm", on_cup = on)$summary
+  released <- prepare(FALSE); x <- prepare(TRUE); tr <- x$t; on <- x$on
   variants <- list(tr, restore_head_length(tr, below = cf$head_length_restore_below), restore_head_length(tr, below = 1))
   names(variants) <- NOSES
-  sums <- lapply(variants, score)
+  sums <- lapply(variants, score, on = on)
   g <- function(t, p, xy) t$data[[p]][[xy]]
   d <- data.table(code = code, phase = ph, frame = seq_along(g(tr, "nose", "x")), valid = landmark_validity(tr, c("nose", "bodycentre", "socl", "socr")),
                   on_l = on$left, on_r = on$right, body_x = g(tr, "bodycentre", "x"), body_y = g(tr, "bodycentre", "y"),
@@ -119,7 +124,8 @@ process <- function(code, ph) {
                   em_x = (g(tr, "leftEar", "x") + g(tr, "rightEar", "x")) / 2, em_y = (g(tr, "leftEar", "y") + g(tr, "rightEar", "y")) / 2,
                   head_ratio = variants[[2]]$head_length$length / variants[[2]]$head_length$median)
   for (v in seq_along(NOSES)) { d[, (paste0("nx", v)) := g(variants[[v]], "nose", "x")]; d[, (paste0("ny", v)) := g(variants[[v]], "nose", "y")] }
-  attr(d, "totals") <- rbindlist(lapply(names(sums), function(v) data.table(nose = v, left = sums[[v]]$contactLeft, right = sums[[v]]$contactRight)))
+  rs <- score(released$t, released$on)
+  attr(d, "totals") <- data.table(nose = "as released", left = rs$contactLeft, right = rs$contactRight)
   d
 }
 REC <- unique(O[, .(code, phase, camera)])
@@ -130,10 +136,10 @@ for (i in seq_len(nrow(REC))) {
 }
 totals_check <- rbindlist(totals_check)
 rel <- rbindlist(lapply(c("HAB", "S1", "S2"), function(ph) fread(file.path(REL, "assay_summaries", "SocP", "B1", ph, "combined_output.csv"))))
-chk <- totals_check[nose == NOSES[1]][, file := paste0(code, "_", phase)][rel, on = "file", nomatch = 0]
-stopifnot("without the restoration the release values are reproduced" = nrow(chk) == nrow(REC),
+chk <- totals_check[, file := paste0(code, "_", phase)][rel, on = "file", nomatch = 0]
+stopifnot("without the head check and the restoration the release values are reproduced" = nrow(chk) == nrow(REC),
           max(abs(chk$left - chk$contactLeft), abs(chk$right - chk$contactRight)) < 1e-6)
-cat(nrow(REC), "recordings processed; the release values are reproduced without the restoration\n")
+cat(nrow(REC), "recordings processed; the release values are reproduced without the head check and the restoration\n")
 
 # ---------------------------------------------------------------- alignment (rule-independent signal)
 xcor <- function(x, y, max_lag) {   # correlation of x (manual frames) with y shifted: tracking row = manual frame + lag
