@@ -95,6 +95,7 @@ test_that("a partial last bin does not enter the habituation slope", {
   eval(parse(text = paste(script[start:end], collapse = "\n")), envir = bins_env)
   testthat::skip_if(!exists("make_habituation_slopes", envir = bins_env), "slope helpers not found")
   testthat::skip_if_not_installed("purrr")
+  bins_env$pivot_wider <- tidyr::pivot_wider   # the script attaches tidyr; the test does not
   config <- list(bin_size_s = 60, fps = 30)
   # 10 full minutes with distance falling by 10 cm per minute, then 5 frames of an 11th minute
   n <- 10 * 1800 + 5
