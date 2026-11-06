@@ -51,6 +51,8 @@
 #              readouts and distance, on the trial they come from; |z| > 3.5
 #              is listed for a look, never a reason to exclude by itself. Also
 #              a phase-1 social preference below 0 (a swapped stimulus side?)
+#   video      tools/video_qc flags, read from results/video_qc/video_qc.csv
+#              when it is there (manifest from 32_video_qc_manifest.R)
 #
 # Writes results/light_checks_recordings.csv (one row per recording, values
 # and flags), results/light_checks_summary.csv (one row per test and trial)
@@ -276,6 +278,28 @@ rz <- rbindlist(lapply(seq_len(nrow(readouts)), function(k) {
 rz <- rz[, .(readout_outliers = paste0(readout, " z ", z, collapse = "; ")), by = .(Code, assay, phase)]
 chk <- merge(chk, rz, by = c("Code", "assay", "phase"), all.x = TRUE)
 
+# ---- the video QC, when it has been run ----------------------------------------------------------------------------------
+# tools/video_qc run on the manifest of 32_video_qc_manifest.R with out_dir results/video_qc (the command is in 32). Its
+# flags join as video:<check>:<flag>; video_flags is "none" for a recording checked without a flag, empty for one not
+# checked, and video_checks names the checks that ran on it.
+VIDEO_QC <- Sys.getenv("EXP9_VIDEO_QC", file.path(RES, "video_qc", "video_qc.csv"))
+vq <- if (file.exists(VIDEO_QC) && file.size(VIDEO_QC) > 2) tryCatch(fread(VIDEO_QC, colClasses = "character"), error = function(e) NULL)
+if (file.exists(VIDEO_QC) && !all(c("id", "flags") %in% names(vq))) {
+  cat("video QC file empty or not readable, video flags not joined:", VIDEO_QC, "\n"); vq <- NULL
+} else if (!file.exists(VIDEO_QC) && length(list.files(dirname(VIDEO_QC), "^video_qc_.*[.]csv$")))
+  cat("video QC tables but no video_qc.csv in", dirname(VIDEO_QC), "(a run in progress or stopped): video flags not joined\n")
+if (!is.null(vq)) {
+  if (!"checks" %in% names(vq)) vq[, checks := NA_character_]
+  vq[flags == "", flags := "none"]
+  m <- match(paste(chk$assay, chk$phase, chk$batch, chk$Code), vq$id)
+  chk[, `:=`(video_checks = vq$checks[m], video_flags = vq$flags[m])]
+  cat(sum(!is.na(chk$video_flags)), "of", nrow(chk), "recordings have video QC results in", VIDEO_QC, "\n")
+  # the oldest table it combines decides whether the video QC is older than the tracking
+  tabs <- file.path(dirname(VIDEO_QC), paste0("video_qc_", unique(unlist(strsplit(stats::na.omit(vq$checks), ";", fixed = TRUE))), ".csv"))
+  if (any(file.mtime(recordings$file) > min(file.mtime(c(VIDEO_QC, tabs[file.exists(tabs)])))))
+    cat("  tracking files newer than the video QC: rerun 32_video_qc_manifest.R and tools/video_qc\n")
+}
+
 # ---- flags ---------------------------------------------------------------------------------------------------------------
 chk <- merge(chk, EXPECT[, .(assay, expected_s = duration_s, expected_aspect = width_cm / height_cm)], by = "assay")
 chk[, moving_length_rel := moving_length_cm / stats::median(moving_length_cm, na.rm = TRUE), by = .(assay, Sex, batch)]
@@ -298,15 +322,19 @@ chk[, flags := apply(cbind(
   flag(total_contact_s < LIMIT$contact_s, "low_contact"),
   flag(s1_pref < 0, "s1_preference_below_0"),
   flag(!is.na(readout_outliers), "readout_outlier")), 1, function(x) paste(stats::na.omit(x), collapse = "; "))]
+if ("video_flags" %in% names(chk))
+  chk[, flags := mapply(function(f, v) paste(c(f[nzchar(f)], if (!v %in% c(NA, "none")) paste0("video:", strsplit(v, ";", fixed = TRUE)[[1]])),
+                                             collapse = "; "), flags, video_flags, USE.NAMES = FALSE)]
 setcolorder(chk, c("assay", "phase", "batch", "Code", "Sex", "flags"))
 setorder(chk, assay, phase, batch, Code)
 num <- names(chk)[vapply(chk, is.double, TRUE)]
 chk[, (num) := lapply(.SD, signif, 4), .SDcols = num]
 fwrite(chk, file.path(OUT, "light_checks_recordings.csv"))
 
-flagged <- function(x, name) sum(grepl(name, x, fixed = TRUE))
+own <- function(x) gsub("video:[^;]*(; )?", "", x)   # this script's own flags; the video ones are counted apart
+flagged <- function(x, name) sum(grepl(name, own(x), fixed = TRUE))
 rng <- function(x, d = 2) if (all(is.na(x))) NA_character_ else paste(round(range(x, na.rm = TRUE), d), collapse = "-")
-summ <- chk[, .(recordings = .N, flagged = sum(flags != ""),
+summ <- chk[, .(recordings = .N, flagged = sum(nzchar(trimws(sub("; $", "", own(flags))))),
   length = flagged(flags, "length"), duration_range_s = rng(duration_s, 1), partial_last_bin = flagged(flags, "partial_last_bin"),
   duplicate = flagged(flags, "duplicate"), landmark_missing = flagged(flags, "landmark_missing"),
   used_observed_min_pct = round(100 * min(used_observed_min, na.rm = TRUE), 2),
@@ -324,6 +352,9 @@ summ <- chk[, .(recordings = .N, flagged = sum(flags != ""),
   oft_dropped_max_s = if (all(is.na(oft_dropped_s))) NA_real_ else round(max(oft_dropped_s, na.rm = TRUE), 1),
   oft_dropped = flagged(flags, "oft_dropped"), low_contact = flagged(flags, "low_contact"),
   readout_outliers = flagged(flags, "readout_outlier")), by = .(assay, phase)]
+if ("video_flags" %in% names(chk))
+  summ <- merge(summ, chk[, .(video_checked = sum(!is.na(video_flags)), video = sum(grepl("video:", flags, fixed = TRUE))), by = .(assay, phase)],
+                by = c("assay", "phase"), sort = FALSE)
 fwrite(summ, file.path(OUT, "light_checks_summary.csv"))
 print(as.data.frame(summ))
 cat("\nsame trial twice:\n"); print(as.data.frame(duplicates))
