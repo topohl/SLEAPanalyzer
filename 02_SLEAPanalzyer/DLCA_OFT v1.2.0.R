@@ -817,7 +817,7 @@ make_summary_row <- function(tracking, frame_tbl, file_id, batch, code, animalID
 save_optional_plots <- function(tracking, file_id, plot_dir, config) {
   if (!isTRUE(config$save_plots)) return(invisible(NULL))
 
-  density_plots <- PlotDensityPaths(tracking, points = c("bodycentre"))
+  density_plots <- PlotDensityPaths(tracking, points = c("bodycentre"), Title = gsub("_", " ", file_id))
   ggsave(
     filename = file.path(plot_dir, paste0(file_id, "_DensityPath.png")),
     plot = density_plots$bodycentre,

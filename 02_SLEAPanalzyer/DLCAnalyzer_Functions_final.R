@@ -1151,20 +1151,43 @@ ZscoreNormalizeFeatures <- function(t, omit = NULL, include = NULL, type = "mean
   return(t)
 }
 
-PlotDensityPaths <- function(t, points, SDcutoff = 4, Title = "density path") {
+#' Where the animal spent its time: a heatmap of one landmark's positions.
+#'
+#' Time spent per area (seconds per square distance unit, a kernel density of
+#' the observed positions scaled by the observed time) from white to navy on a
+#' square-root scale, the path as a faint line on top, drawn in the video's
+#' orientation with equal axes. When the four arena corners are tracked the
+#' arena is outlined and the axes run from its lower left corner; `marks`
+#' adds static landmarks (a cup, an object) as a cross with a dashed circle of
+#' the given radius (NA: cross only).
+#'
+#' @param points landmarks to plot, one heatmap each
+#' @param SDcutoff unused; kept for older callers
+#' @param Title title above the plot (default: the landmark)
+#' @param marks named numeric vector: static landmark -> circle radius
+#' @param corners the four arena corner landmarks, in order around the arena
+#' @param bandwidth kernel bandwidth in distance units (default 2 when in cm)
+#' @return a list of ggplot objects, one per landmark
+PlotDensityPaths <- function(t, points, SDcutoff = 4, Title = NULL, marks = NULL,
+                             corners = c("tl", "tr", "br", "bl"), bandwidth = NULL) {
   if (!IsTrackingData(t)) {
     stop("Object is not of type TrackingData")
   }
   out <- NULL
-  
-  SDPlot <- function(x, nSD) {
-    ifelse((mean(x) - x) / sd(x) > -nSD, x, mean(x) + nSD * sd(x))
+  unit <- if (is.null(t$distance.units)) "px" else t$distance.units
+  if (is.null(bandwidth) && identical(unit, "cm")) bandwidth <- 2
+  ink <- "#1F3D52"; grey <- "#4D4D4D"
+  heat <- c("#FFFFFF", "#E3E8EC", "#A9BBC8", "#5F7E94", ink)
+  median_point <- function(p) c(stats::median(t$data[[p]]$x, na.rm = TRUE), stats::median(t$data[[p]]$y, na.rm = TRUE))
+  arena <- NULL
+  if (all(corners %in% names(t$data))) {
+    arena <- do.call(rbind, lapply(corners, median_point))
+    if (any(!is.finite(arena))) arena <- NULL
   }
-  
-  # Define custom Fire color scheme
-  fire_colors <- c("#000050", "#00008C", "#1800A3", "#300092", "#480081", "#600070", "#78005F", "#90004E", "#A8003D", "#C0002C", "#FF1500", "#FF3A00", "#FF8400", "#FFAA00", "#FFD200", "#FFFF80", "#FFFFB3", "#FFFFE6", "#FFFFFF")
-  speed_colors <- c("#000000", "#FFFFFF")
-  
+  # plotted coordinates: x from the arena's left edge, y upwards from its lower edge (the video's y runs downwards)
+  x0 <- if (is.null(arena)) 0 else min(arena[, 1]); y0 <- if (is.null(arena)) 0 else max(arena[, 2])
+  to_x <- function(x) x - x0; to_y <- function(y) y0 - y
+
   for (i in points) {
     data_plot <- t$data[[i]]
     # Unobserved frames are dropped rather than plotted. Bounded interpolation
@@ -1183,28 +1206,46 @@ PlotDensityPaths <- function(t, points, SDcutoff = 4, Title = "density path") {
         )
       )
     }
-    data_plot <- data_plot[observed, , drop = FALSE]
-    xbreaks <- seq(floor(min(data_plot$x)), ceiling(max(data_plot$x)), by = 0.1)
-    ybreaks <- seq(floor(min(data_plot$y)), ceiling(max(data_plot$y)), by = 0.1)
-    data_plot$latbin <- xbreaks[cut(data_plot$x, breaks = xbreaks, labels = FALSE)]
-    data_plot$longbin <- ybreaks[cut(data_plot$y, breaks = ybreaks, labels = FALSE)]
-    out[[i]] <- ggplot(data = data_plot, aes(x, y)) +
-      stat_density_2d(
-        data = data_plot,
-        aes(latbin, longbin, fill = ..density..),
-        geom = "raster",
-        contour = FALSE,
-        interpolate = TRUE
-      ) +
-      scale_fill_gradientn(name = "Time Density", colours = fire_colors) +
-      geom_path(
-        data = data_plot,
-        aes(x, y, color = SDPlot((speed * t$fps), SDcutoff)),
-        size = 0.5
-      ) +
-      theme_bw() +
-      ggtitle(paste(i, Title, sep = " ")) +
-      scale_color_gradientn(name = paste("speed (", t$distance.units, "/s)", sep = ""), colours = speed_colors)
+    d <- data.frame(x = to_x(data_plot$x[observed]), y = to_y(data_plot$y[observed]))
+    seconds <- nrow(d) / t$fps
+    if (is.null(arena)) {
+      xl <- range(d$x); yl <- range(d$y)
+    } else {
+      xl <- range(to_x(arena[, 1])); yl <- range(to_y(arena[, 2]))
+    }
+    pad <- 0.03 * max(diff(xl), diff(yl)); xl <- xl + c(-pad, pad); yl <- yl + c(-pad, pad)
+    density_layer <- ggplot2::stat_density_2d(
+      ggplot2::aes(fill = ggplot2::after_stat(density) * seconds), geom = "raster", contour = FALSE,
+      n = 200, h = if (is.null(bandwidth)) NULL else rep(bandwidth, 2), interpolate = TRUE)
+    p <- ggplot2::ggplot(d, ggplot2::aes(x, y)) + density_layer +
+      ggplot2::scale_fill_gradientn(colours = heat, trans = "sqrt", name = paste0("Time\n(s per ", unit, "\u00b2)")) +
+      ggplot2::geom_path(colour = grey, alpha = 0.25, linewidth = 0.15)
+    if (!is.null(arena)) {
+      a <- data.frame(x = to_x(arena[, 1]), y = to_y(arena[, 2]))
+      p <- p + ggplot2::geom_polygon(data = a, ggplot2::aes(x, y), fill = NA, colour = ink, linewidth = 0.4, inherit.aes = FALSE)
+    }
+    for (m in intersect(names(marks), names(t$data))) {
+      c0 <- median_point(m); cx <- to_x(c0[1]); cy <- to_y(c0[2])
+      if (!all(is.finite(c(cx, cy)))) next
+      p <- p + ggplot2::annotate("point", x = cx, y = cy, shape = 3, size = 1.6, colour = ink)
+      r <- marks[[m]]
+      if (is.finite(r)) {
+        a <- seq(0, 2 * pi, length.out = 120)
+        p <- p + ggplot2::annotate("path", x = cx + r * cos(a), y = cy + r * sin(a), colour = ink, linewidth = 0.3, linetype = "22")
+      }
+    }
+    p <- p + ggplot2::coord_equal(xlim = xl, ylim = yl, expand = FALSE) +
+      ggplot2::labs(x = unit, y = unit, title = if (is.null(Title)) i else Title) +
+      ggplot2::theme_classic(base_size = 8, base_family = "Arial") +
+      ggplot2::theme(axis.line = ggplot2::element_line(linewidth = 0.25, colour = "black"),
+                     axis.ticks = ggplot2::element_line(linewidth = 0.25, colour = "black"),
+                     axis.text = ggplot2::element_text(colour = "black", size = 7),
+                     axis.title = ggplot2::element_text(colour = grey, size = 7.5),
+                     plot.title = ggplot2::element_text(size = 8, face = "bold", hjust = 0),
+                     legend.title = ggplot2::element_text(colour = grey, size = 7), legend.text = ggplot2::element_text(size = 6.5),
+                     legend.key.width = grid::unit(2.5, "mm"), legend.key.height = grid::unit(10, "mm"),
+                     plot.margin = ggplot2::margin(4, 4, 4, 4))
+    out[[i]] <- p
   }
   return(out)
 }

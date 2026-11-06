@@ -277,11 +277,13 @@ for (batch in batches) {
       dfList[[length(dfList) + 1L]] <- df
       qcList[[length(qcList) + 1L]] <- qc_summary_row(qcReport)
 
-      plots <- PlotDensityPaths(tracking, points = "bodycentre")
+      # where the body centre spent its time, with each cup and its contact distance
+      plots <- PlotDensityPaths(tracking, points = "bodycentre", Title = gsub("_", " ", inputFileName),
+                                marks = c(socl = config$contact_distance_cm, socr = config$contact_distance_cm))
       if (!is.null(plots$bodycentre)) {
         ggplot2::ggsave(
           file.path(plotDir, paste0(inputFileName, "_DensityPath.png")),
-          plot = plots$bodycentre, width = 7, height = 4
+          plot = plots$bodycentre, width = 6, height = 3.4, dpi = 300, bg = "white"
         )
       }
       message("Processed file ", basename(inputFile))
