@@ -340,7 +340,11 @@ make_binned_table <- function(frame_tbl, config) {
       mean_wall_distance_cm = mean(wall_distance_cm, na.rm = TRUE),
       center_entries = entry_count(in_center),
       .groups = "drop"
-    )
+    ) %>%
+    # A recording a few frames longer than its bins ends in a bin of a few
+    # frames with almost no distance in it; counted as a full minute it pulls
+    # the habituation slope down (by 14-29 cm/min in six Exp9 recordings).
+    mutate(complete_bin = frames >= 0.9 * config$bin_size_s * config$fps)
 }
 
 fit_slope <- function(data, y, x = "bin_s") {
@@ -383,6 +387,7 @@ make_habituation_slopes <- function(binned_tbl) {
     "center_entries"
   )
 
+  if ("complete_bin" %in% names(binned_tbl)) binned_tbl <- dplyr::filter(binned_tbl, complete_bin)
   purrr::map_dfr(slope_metrics, fit_slope, data = binned_tbl) %>%
     pivot_wider(
       names_from = metric,
