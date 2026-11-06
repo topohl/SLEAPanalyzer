@@ -158,6 +158,13 @@ predict_from_anchor <- function(L, model, rows) {
 #'    are fitted on the recording's own trusted frames, ranked by error, and
 #'    only pairs whose 95th-percentile error is at most `max_anchor_error` are
 #'    used. Rebuilt coordinates get status "reconstructed".
+#'    With `head_check`, the nose is rebuilt only where both ears are present,
+#'    and a rebuilt nose must sit where this animal's observed noses sit: its
+#'    distance from the ear midpoint within their 1st to 99th percentile (as a
+#'    share of the median head length) and its angle to the body axis (body
+#'    centre to ear midpoint) at most their 99th percentile. A prediction that
+#'    fails goes to the next anchor pair; a nose no pair can place stays missing
+#'    (`refused_s`).
 #' Run bounded interpolation afterwards for what remains missing.
 #'
 #' @return the TrackingData object with repaired coordinates; `$repair` holds
@@ -166,7 +173,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
                              targets = c("nose", "bodycentre"), margin = 3,
                              margin_fraction = 0.6, min_share = 0.5,
                              min_landmarks = 4, max_anchor_error = 2,
-                             corners = NULL, max_outside = NULL) {
+                             corners = NULL, max_outside = NULL, head_check = TRUE) {
   validate_tracking_data(tracking, required_landmarks = unique(c(landmarks, targets)))
   if (!all(targets %in% landmarks)) stop("every repair target must be one of the checked landmarks")
   validate_positive_integer(min_landmarks, "min_landmarks")
@@ -217,7 +224,22 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
       L[[point]][gone, ] <- NA_real_
     }
   }
-  models <- list(); rebuilt <- matrix(FALSE, nrow(flags), length(landmarks), dimnames = dimnames(flags))
+  models <- list(); rebuilt <- matrix(FALSE, nrow(flags), length(landmarks), dimnames = dimnames(flags)); refused <- rebuilt
+  head_ok <- isTRUE(head_check) && all(c("nose", "leftEar", "rightEar", "bodycentre") %in% landmarks)
+  if (head_ok) {
+    ears <- trusted[, "leftEar"] & trusted[, "rightEar"]
+    em <- (L$leftEar + L$rightEar) / 2
+    head_geometry <- function(xy) {   # distance from the ear midpoint and angle to the body axis
+      h <- xy - em; ax <- em - L$bodycentre; len <- sqrt(rowSums(h^2))
+      list(len = len, angle = acos(pmin(1, pmax(-1, rowSums(h * ax) / (len * sqrt(rowSums(ax^2)))))) * 180 / pi)
+    }
+    obs <- head_geometry(L$nose); ref <- trusted[, "nose"] & ears & is.finite(obs$len) & obs$len > 0
+    head_ok <- sum(ref) >= 30
+  }
+  if (head_ok) {
+    med <- stats::median(obs$len[ref]); len_lim <- stats::quantile(obs$len[ref] / med, c(.01, .99), names = FALSE)
+    ang_max <- stats::quantile(obs$angle[ref & is.finite(obs$angle)], .99, names = FALSE)
+  }
   for (target in targets) {
     others <- setdiff(landmarks, target)
     cand <- utils::combn(others, 2)
@@ -228,12 +250,22 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
     usable <- fits[fits$error_p95 <= max_anchor_error, , drop = FALSE]
     models[[target]] <- fits
     need <- !is.finite(L[[target]][, 1]) & !collapse & rowSums(trusted) > 0
+    check <- head_ok && target == "nose"
+    if (check) { refused[need & !ears, target] <- TRUE; need <- need & ears }
     for (k in seq_len(nrow(usable))) {
       if (!any(need)) break
       m <- usable[k, ]
       rows <- which(need & trusted[, m$anchor_a] & trusted[, m$anchor_b])
       if (!length(rows)) next
       xy <- predict_from_anchor(L, m, rows)
+      if (check) {
+        full <- matrix(NA_real_, nrow(flags), 2); full[rows, ] <- xy; geo <- head_geometry(full)
+        fits <- geo$len[rows] / med >= len_lim[1] & geo$len[rows] / med <= len_lim[2] & (!is.finite(geo$angle[rows]) | geo$angle[rows] <= ang_max)
+        fits[is.na(fits)] <- FALSE
+        refused[rows[!fits], target] <- TRUE
+        rows <- rows[fits]; xy <- xy[fits, , drop = FALSE]
+        if (!length(rows)) next
+      }
       tracking$data[[target]]$x[rows] <- xy[, 1]; tracking$data[[target]]$y[rows] <- xy[, 2]
       L[[target]][rows, ] <- xy
       status[[target]][rows] <- "reconstructed"
@@ -241,6 +273,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
       need[rows] <- FALSE
     }
   }
+  refused <- refused & !rebuilt
   for (point in landmarks) tracking$data[[point]]$status <- factor(status[[point]], levels = FRAME_STATUS_LEVELS)
   # outside_s: the landmark was outside the arena; flagged_s: it alone was inconsistent; collapse_s: the whole skeleton was
   # (frames in which the landmark was present; disjoint from outside_s).
@@ -251,6 +284,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
     collapse_s = colSums(collapse & present) / fps,
     reconstructed_s = colSums(rebuilt) / fps,
     still_missing_s = vapply(landmarks, function(p) sum(!is.finite(tracking$data[[p]]$x)) / fps, numeric(1)),
+    refused_s = colSums(refused) / fps,
     stringsAsFactors = FALSE, row.names = NULL)
   landmark_episodes <- function(flag, check) lapply(landmarks, function(point) {
     e <- episode_rows(flag[, point], fps, 0, check = check, target = point)
@@ -268,7 +302,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
                           frames_flagged = rowSums((flags & present) | far) > 0, collapse = collapse, split = split,
                           settings = list(margin = margin, margin_fraction = margin_fraction, min_share = min_share,
                                           min_landmarks = min_landmarks, max_anchor_error = max_anchor_error,
-                                          max_outside = max_outside))
+                                          max_outside = max_outside, head_check = head_check))
   tracking
 }
 

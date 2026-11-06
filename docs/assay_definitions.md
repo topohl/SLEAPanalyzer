@@ -128,7 +128,18 @@ an assay applies it with `landmark_repair: true` (so far SocP).
    frame, at its typical position in their frame of reference (fitted on the
    recording's own trusted frames). The pair with the smallest error is used
    first; pairs whose 95th-percentile error on trusted frames exceeds
-   `landmark_repair_max_anchor_error_cm` are never used.
+   `landmark_repair_max_anchor_error_cm` are never used. The nose is rebuilt
+   only where both ears are present, and only where the result sits as this
+   animal's observed noses do: at a distance from the ear midpoint within their
+   1st to 99th percentile and at an angle to the body axis (body centre to ear
+   midpoint) no larger than their 99th percentile. Otherwise the next pair is
+   tried; a nose no pair can place stays missing (`refused_s`,
+   `noseRefusedS`). Without this check, a nose rebuilt from one ear and the
+   neck, or from body points, could land beside the head. Over all 348
+   recordings the check refuses 298 of 3,072 s of rebuilt nose (89
+   recordings, 208 s in batch 4); contact moves by more than 1 s in 30 cup
+   sessions, and three recordings now have an untracked stretch longer than
+   5 s (`validation/exp9_boris/scripts/29_head_restore_impact.R`).
 3. **Bridge.** Bounded interpolation then fills short gaps that remain.
 
 A rebuilt coordinate has the frame status `reconstructed`: it counts as valid
