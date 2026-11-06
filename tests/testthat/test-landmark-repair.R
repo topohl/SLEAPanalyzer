@@ -223,3 +223,66 @@ test_that("a rebuilt nose that would contradict the head is refused, not placed"
   expect_true(all(is.na(front) | front > 0))                           # whatever is placed lies in front of the head
   expect_gt(sum(is.finite(bad$data$nose$x[50:80])), 0)                 # the next anchor pair places it
 })
+
+test_that("a rebuilt nose keeps the head pose of the moment, fading to the typical pose deep in a gap", {
+  m <- synthetic_mouse(n = 600, jitter = 0.01)
+  tr <- m$tracking
+  ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
+  th <- 0.6 * sin(2 * pi * seq_len(600) / 300)                         # the head turns slowly to and fro
+  hx <- tr$data$nose$x - ex; hy <- tr$data$nose$y - ey
+  truth <- cbind(ex + cos(th) * hx - sin(th) * hy, ey + sin(th) * hx + cos(th) * hy)
+  tr$data$nose$x <- truth[, 1]; tr$data$nose$y <- truth[, 2]
+  k <- 70:79                                                            # nose hidden for a third of a second, head turned
+  tr$data$nose$x[k] <- NA; tr$data$nose$y[k] <- NA
+  err <- function(x) sqrt((x$data$nose$x[k] - truth[k, 1])^2 + (x$data$nose$y[k] - truth[k, 2])^2)
+  pose <- repair_landmarks(tr, pose_decay_s = 1); typical <- repair_landmarks(tr, pose_decay_s = 0)
+  expect_true(all(as.character(pose$data$nose$status[k]) == "reconstructed"))
+  expect_lt(max(err(pose)), 0.5 * stats::median(err(typical)))         # the pose of the moment, far closer than the typical pose
+  expect_gt(stats::median(err(typical)), 0.4)                           # the typical pose misses the turn
+  long <- 200:499                                                       # ten seconds: the middle falls back to the typical pose
+  tr2 <- tr; tr2$data$nose$x[long] <- NA; tr2$data$nose$y[long] <- NA
+  a <- repair_landmarks(tr2, pose_decay_s = 1); b <- repair_landmarks(tr2, pose_decay_s = 0)
+  mid <- 330:370
+  expect_lt(max(abs(a$data$nose$x[mid] - b$data$nose$x[mid])), 0.05)
+})
+
+test_that("the pose of the moment works at the start and end of a recording and for the body centre", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  ends <- c(1:10, 291:300)
+  tr$data$nose$x[ends] <- NA; tr$data$nose$y[ends] <- NA
+  tr$data$bodycentre$x[ends] <- NA; tr$data$bodycentre$y[ends] <- NA
+  out <- repair_landmarks(tr, pose_decay_s = 1)
+  expect_true(all(is.finite(out$data$nose$x[ends])))
+  expect_true(all(as.character(out$data$nose$status[ends]) == "reconstructed"))
+  expect_true(all(is.finite(out$data$bodycentre$x[ends])))
+  s <- out$repair$summary
+  expect_equal(s$refused_s[s$landmark == "nose"], 0)
+  expect_equal(s$still_missing_s[s$landmark == "bodycentre"], 0)
+  err <- sqrt((out$data$nose$x[ends] - m$truth$nose[ends, "x"])^2 + (out$data$nose$y[ends] - m$truth$nose[ends, "y"])^2)
+  expect_lt(max(err), 0.25)
+})
+
+test_that("an anchor pair squeezed together at the edge of a gap does not carry its pose in", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  tr$data$rightEar$x[100] <- tr$data$leftEar$x[100] + 0.01; tr$data$rightEar$y[100] <- tr$data$leftEar$y[100]
+  tr$data$nose$x[101:110] <- NA; tr$data$nose$y[101:110] <- NA
+  out <- repair_landmarks(tr, pose_decay_s = 1)
+  err <- sqrt((out$data$nose$x[101:110] - m$truth$nose[101:110, "x"])^2 + (out$data$nose$y[101:110] - m$truth$nose[101:110, "y"])^2)
+  expect_true(all(is.finite(err)))
+  expect_lt(max(err), 0.25)
+})
+
+test_that("without the pose of the moment the nose sits at the anchor pair's median position", {
+  m <- synthetic_mouse()
+  tr <- m$tracking
+  tr$data$nose$x[50:80] <- NA; tr$data$nose$y[50:80] <- NA
+  out <- repair_landmarks(tr, pose_decay_s = 0)
+  best <- out$repair$models$nose[1, ]
+  L <- list(leftEar = cbind(tr$data$leftEar$x, tr$data$leftEar$y), rightEar = cbind(tr$data$rightEar$x, tr$data$rightEar$y))
+  L[[best$anchor_a]] <- cbind(tr$data[[best$anchor_a]]$x, tr$data[[best$anchor_a]]$y); L[[best$anchor_b]] <- cbind(tr$data[[best$anchor_b]]$x, tr$data[[best$anchor_b]]$y)
+  expect_equal(unname(cbind(out$data$nose$x[50:80], out$data$nose$y[50:80])), unname(predict_from_anchor(L, best, 50:80)))
+  expect_error(repair_landmarks(tr, pose_decay_s = -1))
+  expect_error(repair_landmarks(tr, pose_decay_s = NA))
+})

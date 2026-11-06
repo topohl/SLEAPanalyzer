@@ -38,7 +38,7 @@ prepare <- function(batch, code, phase) {
   tr <- repair_landmarks(tr, landmarks = config$landmark_repair_landmarks, targets = config$landmark_repair_targets,
     margin = config$landmark_repair_margin_cm, margin_fraction = config$landmark_repair_margin_fraction, min_share = config$landmark_repair_min_share,
     min_landmarks = config$landmark_repair_min_landmarks, max_anchor_error = config$landmark_repair_max_anchor_error_cm,
-    corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm)
+    corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm, pose_decay_s = config$landmark_repair_pose_decay_s)
   tr <- interpolate_tracking(tr, landmarks = c("nose", "bodycentre"), max_gap_s = config$max_interpolation_gap_s, likelihood_cutoff = config$likelihood_cutoff)
   list(raw = raw, tr = tr, rs = restore_head_length(tr, below = config$head_length_restore_below))
 }

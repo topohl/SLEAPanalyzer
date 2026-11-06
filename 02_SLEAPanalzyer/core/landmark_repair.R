@@ -136,10 +136,57 @@ fit_anchor_model <- function(L, target, a, b, trusted) {
              stringsAsFactors = FALSE)
 }
 
-predict_from_anchor <- function(L, model, rows) {
+predict_from_anchor <- function(L, model, rows, uv = NULL) {
   a <- L[[model$anchor_a]][rows, , drop = FALSE]; b <- L[[model$anchor_b]][rows, , drop = FALSE]
   d <- b - a
-  a + model$u * d + model$v * cbind(-d[, 2], d[, 1])
+  if (is.null(uv)) uv <- cbind(rep(model$u, length(rows)), rep(model$v, length(rows)))
+  a + uv[, 1] * d + uv[, 2] * cbind(-d[, 2], d[, 1])
+}
+
+#' The target's position in an anchor pair's frame of reference, carried into a gap.
+#'
+#' In frames where target and anchors were observed, and the anchors lie at
+#' their usual distance apart (0.5 to 1.5 times its median), the target has a
+#' position (u, v) relative to the anchor pair. For each frame of a gap, the
+#' pose on either side is the median (u, v) of the `edge` nearest such frames;
+#' the two sides are interpolated (or the one side that exists is taken) and
+#' blended with the pair's median position: weight exp(-distance / decay) on
+#' the carried pose, where distance is the time to the nearer such frame. Near
+#' the edges of a gap the pose of the moment is kept; deep in a long gap the
+#' typical pose takes over.
+#' @param target0 the target's coordinates before any rebuild (missing where removed)
+#' @param defined frames whose (u, v) may be measured
+#' @param decay_frames decay of the weight, in frames
+#' @param edge number of frames on each side whose median pose is carried
+#' @return matrix of (u, v), one row per row of `rows`
+pose_from_neighbours <- function(L, target0, model, rows, defined, decay_frames, edge = 5L) {
+  uv0 <- cbind(rep(model$u, length(rows)), rep(model$v, length(rows)))
+  if (decay_frames <= 0 || !length(rows)) return(uv0)
+  d_all <- L[[model$anchor_b]] - L[[model$anchor_a]]; len <- sqrt(rowSums(d_all^2))
+  typical <- stats::median(len[defined & is.finite(len) & len > 0])
+  idx <- which(defined & is.finite(len) & len >= 0.5 * typical & len <= 1.5 * typical)
+  if (!length(idx) || !is.finite(typical)) return(uv0)
+  a <- L[[model$anchor_a]][idx, , drop = FALSE]; d <- d_all[idx, , drop = FALSE]
+  r <- target0[idx, , drop = FALSE] - a; l2 <- rowSums(d^2)
+  U <- cbind((r[, 1] * d[, 1] + r[, 2] * d[, 2]) / l2, (-r[, 1] * d[, 2] + r[, 2] * d[, 1]) / l2)
+  n <- length(idx); k <- findInterval(rows, idx)                     # idx[k] < row < idx[k + 1]
+  side <- function(lo, hi) {                                         # median pose of the defined frames lo..hi (indices into idx)
+    out <- matrix(NA_real_, length(lo), 2); ok <- !is.na(lo) & !is.na(hi) & lo <= hi
+    for (q in which(ok)) out[q, ] <- c(stats::median(U[lo[q]:hi[q], 1]), stats::median(U[lo[q]:hi[q], 2]))
+    out
+  }
+  has_prev <- k >= 1; has_next <- k < n
+  up <- side(ifelse(has_prev, pmax(1L, k - edge + 1L), NA), ifelse(has_prev, k, NA))
+  un <- side(ifelse(has_next, k + 1L, NA), ifelse(has_next, pmin(n, k + edge), NA))
+  dp <- ifelse(has_prev, rows - idx[pmax(k, 1L)], Inf); dn <- ifelse(has_next, idx[pmin(k + 1L, n)] - rows, Inf)
+  both <- is.finite(dp) & is.finite(dn)
+  frac <- ifelse(both, dp / (dp + dn), ifelse(is.finite(dp), 0, 1))
+  up[!is.finite(dp), ] <- un[!is.finite(dp), ]; un[!is.finite(dn), ] <- up[!is.finite(dn), ]   # one side only: take it
+  ui <- up * (1 - frac) + un * frac
+  w <- exp(-pmin(dp, dn) / decay_frames); w[!is.finite(pmin(dp, dn))] <- 0
+  out <- w * ui + (1 - w) * uv0
+  bad <- !is.finite(out[, 1]) | !is.finite(out[, 2]); out[bad, ] <- uv0[bad, ]
+  out
 }
 
 #' Find implausible landmarks, rebuild the ones a measurement needs, report.
@@ -165,6 +212,13 @@ predict_from_anchor <- function(L, model, rows) {
 #'    centre to ear midpoint) at most their 99th percentile. A prediction that
 #'    fails goes to the next anchor pair; a nose no pair can place stays missing
 #'    (`refused_s`).
+#'    With `pose_decay_s` > 0 and the head check, a rebuilt nose keeps the
+#'    pose of the moment: its position relative to the anchor pair is carried
+#'    in from the nearest frames where it was observed and fades to the pair's
+#'    median position with time from those frames (pose_from_neighbours()). A
+#'    nose whose pose of the moment fails the head check is placed at the
+#'    pair's median position if that passes, before the next pair is tried.
+#'    The body centre keeps the median position.
 #' Run bounded interpolation afterwards for what remains missing.
 #'
 #' @return the TrackingData object with repaired coordinates; `$repair` holds
@@ -173,11 +227,12 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
                              targets = c("nose", "bodycentre"), margin = 3,
                              margin_fraction = 0.6, min_share = 0.5,
                              min_landmarks = 4, max_anchor_error = 2,
-                             corners = NULL, max_outside = NULL, head_check = TRUE) {
+                             corners = NULL, max_outside = NULL, head_check = TRUE, pose_decay_s = 1) {
   validate_tracking_data(tracking, required_landmarks = unique(c(landmarks, targets)))
   if (!all(targets %in% landmarks)) stop("every repair target must be one of the checked landmarks")
   validate_positive_integer(min_landmarks, "min_landmarks")
   validate_scalar_number(max_anchor_error, "max_anchor_error", positive = TRUE)
+  validate_scalar_number(pose_decay_s, "pose_decay_s", positive = TRUE, allow_zero = TRUE)
   fps <- get_tracking_fps(tracking)
   n <- length(tracking$data[[landmarks[1]]]$x)
   far <- matrix(FALSE, n, length(landmarks), dimnames = list(NULL, landmarks))
@@ -241,6 +296,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
     ang_max <- stats::quantile(obs$angle[ref & is.finite(obs$angle)], .99, names = FALSE)
   }
   for (target in targets) {
+    target0 <- L[[target]]
     others <- setdiff(landmarks, target)
     cand <- utils::combn(others, 2)
     fits <- do.call(rbind, lapply(seq_len(ncol(cand)), function(k)
@@ -257,11 +313,24 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
       m <- usable[k, ]
       rows <- which(need & trusted[, m$anchor_a] & trusted[, m$anchor_b])
       if (!length(rows)) next
-      xy <- predict_from_anchor(L, m, rows)
+      # the pose of the moment for the nose, which the head check guards; other targets keep the typical pose
+      uv <- if (pose_decay_s > 0 && check) pose_from_neighbours(L, target0, m, rows, trusted[, target] & trusted[, m$anchor_a] & trusted[, m$anchor_b],
+                                                                 pose_decay_s * fps) else NULL
+      xy <- predict_from_anchor(L, m, rows, uv)
+      finite <- is.finite(xy[, 1]) & is.finite(xy[, 2])
+      if (!all(finite)) { rows <- rows[finite]; xy <- xy[finite, , drop = FALSE]; if (!is.null(uv)) uv <- uv[finite, , drop = FALSE]
+        if (!length(rows)) next }
       if (check) {
-        full <- matrix(NA_real_, nrow(flags), 2); full[rows, ] <- xy; geo <- head_geometry(full)
-        fits <- geo$len[rows] / med >= len_lim[1] & geo$len[rows] / med <= len_lim[2] & (!is.finite(geo$angle[rows]) | geo$angle[rows] <= ang_max)
-        fits[is.na(fits)] <- FALSE
+        plausible <- function(xy) { full <- matrix(NA_real_, nrow(flags), 2); full[rows, ] <- xy; geo <- head_geometry(full)
+          f <- geo$len[rows] / med >= len_lim[1] & geo$len[rows] / med <= len_lim[2] & (!is.finite(geo$angle[rows]) | geo$angle[rows] <= ang_max)
+          f[is.na(f)] <- FALSE; f }
+        fits <- plausible(xy)
+        if (!is.null(uv) && any(!fits)) {
+          # the pose of the moment can be implausible where the gap began (a head already half under a lid): the typical pose instead
+          typical <- predict_from_anchor(L, m, rows)
+          swap <- !fits & plausible(typical)
+          xy[swap, ] <- typical[swap, , drop = FALSE]; fits <- fits | swap
+        }
         refused[rows[!fits], target] <- TRUE
         rows <- rows[fits]; xy <- xy[fits, , drop = FALSE]
         if (!length(rows)) next
@@ -302,7 +371,7 @@ repair_landmarks <- function(tracking, landmarks = default_body_landmarks(),
                           frames_flagged = rowSums((flags & present) | far) > 0, collapse = collapse, split = split,
                           settings = list(margin = margin, margin_fraction = margin_fraction, min_share = min_share,
                                           min_landmarks = min_landmarks, max_anchor_error = max_anchor_error,
-                                          max_outside = max_outside, head_check = head_check))
+                                          max_outside = max_outside, head_check = head_check, pose_decay_s = pose_decay_s))
   tracking
 }
 

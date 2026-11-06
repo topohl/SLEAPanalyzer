@@ -14,7 +14,7 @@
 # the restoration must reproduce (its assay_summaries/SocP/B1).
 #
 # Each recording is processed as DLCA_SocP does (calibration, landmark repair
-# with its head check, interpolation, on-cup detection; without the head check it
+# with its head check and pose, interpolation, on-cup detection; without them it
 # must reproduce the reference release) and contact is scored with three noses:
 # without restoration, restored as configured (restore_head_length(), heads
 # below 0.75 of their median length), and restored in every head shorter than
@@ -97,11 +97,12 @@ process <- function(code, ph) {
   cf <- configs[[ph]]; name <- paste0(code, "_", ph)
   tr <- read_tracking_csv(file = file.path(STAGE, ph, paste0(name, ".csv")), fps = cf$fps)
   raw <- CalibrateTrackingData(tr, method = "area", in.metric = cf$arena_width_cm * cf$arena_height_cm, points = cf$arena_corner_names)
-  prepare <- function(head_check) {
+  prepare <- function(as_released) {
     t <- repair_landmarks(raw, landmarks = cf$landmark_repair_landmarks, targets = cf$landmark_repair_targets,
       margin = cf$landmark_repair_margin_cm, margin_fraction = cf$landmark_repair_margin_fraction, min_share = cf$landmark_repair_min_share,
       min_landmarks = cf$landmark_repair_min_landmarks, max_anchor_error = cf$landmark_repair_max_anchor_error_cm,
-      corners = cf$arena_corner_names, max_outside = cf$landmark_repair_outside_cm, head_check = head_check)
+      corners = cf$arena_corner_names, max_outside = cf$landmark_repair_outside_cm, head_check = !as_released,
+      pose_decay_s = if (as_released) 0 else cf$landmark_repair_pose_decay_s)
     t <- interpolate_tracking(t, landmarks = c("nose", "bodycentre"), max_gap_s = cf$max_interpolation_gap_s, likelihood_cutoff = cf$likelihood_cutoff)
     size <- apparent_body_size(t)
     on <- lapply(c(left = "socl", right = "socr"), function(cup) {
@@ -113,7 +114,7 @@ process <- function(code, ph) {
   }
   score <- function(t, on) compute_socp_metrics(t, "R", cf$fps, contact_distance = cf$contact_distance_cm,
     body_exclusion_distance = cf$body_exclusion_distance_cm, proximity_range = cf$proximity_range_cm, threshold_unit = "cm", on_cup = on)$summary
-  released <- prepare(FALSE); x <- prepare(TRUE); tr <- x$t; on <- x$on
+  released <- prepare(TRUE); x <- prepare(FALSE); tr <- x$t; on <- x$on
   variants <- list(tr, restore_head_length(tr, below = cf$head_length_restore_below), restore_head_length(tr, below = 1))
   names(variants) <- NOSES
   sums <- lapply(variants, score, on = on)
@@ -137,9 +138,9 @@ for (i in seq_len(nrow(REC))) {
 totals_check <- rbindlist(totals_check)
 rel <- rbindlist(lapply(c("HAB", "S1", "S2"), function(ph) fread(file.path(REL, "assay_summaries", "SocP", "B1", ph, "combined_output.csv"))))
 chk <- totals_check[, file := paste0(code, "_", phase)][rel, on = "file", nomatch = 0]
-stopifnot("without the head check and the restoration the release values are reproduced" = nrow(chk) == nrow(REC),
+stopifnot("as released (no head check, no pose, no restoration) the release values are reproduced" = nrow(chk) == nrow(REC),
           max(abs(chk$left - chk$contactLeft), abs(chk$right - chk$contactRight)) < 1e-6)
-cat(nrow(REC), "recordings processed; the release values are reproduced without the head check and the restoration\n")
+cat(nrow(REC), "recordings processed; the release values are reproduced as released\n")
 
 # ---------------------------------------------------------------- alignment (rule-independent signal)
 xcor <- function(x, y, max_lag) {   # correlation of x (manual frames) with y shifted: tracking row = manual frame + lag

@@ -162,7 +162,7 @@ test_that("the SocP batch script repairs a misplaced nose when configured", {
                "landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]",
                "landmark_repair_targets: [nose, bodycentre]", "landmark_repair_margin_cm: 3", "landmark_repair_margin_fraction: 0.6",
                "landmark_repair_min_share: 0.5", "landmark_repair_min_landmarks: 4", "landmark_repair_max_anchor_error_cm: 2",
-               "landmark_repair_outside_cm: 15"), fixture$config)
+               "landmark_repair_outside_cm: 15", "landmark_repair_pose_decay_s: 1"), fixture$config)
 
   output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
   expect_script_succeeded(output, "SocP script with landmark repair")
@@ -239,4 +239,20 @@ test_that("head length restoration needs its setting", {
   output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
   expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
   expect_true(any(grepl("head_length_restore is on but unset", output)))
+})
+
+test_that("the landmark repair needs its pose setting", {
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  fixture <- make_socp_fixture(temp_run_dir("socp_pose_unset"))
+  writeLines(c(readLines(fixture$config), "landmark_repair: true",
+               "landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]",
+               "landmark_repair_targets: [nose, bodycentre]", "landmark_repair_margin_cm: 3", "landmark_repair_margin_fraction: 0.6",
+               "landmark_repair_min_share: 0.5", "landmark_repair_min_landmarks: 4", "landmark_repair_max_anchor_error_cm: 2",
+               "landmark_repair_outside_cm: 15"), fixture$config)
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+  expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
+  expect_true(any(grepl("landmark_repair_pose_decay_s", output)))
 })

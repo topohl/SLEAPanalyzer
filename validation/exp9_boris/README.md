@@ -135,10 +135,15 @@ without and with the head length restoration as configured, the median head leng
 restored (report only). `Rscript 29_head_restore_impact.R`; results in
 `results/socp_head_restore_impact.csv`.
 
+**`30` — nose rebuild benchmark.** How well the landmark repair rebuilds a missing nose where the
+truth is known: stretches of observed nose (0.3 to 10 s) are hidden and rebuilt with several
+time constants for the pose of the moment (`landmark_repair_pose_decay_s`). `Rscript
+30_nose_rebuild_benchmark.R`; results in `results/socp_nose_rebuild_benchmark.csv`.
+
 ## Layout
 
 ```
-scripts/    31 R scripts, as described above
+scripts/    32 R scripts, as described above
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT)
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

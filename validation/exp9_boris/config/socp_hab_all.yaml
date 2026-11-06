@@ -62,6 +62,12 @@ landmark_repair_min_share: 0.5
 landmark_repair_min_landmarks: 4
 landmark_repair_max_anchor_error_cm: 2
 landmark_repair_outside_cm: 15
+# A rebuilt nose keeps the head pose of the moment: its position relative to the
+# anchors is carried in from the nearest observed frames and fades to the median
+# position with a time constant of 1 s (hiding and rebuilding observed noses in
+# 130 recordings of 67 animals, 0.5 to 2 s performed alike; 1 s is a round value
+# in that range; see "Landmark repair" in docs/assay_definitions.md).
+landmark_repair_pose_decay_s: 1
 
 # A mouse investigating a cup under its lid (the lid overhangs the cup on the
 # corner side) keeps only the back of its head in view, and the pose model puts

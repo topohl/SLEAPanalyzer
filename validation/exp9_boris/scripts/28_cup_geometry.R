@@ -37,7 +37,7 @@ for (batch in config$batches) for (ph in c("HAB", "S1", "S2")) {
     tr <- repair_landmarks(tr, landmarks = config$landmark_repair_landmarks, targets = config$landmark_repair_targets,
       margin = config$landmark_repair_margin_cm, margin_fraction = config$landmark_repair_margin_fraction, min_share = config$landmark_repair_min_share,
       min_landmarks = config$landmark_repair_min_landmarks, max_anchor_error = config$landmark_repair_max_anchor_error_cm,
-      corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm)
+      corners = config$arena_corner_names, max_outside = config$landmark_repair_outside_cm, pose_decay_s = config$landmark_repair_pose_decay_s)
     nx <- tr$data$nose$x; ny <- tr$data$nose$y; ok <- as.character(tr$data$nose$status) == "observed"
     ex <- (tr$data$leftEar$x + tr$data$rightEar$x) / 2; ey <- (tr$data$leftEar$y + tr$data$rightEar$y) / 2
     hl <- stats::median(sqrt((nx - ex)^2 + (ny - ey)^2)[ok], na.rm = TRUE)
