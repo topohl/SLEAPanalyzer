@@ -9,3 +9,7 @@ validation/*/sleap_output_all/
 __pycache__/
 *.py[cod]
 
+# Video QC: the manifest and the clip table hold local paths, the review stills are large
+validation/exp9_boris/results/video_qc_manifest.csv
+validation/exp9_boris/results/video_qc/video_qc_clip.csv
+validation/exp9_boris/results/video_qc/stills/

@@ -165,6 +165,23 @@ writes the result.
 Every output reports `validTime` alongside `totalTime`. A duration is only
 interpretable together with the valid time it came from.
 
+`tools/video_qc` (Python 3 with numpy, OpenCV and ffmpeg) checks the tracking
+against the videos themselves. It reads a manifest with one row per recording
+(fields in `tools/video_qc/core.py`), so it runs on any dataset:
+
+```bash
+python -I tools/video_qc manifest.csv out/ --checks frames,objects,sync,clip --stills
+```
+
+| Check | Question |
+|---|---|
+| `frames` | Does the video have as many frames as the tracking has rows, and the protocol length? |
+| `objects` | Do the tracked points of fixed objects sit on the objects, the same way in every group? |
+| `sync` | Is the tracked animal where the video shows it, frame by frame (poses from another frame)? |
+| `clip` | Does the clip cover the whole trial in the raw camera recording (start, end, hands)? |
+
+It only reports and never changes a score. Tests: `tests/test_video_qc_*.py`.
+
 ---
 
 ## Interpreting the numbers
@@ -234,7 +251,7 @@ Nothing in this layer interprets a p-value. See
 config/                Documented example configurations
 docs/                  Architecture and definitions
 tests/testthat/        Automated test suite
-tools/                 Parse check and static audit, run in CI
+tools/                 Parse check and static audit (run in CI), QC and re-tracking tools
 90_Testing/            Legacy exploratory scripts, not maintained
 99_deprecated/         Retained for provenance only
 ```
