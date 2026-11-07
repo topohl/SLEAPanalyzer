@@ -32,6 +32,8 @@ between, every tracked landmark drawn); then per flag drawn:
                          point is farthest from its median
   duplicate              this clip and the other's at matched frames, each with its own tracking
   landmark_missing       frames from the longest gaps of the body landmark tracked least
+  filled_gap             the two longest straight-line fills of the body point (a gap the tracking file bridged):
+                         the last row before, the middle and the first row after each, whole frames
   arena_shape, arm_width the median outline with the length of each side
   mouse_size             moving frames with a short, a typical and a long nose to tail length, at one scale
   off_maze, oft_dropped  the frames in which the body is farthest outside the median outline (else the largest jumps)
@@ -70,6 +72,7 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 NOSE, BODY, TAIL, OTHER = (0, 0, 255), (0, 200, 0), (255, 90, 0), (170, 170, 170)
 ARENA, MEDIAN, MOTION, MARK = (255, 255, 255), (255, 0, 255), (0, 165, 255), (255, 255, 255)
 MOVING_CM_S = 10      # moving: body faster than this
+STRAIGHT_PX = 0.001   # filled_gap: rows whose point steps exactly as in the rows either side (a bridged gap)
 SPIKE_CM = 1.0        # pose spike: nose, body and tail this far off the midpoint of the rows either side
 OFF_CM = 2.0          # corner and objects: a point this far from its median is off
 SHIFT_S = 10          # camera shift: median over this many seconds
@@ -600,6 +603,31 @@ def part_missing(r, s, ctx):
     return rows
 
 
+def part_filled(r, s, ctx):
+    body = r.xy(r.body)[:r.n]
+    d2 = np.full(len(body), np.inf)
+    with np.errstate(invalid="ignore"):
+        d2[1:-1] = np.hypot(*(body[2:] - 2 * body[1:-1] + body[:-2]).T)
+    filled = d2 < STRAIGHT_PX
+    fills = sorted(runs(filled), key=lambda ab: -ab[1])[:2]
+    text = (f"{ctx['flag']}: {filled.sum() / r.fps:.1f} s ({filled.mean():.1%}) of the {r.body} track lie on "
+            "straight-line fills: a gap the tracking file bridged, every point of it invented")
+    if not fills:
+        s.text(text + ".")
+        return []
+    s.text(text + ". The longest, each with the last row before it, its middle and the first row after it: what does "
+           "the video show while the track is filled?")
+    rows, tiles = [], []
+    for a, n in sorted(fills):
+        for i, note in ((a - 1, "last row before"), (a + n // 2, f"middle of a {n / r.fps:.1f} s fill"),
+                        (a + n, "first row after")):
+            i = int(min(max(i, 0), r.n - 1))
+            rows.append(i)
+            tiles.append(tile(r, i, note))
+    s.tiles(tiles)
+    return rows
+
+
 def part_geometry(r, s, ctx):
     if r.poly is None:
         s.text(f"{ctx['flag']}: the arena outline is not tracked")
@@ -683,6 +711,7 @@ def part_outside(r, s, ctx):
 
 PARTS = {"length": part_length, "corner": part_corner, "camera_shift": part_shift, "nose_tail_order": part_nose_tail,
          "pose_spikes": part_spikes, "objects": part_objects, "duplicate": part_pair, "landmark_missing": part_missing,
+         "filled_gap": part_filled,
          "arena_shape": part_geometry, "arm_width": part_geometry, "mouse_size": part_size, "off_maze": part_outside,
          "oft_dropped": part_outside}
 

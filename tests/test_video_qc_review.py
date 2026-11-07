@@ -1,5 +1,5 @@
 """tools/video_qc review sheets: files written, rows skipped and cleared, and planted faults (a corner jump, a pose
-spike, nose and tail swapped while moving) in the frames shown."""
+spike, nose and tail swapped while moving, a gap bridged by a straight line) in the frames shown."""
 import csv, os, subprocess, sys, tempfile
 import numpy as np
 import cv2
@@ -101,5 +101,22 @@ def test_sheets():
         assert shown(idx["rec one"])["length"][0] == 0 and shown(idx["rec one"])["length"][-1] == N - 1
 
 
+def test_filled_gap():
+    with tempfile.TemporaryDirectory() as d:
+        man = make_files(d)
+        track = os.path.join(d, "track.csv")
+        with open(track, newline="") as fh:
+            lines = list(csv.reader(fh))
+        jx, jy = [j for j, k in enumerate(lines[1]) if k == "bodycentre"][:2]
+        a, b = 150, 181                                                  # rows 151-180 bridged by a straight line
+        pa, pb = (np.array([float(lines[3 + i][jx]), float(lines[3 + i][jy])]) for i in (a, b))
+        for i in range(a + 1, b):
+            lines[3 + i][jx], lines[3 + i][jy] = pa + (i - a) / (b - a) * (pb - pa)
+        with open(track, "w", newline="") as fh:
+            csv.writer(fh).writerows(lines)
+        out, idx = run(d, man, [["rec one", "filled_gap", "filled_gap", ""]])
+        assert shown(idx["rec one"])["filled_gap"] == [a, a + 1 + 15, b], idx["rec one"]   # before, middle, after
+
+
 if __name__ == "__main__":
-    test_sheets(); print("ok")
+    test_sheets(); test_filled_gap(); print("ok")

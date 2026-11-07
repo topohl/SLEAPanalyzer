@@ -21,6 +21,15 @@
 #              0.15 cm) at some offset within 60 s, e.g. a phase cut from the
 #              wrong part of a video
 #   landmarks  a landmark the test uses that is never, or rarely, tracked
+#   filled     body-centre rows on a straight-line fill. The staged files
+#              bridge every gap of the tracking linearly and give each row
+#              likelihood 1 (01_SLEAPcoords/sleap_h5.py), so a mouse that was
+#              lost, hidden or off the maze shows only as a run of rows on a
+#              straight line at constant speed (second difference under
+#              0.001 px; a tracked mouse always jitters more). The scoring's
+#              own interpolation limits (max_interpolation_gap_s 0.2 s) never
+#              see these gaps. Longest fill and filled share, flagged above
+#              5 s or 10%
 #   arena      side ratio of the tracked arena against the real one (plus
 #              maze: the width of an arm read back through the 60 cm
 #              calibration); corner drift (95th percentile distance of each
@@ -99,7 +108,8 @@ USED <- list(SocP = c("nose", "bodycentre"), NOR = c("nose", "bodycentre"), OFT 
 LIMIT <- list(length_s = 2, last_bin = 0.9, duplicate_cm = 0.15, duplicate_lag = 1800, used_observed = 0.95,
               aspect = 0.03, arm_cm = c(4.5, 5.5), drift_cm = 1, corner_off = 0.25, camera_shift_cm = 0.5,
               moving_speed = 10, mouse = 0.2, forward = 0.8, spike_cm = 1, spike_path_pct = 1.5,
-              objects_apart = 0.5, object_on_point = 0.8, budget = 0.05, oft_dropped_s = 15, contact_s = 5, z = 3.5)
+              objects_apart = 0.5, object_on_point = 0.8, budget = 0.05, oft_dropped_s = 15, contact_s = 5, z = 3.5,
+              straight_px = 0.001, fill_s = 5, fill_share = 0.1)
 
 recordings <- rbindlist(list(
   data.table(assay = "SocP", phase = rep(c("HAB", "S1", "S2"), each = 6), batch = rep(paste0("B", 1:6), 3))[
@@ -130,6 +140,10 @@ norm2 <- function(m) sqrt(rowSums(m^2))
 off_midpoint <- function(m) { n <- nrow(m); d <- rep(NA_real_, n); i <- 2:(n - 1)
   d[i] <- norm2(m[i, , drop = FALSE] - (m[i - 1, , drop = FALSE] + m[i + 1, , drop = FALSE]) / 2); d }
 path_length <- function(m) sum(norm2(diff(m)), na.rm = TRUE)
+# rows inside a straight-line fill: the point steps exactly as in the rows either side (second difference under lim)
+straight_rows <- function(m, lim) { n <- nrow(m); f <- rep(FALSE, n); if (n < 3) return(f)
+  i <- 2:(n - 1); f[i] <- norm2(m[i + 1, , drop = FALSE] - 2 * m[i, , drop = FALSE] + m[i - 1, , drop = FALSE]) < lim
+  f[is.na(f)] <- FALSE; f }
 
 check_one <- function(r) {
   tr <- read_tracking_csv(file = r$file, fps = FPS)
@@ -145,10 +159,15 @@ check_one <- function(r) {
   share <- vapply(landmarks, function(p) mean(observed(xy(tr, p))), 0)
   used <- USED[[r$assay]]
   used_share <- vapply(used, function(p) if (p %in% names(share)) share[[p]] else 0, 0)
+  filled <- straight_rows(body, LIMIT$straight_px * tr$px.to.cm)
+  fill_runs <- rle(filled)
+  fill_k <- if (any(fill_runs$values)) which(fill_runs$values)[which.max(fill_runs$lengths[fill_runs$values])] else 0L
   out <- list(frames = n, duration_s = n / FPS_VIDEO,
               last_bin_share = if (r$assay == "OFT" && n %% 1800 > 0) (n %% 1800) / 1800 else NA_real_,
               body_observed = mean(observed(body)), nose_observed = mean(observed(nose)),
               body_longest_gap_s = longest_run(!observed(body)) / FPS,
+              body_filled_share = mean(filled), body_longest_fill_s = longest_run(filled) / FPS,
+              body_longest_fill_at_s = if (fill_k) sum(fill_runs$lengths[seq_len(fill_k - 1)]) / FPS else NA_real_,
               used_observed_min = min(used_share), used_worst = names(which.min(used_share)),
               empty_landmarks = paste(names(share)[share == 0], collapse = " "),
               cm_per_px = tr$px.to.cm)
@@ -341,6 +360,7 @@ chk[, flags := apply(cbind(
   flag(last_bin_share < LIMIT$last_bin, "partial_last_bin"),
   flag(duplicate, "duplicate"),
   flag(used_observed_min < LIMIT$used_observed, "landmark_missing"),
+  flag(body_longest_fill_s > LIMIT$fill_s | body_filled_share > LIMIT$fill_share, "filled_gap"),
   flag(abs(aspect_ratio / expected_aspect - 1) > LIMIT$aspect, "arena_shape"),
   flag(arm_width_cm < LIMIT$arm_cm[1] | arm_width_cm > LIMIT$arm_cm[2], "arm_width"),
   flag(corner_drift_cm > LIMIT$drift_cm | corner_off_share > LIMIT$corner_off, "corner"),
