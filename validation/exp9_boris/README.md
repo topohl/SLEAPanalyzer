@@ -186,12 +186,15 @@ flags without one, or on a tracking file changed since, under `to_review`.
 recording `31` checks, with the clip it was tracked from (matched by name; eight assigned by
 hand, with the evidence in the script), its test folder for the raw camera files, protocol
 length, arena size and objects. `31` then lists the tool's flags as `video:<check>:<flag>`.
-`frames` and `objects` take about 25 min, `sync` about 1.5 h and `clip` several hours; each
-can run on its own into the same folder.
+Over all recordings `frames` and `objects` take about 25 min, `sync` about 1.5 h and `clip`
+about 9 h; runs are incremental, so a later run checks only recordings whose tracking, video
+or settings changed.
 
-**Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks and `31`, copies
-the results for review to the lab share and ends with the flags to review (about 30 min;
-`-SkipVideo` for the light checks only, `-Checks sync` or `-Checks clip` to add a slower check).
+**Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks, `23` when its
+summary is older than the tracking, and `31`, draws a review sheet
+(`tools/video_qc/review.py`) for each recording with flags to review, copies the results to
+the lab share and ends with the flags to review (`-SkipVideo` for the light checks only,
+`-Checks sync` or `-Checks clip` to add a slower check, `-WhatIf` to see the steps).
 The release build (`tools/build_exp9_behavior_bundle.ps1`) runs it at the end, keeps the results
 in the release's `qc/light_checks` and the log in `provenance/logs/qc.log` (`-SkipQC` leaves
 it out; a failure is noted in `qc/light_checks/QC_FAILED.txt` and does not stop the release).

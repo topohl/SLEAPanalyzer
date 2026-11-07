@@ -180,7 +180,11 @@ python -I tools/video_qc manifest.csv out/ --checks frames,objects,sync,clip --s
 | `sync` | Is the tracked animal where the video shows it, frame by frame (poses from another frame)? |
 | `clip` | Does the clip cover the whole trial in the raw camera recording (start, end, hands)? |
 
-It only reports and never changes a score. Tests: `tests/test_video_qc_*.py`.
+It only reports and never changes a score. Runs are incremental: a run checks
+only recordings whose tracking, video, settings or check code changed, and
+continues a run that stopped (`--fresh` checks everything again).
+`tools/video_qc/review.py` draws a review sheet per recording for a list of
+flags, with the frames each flag is about. Tests: `tests/test_video_qc_*.py`.
 
 ---
 
