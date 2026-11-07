@@ -40,7 +40,8 @@ raw_span_minus_clip_frames (clip frames dropped or added between raw and clip), 
 crop box in raw px, release (raw frame and s), start_minus_release_s, expected_end_s (release + expected_s),
 end_minus_expected_s (clip end minus that), trial_end (next intrusion or raw end; trial_end_by), next_intrusion_raw_s
 and next_intrusion_after_clip_s, alone_to_expected (the raw shows the animal alone up to release + expected_s),
-recoverable_s (raw with the animal alone after the clip end, within the protocol time), raw_after_clip_s,
+recoverable_s (raw with the animal alone after the clip end, within the protocol time), animal_seen_after_clip (share
+of the key frames in that stretch that show the animal), raw_after_clip_s, raw_clip_sized (yes / no),
 animal_cm2 (or animal_px2 without a scale: the size taken for the animal), intrusion_in_clip_s (s from the clip
 start, to the key frame). Other times in s on the raw's clock.
 
@@ -51,12 +52,14 @@ Flags:
   no_expected      no expected_s: positions and times only, no end flags
   release_not_seen no intrusion ends in the 60 s before the clip start: the clip start stands in for the release
   starts_early     the clip starts more than 0.5 s before the release (the hand is in it)
-  starts_late      the clip starts more than --length-tolerance-s after the release
+  starts_late      the clip starts more than --length-tolerance-s after the release: the trial's first seconds are
+                   not in the clip (and, in a clip of the protocol length, as many seconds after the protocol end are)
   cut_short        the clip ends more than the tolerance before the trial does (release + expected_s, or the next
                    intrusion when that comes first) while the raw shows the animal alone: the rest can be recovered
   ended_early      an intrusion or the end of the raw comes more than the tolerance before release + expected_s:
                    the trial itself was short
-  ends_late        the clip runs on more than the tolerance past release + expected_s or into the next intrusion
+  ends_late        the clip runs on more than the tolerance into the next intrusion (the end of the trial), or is
+                   longer than expected_s by more than the tolerance
   intrusion_in_clip  a hand (anything larger than 4 animals reaching in from outside) in the arena during the clip,
                    the animal there before and after it
 """
@@ -74,6 +77,7 @@ import numpy as np
 
 import core
 
+VERSION = 1            # results version: raise it when a change can alter the measurements (see core.VERSION)
 THUMB_W = 192          # raw key-frame thumbnails, px wide (1920 -> 1/10)
 HEAD_S = 60            # first pass over the candidates: the first minute of each
 ALIGN_S = 40           # clip seconds matched against the raw
@@ -648,7 +652,7 @@ def run(rec, ctx):
     row = {"raw": "", "found_by": "", "align_score": core.rnd(best["score"] if best else None), "tried": log,
            "clip_frames": clip.n}
     if m is None:
-        row["flags"] = ["raw_not_found"] + ([] if exp else ["no_expected"])
+        row["flags"] = flags(row, rec, opts)
         if best:
             row["best_try"] = best["r"].name()
         unread = [t[:-len(" unreadable")] for t in log if t.endswith(" unreadable")]
@@ -681,14 +685,10 @@ def run(rec, ctx):
     r.extend(hi)
     sc = Scene(r, box, s, e, ctx.get("poly"), clip.scale)
     release, end, by, inside = trial(sc, s, e, lo, hi)
-    flags = ["raw_clip_sized"] if m.get("clip_sized") else []
-    if release is None:
-        flags.append("release_not_seen")
+    row["raw_clip_sized"] = "yes" if m.get("clip_sized") else "no"
     if inside:
-        flags.append("intrusion_in_clip")
         row["intrusion_in_clip_s"] = [f"{(p - s) / fps:.1f}-{(q - s) / fps:.1f}" for p, q in inside]
     ref = release if release is not None else s
-    tol = opts.length_tolerance_s * fps
     row.update(release=release if release is not None else "",
                release_s=core.rnd(release / fps, 2) if release is not None else "",
                start_minus_release_s=core.rnd((s - release) / fps, 2) if release is not None else "")
@@ -697,11 +697,6 @@ def run(rec, ctx):
         row["animal_cm2"] = core.rnd(area * ctx["scale"] ** 2, 1)
     else:
         row["animal_px2"] = core.rnd(area, 0)
-    if release is not None:
-        if release - s > EARLY_S * fps:
-            flags.append("starts_early")
-        elif s - release > tol:
-            flags.append("starts_late")
     row.update(trial_end=end if end is not None else "", trial_end_by=by,
                next_intrusion_raw_s=core.rnd(end / fps, 2) if by == "intrusion" else "",
                next_intrusion_after_clip_s=core.rnd((end - e1) / fps, 2) if by == "intrusion" else "",
@@ -715,21 +710,54 @@ def run(rec, ctx):
         upto = min(x, stop)
         row.update(expected_end_s=core.rnd(x / fps, 2), end_minus_expected_s=core.rnd((e1 - x) / fps, 2),
                    alone_to_expected="yes" if alone else "no",
-                   recoverable_s=core.rnd(max(0, upto - e1) / fps, 2))
-        if stop < x - tol:
-            flags.append("ended_early")
-        if upto - e1 > tol and seen >= 0.5:
-            flags.append("cut_short")
-        if e1 - upto > tol:
-            flags.append("ends_late")
-    else:
-        flags.append("no_expected")
-        if end is not None and e1 - end > tol:
-            flags.append("ends_late")
-    row["flags"] = flags
-    if opts.stills and flags:
-        still(rec, opts, clip, r, box, s, e, release, ref + exp_f if exp else None, flags, inside, rate)
+                   recoverable_s=core.rnd(max(0, upto - e1) / fps, 2), animal_seen_after_clip=core.rnd(seen, 2))
+    row["flags"] = flagged = flags(row, rec, opts)
+    if opts.stills and flagged:
+        still(rec, opts, clip, r, box, s, e, release, ref + exp_f if exp else None, flagged, inside, rate)
     return row
+
+
+def flags(row, rec, opts):
+    """The flags of a row, from its columns (a row of this run or one kept from an earlier run). Times in s."""
+    exp = core.number(rec, "expected_s") if rec else None
+    if not row.get("raw"):
+        return ["raw_not_found"] + ([] if exp else ["no_expected"])
+    tol = opts.length_tolerance_s
+    out = []
+    sized = row.get("raw_clip_sized")
+    if sized == "yes" or (not sized and core.had(row, "raw_clip_sized")):     # not sized: a row from before the column
+        out.append("raw_clip_sized")
+    fps, start, end = core.num(row, "raw_fps"), core.num(row, "raw_start"), core.num(row, "raw_end")
+    release = core.num(row, "release")
+    if release is None:
+        out.append("release_not_seen")
+    if row.get("intrusion_in_clip_s"):
+        out.append("intrusion_in_clip")
+    if release is not None and start is not None and fps:              # from frames, as measured
+        late = (start - release) / fps
+        if late < -EARLY_S:
+            out.append("starts_early")
+        elif late > tol:
+            out.append("starts_late")
+    if exp:
+        trial_end, ref = core.num(row, "trial_end"), release if release is not None else start
+        if None not in (trial_end, ref) and fps and trial_end < ref + round(exp * fps) - tol * fps:
+            out.append("ended_early")
+        seen, recoverable = core.num(row, "animal_seen_after_clip"), core.num(row, "recoverable_s")
+        if seen is None:                                                       # a row from before the column
+            if core.had(row, "cut_short"):
+                out.append("cut_short")
+        elif seen >= 0.5 and recoverable is not None and recoverable > tol:
+            out.append("cut_short")
+    else:
+        out.append("no_expected")
+    # ends late: on past the next intrusion (the trial's end), or longer than the protocol. A clip of the protocol
+    # length that starts late also ends late against release + expected_s; that is starts_late, not a second flag.
+    after = core.num(row, "next_intrusion_after_clip_s")
+    longer = exp and None not in (start, end) and fps and (end + 1 - start) / fps - exp > tol
+    if (after is not None and after < -tol) or longer:
+        out.append("ends_late")
+    return out
 
 
 def still(rec, opts, clip, r, box, s, e, release, x, flags, inside, rate):

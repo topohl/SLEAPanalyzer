@@ -60,6 +60,7 @@ import numpy as np
 
 import core
 
+VERSION = 1             # results version: raise it when a change can alter the measurements (see core.VERSION)
 N_BACKGROUND = 15       # frames in the median background
 WIDTH = 720             # working width; results are mapped back to video pixels
 MARGIN = 0.04           # outline shrink, share of the arena's size (square root of its area)

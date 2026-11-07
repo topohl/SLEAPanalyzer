@@ -15,26 +15,35 @@ recordings stay) and video_qc.csv: one row per recording of the manifest with th
 in out_dir, also those of an earlier run that this run did not repeat (e.g. the slower sync and clip checks), and the
 column checks naming them. Delete a check's table to leave it out. stills/ with --stills: one per flagged recording.
 
-Runs are incremental. Every row carries 'inputs', a signature of what its result depends on: the content of the
-tracking file, size and time of the video (and of raw_video), the manifest row, the options that change the check's
-results, and the code of the check and of core.py. A run keeps the rows in out_dir whose inputs are unchanged and checks
-the other recordings ("N reused, M to check"); --fresh checks them all. The tables are rewritten every 20 recordings or
-minute, so a run that stops is continued by the next one, and a new release re-checks only what changed. Not part of
-the inputs: the files below raw_dir that the clip check searches (--fresh or --only after adding raw recordings there)
-and the ffmpeg version. --adopt takes the rows of tables written before rows carried inputs as checked, when the table
-is newer than the recording's tracking and video: once, to keep a full run of the earlier version. Group comparisons
+Runs are incremental. Every row carries 'inputs', what its measurements depend on, as data:options:code: the content
+of the tracking file, size and time of the video (and of raw_video) and the manifest row; the options that change the
+check's measurements; the results versions of the check and of core.py (VERSION in each file, raised when a change can
+alter measurements; tests/test_video_qc_versions.py asks for that decision whenever the code changes). A run keeps the
+rows in out_dir whose inputs are unchanged and checks the other recordings, saying why ("N reused, M to check (data 2,
+new 1)"); rows that ended in an error are always checked again; --fresh checks them all. The tables are rewritten every
+20 recordings or minute, so a run that stops is continued by the next one, and a new release re-checks only what
+changed. Not part of the inputs: the files below raw_dir that the clip check searches (--fresh or --only after adding
+raw recordings there) and the ffmpeg version. --adopt takes rows written by an earlier version of this tool (no inputs,
+or inputs in one part) as checked when the table is newer than the recording's tracking and video: once, to keep a
+full run of that version.
+Flags are not measurements: each check makes them from a row's columns (flags()), for kept rows as for new ones in
+every run, so a changed limit (--length-tolerance-s) or flag rule needs no new run. A row that gains a flag that way
+has no still until it is checked again (review.py draws review sheets from the video for any flag). Group comparisons
 (objects) are made over all rows of the table, kept and new.
-Tests: tests/test_video_qc_<check>.py, tests/test_video_qc_runs.py.
+Tests: tests/test_video_qc_<check>.py, tests/test_video_qc_runs.py, tests/test_video_qc_versions.py.
 
-A check module has run(rec, ctx) -> row and may have: start(opts) at the start of a run; inputs(rec, opts), more of
-what a row depends on; reuse(row, opts) -> False when an unchanged row must be checked again all the same; save(rows,
-opts), its other files, written with its table; finish(rows, opts), group comparisons over the whole table, which may
-return ids to check again (a still missing). Rows kept from an earlier run carry '_kept' and their values as text.
+A check module has run(rec, ctx) -> row and VERSION, and may have: flags(row, rec, opts), the row's flags from its
+columns (numbers in rows of this run, text in kept rows: core.num reads both; rec is None for a row whose recording
+left the manifest); start(opts) at the start of a run; inputs(rec, opts), more of what a row depends on; reuse(row,
+opts) -> False when an unchanged row must be checked again all the same; save(rows, opts), its other files, written
+with its table; finish(rows, opts), group comparisons over the whole table, which may return ids to check again (a
+still missing). Rows kept from an earlier run carry '_kept' and their values as text.
 """
 
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
 import importlib
 import os
@@ -47,12 +56,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core  # noqa: E402
 
 ALL = ["frames", "objects", "sync", "clip"]
-# options that change a check's results; an option named neither here nor in NOT_RESULTS counts for every check
-OPTIONS = {"frames": ["length_tolerance_s"], "objects": ["object_px_per_cm"],
-           "sync": ["sync_windows", "sync_window_s"], "clip": ["length_tolerance_s"]}
+# options that change a check's measurements; an option named neither here nor in NOT_RESULTS counts for every check
+OPTIONS = {"objects": ["object_px_per_cm"], "sync": ["sync_windows", "sync_window_s"]}
 NOT_RESULTS = {"manifest", "out_dir", "checks", "only", "stills", "ffmpeg", "ffprobe", "fresh", "adopt",
                "sync_frames",         # its rows for the recording count instead (sync.inputs)
+               "length_tolerance_s",  # a flag limit: flags are made again from the columns in every run
                "object_offset_cm"}    # only the group comparison, made again over all rows in every run
+FAILED = {"error", "unreadable"}      # flags of a row whose check failed: checked again in every run
+WHY = {"data": "data", "options": "options", "code": "code", "earlier version": "earlier version",
+       "error": "error before", "reuse": "files incomplete", "new": "new"}
 SAVE_EVERY, SAVE_S = 20, 60           # partial tables: every this many recordings or seconds
 
 
@@ -99,6 +111,7 @@ def main(argv=None):
         print("nothing to check; nothing written")
         return
     order = {r["id"]: i for i, r in enumerate(every)}
+    every_id = {r["id"]: r for r in every}
     by_id = {r["id"]: r for r in recs}
     run_ids = set(by_id)
 
@@ -114,29 +127,40 @@ def main(argv=None):
         m = mods[c]
         if hasattr(m, "start"):
             m.start(opts)
-        code = [core.file_md5(m.__file__, text=True), core.file_md5(core.__file__, text=True)]
         options = {k: v for k, v in sorted(given.items())
                    if k not in NOT_RESULTS and (k in OPTIONS.get(c, ()) or k not in named)}
-        sig[c] = {r["id"]: core.signature(c, code, options, base[r["id"]],
-                                          m.inputs(r, opts) if hasattr(m, "inputs") else None) for r in recs}
+        sig[c] = {r["id"]: core.row_inputs([c, base[r["id"]], m.inputs(r, opts) if hasattr(m, "inputs") else None],
+                                           options, m.VERSION) for r in recs}
         earlier = read_earlier(table(c))
         made = os.path.getmtime(table(c)) if earlier else 0
-        # with --only, the rows of the other recordings stay as they are
+        # with --only, the rows of the other recordings stay as they are (their flags made again below)
         others[c] = [dict(r, _kept=True) for r in earlier if r["id"] not in run_ids] if opts.only else []
         results[c] = {}
+        why = collections.Counter()
         for r in earlier:
             rid = r["id"]
             if opts.fresh or rid not in run_ids:
                 continue
-            if not r.get("inputs") and opts.adopt and r.get("_whole") and newer(made, by_id[rid]):
-                r["inputs"] = sig[c][rid]
-            if r.get("inputs") != sig[c][rid]:
+            old = r.get("inputs") or ""
+            if opts.adopt and old.count(":") != 2 and r.get("_whole") and newer(made, by_id[rid]):
+                old = r["inputs"] = sig[c][rid]
+            if old != sig[c][rid]:
+                why[core.changed_part(old, sig[c][rid])] += 1
+                continue
+            if FAILED & set(r["flags"]):
+                why["error"] += 1
                 continue
             r = dict(r, _kept=True)
             if hasattr(m, "reuse") and not m.reuse(r, opts):
+                why["reuse"] += 1
                 continue
             results[c][rid] = r
-        print(f"{c}: {len(results[c])} reused, {len(recs) - len(results[c])} to check", flush=True)
+        why["new"] = len(recs) - len(results[c]) - sum(why.values())
+        for r in list(results[c].values()) + others[c]:
+            reflag(m, r, every_id.get(r["id"]), opts)
+        told = "" if opts.fresh else ", ".join(f"{WHY[k]} {n}" for k, n in why.items() if n)
+        print(f"{c}: {len(results[c])} reused, {len(recs) - len(results[c])} to check" + (f" ({told})" if told else ""),
+              flush=True)
     print(f"  (inputs of {len(recs)} recordings and the earlier tables read in {time.time() - t0:.0f} s)", flush=True)
 
     def rows_of(c):
@@ -235,6 +259,12 @@ def main(argv=None):
     core.write_csv(combined, os.path.join(opts.out_dir, "video_qc.csv"))
     n_flag = sum(1 for r in combined if r["flags"])
     print(f"{n_flag} of {len(combined)} recordings flagged; results in {opts.out_dir}")
+
+
+def reflag(m, row, rec, opts):
+    """A kept row's flags, made again from its columns by the check (when it has flags(); not for a failed row)."""
+    if hasattr(m, "flags") and not FAILED & set(row.get("flags") or []):
+        row["flags"] = m.flags(row, rec, opts)
 
 
 def read_earlier(path):

@@ -181,8 +181,10 @@ python -I tools/video_qc manifest.csv out/ --checks frames,objects,sync,clip --s
 | `clip` | Does the clip cover the whole trial in the raw camera recording (start, end, hands)? |
 
 It only reports and never changes a score. Runs are incremental: a run checks
-only recordings whose tracking, video, settings or check code changed, and
-continues a run that stopped (`--fresh` checks everything again).
+only recordings whose tracking, video, settings or check version changed, or
+whose check failed, says why, and continues a run that stopped (`--fresh`
+checks everything again). Flags are made from the stored measurements in every
+run, so a changed limit or flag rule needs no new pass over the videos.
 `tools/video_qc/review.py` draws a review sheet per recording for a list of
 flags, with the frames each flag is about. Tests: `tests/test_video_qc_*.py`.
 

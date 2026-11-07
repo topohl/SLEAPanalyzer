@@ -187,8 +187,8 @@ recording `31` checks, with the clip it was tracked from (matched by name; eight
 hand, with the evidence in the script), its test folder for the raw camera files, protocol
 length, arena size and objects. `31` then lists the tool's flags as `video:<check>:<flag>`.
 Over all recordings `frames` and `objects` take about 25 min, `sync` about 1.5 h and `clip`
-about 9 h; runs are incremental, so a later run checks only recordings whose tracking, video
-or settings changed.
+about 10.5 h (the first full run, 2026-11-07, took 12 h for both); runs are incremental, so a
+later run checks only recordings whose tracking, video, settings or check version changed.
 
 **Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks, `23` when its
 summary is older than the tracking, and `31`, draws a review sheet

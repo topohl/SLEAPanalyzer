@@ -1,7 +1,8 @@
 """tools/video_qc runs: a second run reuses every row and writes the same tables; a changed tracking file is checked
 again alone (the sync frames of the others stay, stills follow the flags); --fresh and --only; rows of an earlier
 version taken over with --adopt; a run killed part way is continued by the next; the objects group comparison after a
-partial re-check is the one of a fresh run, stills included."""
+partial re-check is the one of a fresh run, stills included; a changed flag limit needs no new run; failed rows are
+checked again; the run says why it checks a recording again."""
 import csv, os, re, subprocess, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,8 +28,13 @@ def run(man, out, *args):
 
 def counts(stdout, check):
     """(reused, to check) as the run printed them."""
-    m = re.search(rf"^{check}: (\d+) reused, (\d+) to check$", stdout, re.M)
+    m = re.search(rf"^{check}: (\d+) reused, (\d+) to check(?: \((.*)\))?$", stdout, re.M)
     return int(m.group(1)), int(m.group(2))
+
+
+def why(stdout, check):
+    """Why the run checks recordings again, as it printed it ('data 2, new 1')."""
+    return re.search(rf"^{check}: \d+ reused, \d+ to check(?: \((.*)\))?$", stdout, re.M).group(1) or ""
 
 
 def tables(out):
@@ -75,7 +81,8 @@ def test_reuse_change_fresh_only_adopt():
         first = tables(out)
         assert set(first) == {"video_qc.csv", "video_qc_frames.csv", "video_qc_objects.csv", "video_qc_sync.csv",
                               "video_qc_sync_frames.csv"}, set(first)
-        assert all(len(r["inputs"]) == 16 for r in core.read_table(os.path.join(out, "video_qc_sync.csv")))
+        assert all(re.fullmatch(r"[0-9a-f]{16}:[0-9a-f]{8}:v\d+\.\d+", r["inputs"])
+                   for r in core.read_table(os.path.join(out, "video_qc_sync.csv")))
         assert stills(out, "sync") == {"bad.jpg", "other.jpg"}
         t_other = os.path.getmtime(os.path.join(out, "stills", "sync", "other.jpg"))
 
@@ -93,14 +100,20 @@ def test_reuse_change_fresh_only_adopt():
         assert counts(run(man, out, "--checks", "frames", "--adopt"), "frames") == (3, 0)
         assert tables(out) == first
         drop_inputs()
-        assert counts(run(man, out, "--checks", "frames"), "frames") == (0, 3)
+        so = run(man, out, "--checks", "frames")
+        assert counts(so, "frames") == (0, 3) and why(so, "frames") == "earlier version 3", so
+        assert tables(out) == first
+        # inputs in one part (an earlier version's): the same
+        rows = core.read_table(frames_csv)
+        core.write_csv([dict(r, inputs=r["inputs"].split(":")[0]) for r in rows], frames_csv, last=("inputs",))
+        assert counts(run(man, out, "--checks", "frames", "--adopt"), "frames") == (3, 0)
         assert tables(out) == first
 
         # clean gets rows out of step, bad is tracked again without them: only these two are checked
         plant(recs["clean"][1], [60, 61, 62], 5)
         syn.make_recording(d, "bad")
         so = run(man, out, *args)
-        assert all(counts(so, c) == (1, 2) for c in ("frames", "objects", "sync")), so
+        assert all(counts(so, c) == (1, 2) and why(so, c) == "data 2" for c in ("frames", "objects", "sync")), so
         sync_new = by_id(os.path.join(out, "video_qc_sync.csv"))
         sync_was = {r["id"]: r for r in csv.DictReader(first["video_qc_sync.csv"].decode().splitlines())}
         assert sync_new["other"] == sync_was["other"]
@@ -122,6 +135,33 @@ def test_reuse_change_fresh_only_adopt():
         so = run(man, out, *args, "--fresh", "--only", "^other$")
         assert all(counts(so, c) == (0, 1) for c in ("frames", "objects", "sync")), so
         assert tables(out) == changed and stills(out, "sync") == {"clean.jpg", "other.jpg"}
+
+
+def test_flag_limits_need_no_new_run_and_failed_rows_are_checked_again():
+    with tempfile.TemporaryDirectory() as d:
+        video = fra.make_clip(d, "clip", 60)
+        rows = [[rid, fra.make_tracking(d, rid, 60), video, s] for rid, s in (("a", 2), ("b", 2.5), ("c", 4.5))]
+        man, out = os.path.join(d, "manifest.csv"), os.path.join(d, "out")
+        write_manifest(man, ["id", "tracking", "video", "expected_s"], rows)
+        table = os.path.join(out, "video_qc_frames.csv")
+        flagged = lambda: {k: r["flags"] for k, r in by_id(table).items()}   # noqa: E731
+        run(man, out, "--checks", "frames")
+        first = tables(out)
+        assert flagged() == {"a": "", "b": "", "c": "length"}, flagged()
+        so = run(man, out, "--checks", "frames", "--length-tolerance-s", "0.25")
+        assert counts(so, "frames") == (3, 0) and flagged() == {"a": "", "b": "length", "c": "length"}, so
+        assert by_id(os.path.join(out, "video_qc.csv"))["b"]["flags"] == "frames:length"
+        so = run(man, out, "--checks", "frames")
+        assert counts(so, "frames") == (3, 0) and tables(out) == first, so
+        # a row whose check failed is checked again, though nothing changed
+        rows = core.read_table(table)
+        core.write_csv([dict(r, flags="error", error="RuntimeError: boom") if r["id"] == "b" else r for r in rows],
+                       table, last=("inputs",))
+        so = run(man, out, "--checks", "frames")
+        assert counts(so, "frames") == (2, 1) and why(so, "frames") == "error before 1", so
+        was = {r["id"]: r for r in csv.DictReader(first["video_qc_frames.csv"].decode().splitlines())}
+        now = {k: {c: v for c, v in r.items() if c != "error"} for k, r in by_id(table).items()}
+        assert now == was and by_id(table)["b"]["error"] == "", now
 
 
 def test_killed_run_is_continued():
@@ -188,5 +228,6 @@ def test_group_comparison_after_a_partial_recheck():
 
 
 if __name__ == "__main__":
-    test_reuse_change_fresh_only_adopt(); test_killed_run_is_continued(); test_group_comparison_after_a_partial_recheck()
+    test_reuse_change_fresh_only_adopt(); test_flag_limits_need_no_new_run_and_failed_rows_are_checked_again()
+    test_killed_run_is_continued(); test_group_comparison_after_a_partial_recheck()
     print("ok")

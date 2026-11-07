@@ -43,6 +43,11 @@ from fractions import Fraction
 
 import numpy as np
 
+# Results version of this file (decoding, probing, tracking, scale), part of every row's inputs. Raise it when a
+# change can alter what a check measures; every recording is then checked again. tests/test_video_qc_versions.py
+# notices code changes and asks for this decision.
+VERSION = 1
+
 
 # ---- tools ------------------------------------------------------------------------------------------------------------
 
@@ -142,9 +147,43 @@ def recording_inputs(rec: dict) -> dict:
                     if k and k != "id" and (v or "").strip()}}
 
 
-def signature(*parts) -> str:
-    """16 hex characters of the sha1 of parts (anything json can write)."""
-    return hashlib.sha1(json.dumps(parts, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+def signature(*parts, n: int = 16) -> str:
+    """n hex characters of the sha1 of parts (anything json can write)."""
+    return hashlib.sha1(json.dumps(parts, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:n]
+
+
+def row_inputs(data, options, version) -> str:
+    """A row's 'inputs': what its result depends on, in three parts, data:options:code (the recording's files and
+    manifest row, the options that change the check's measurements, the results versions of the check and core.py),
+    so that a run can say why it checks a recording again."""
+    return f"{signature(data)}:{signature(options, n=8)}:v{version}.{VERSION}"
+
+
+def changed_part(old: str, new: str) -> str:
+    """Why a row whose inputs were `old` is checked again under `new`."""
+    a, b = (old or "").split(":"), new.split(":")
+    if len(a) != 3:
+        return "earlier version"
+    return next(p for p, x, y in zip(("data", "options", "code"), a, b) if x != y)
+
+
+def num(row: dict, key: str):
+    """A row's value as a float, None when empty or not a number: rows of this run hold numbers, rows kept from an
+    earlier run text."""
+    v = row.get(key)
+    if v is None or v == "":
+        return None
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def had(row: dict, flag: str) -> bool:
+    """The flag as the row's own run set it: for a row kept from before a column its flag rule now reads existed."""
+    f = row.get("flags") or []
+    return flag in (f.split(";") if isinstance(f, str) else f)
 
 
 # ---- tracking ---------------------------------------------------------------------------------------------------------

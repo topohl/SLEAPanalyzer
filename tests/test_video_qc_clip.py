@@ -127,6 +127,8 @@ def test_clip_check():
         handed = make_raw(os.path.join(raws, "handed.mp4"), 450, 3, hand_back=255)
         short = make_raw(os.path.join(raws, "short.mp4"), 300, 4)                # the camera stops at 10 s
         shaded = make_raw(os.path.join(raws, "shaded.mp4"), 450, 5, hand_back=420, shadow=(150, 180))
+        long_alone = make_raw(os.path.join(raws, "long_alone.mp4"), 540, 9)
+        long_hand = make_raw(os.path.join(raws, "long_hand.mp4"), 540, 10, hand_back=420)
         # a camera folder: the clean recording in two chapters, two other trials of the same view
         cam = os.path.join(d, "session", "C1")
         os.makedirs(cam)
@@ -147,6 +149,8 @@ def test_clip_check():
         v_early, t_early = make_clip(d, "early", clean, 0, END - 1)
         v_half, t_half = make_clip(d, "half", clean, RELEASE, END - 1, scale=0.5)
         v_shade, t_shade = make_clip(d, "shade", shaded, RELEASE, END - 1)
+        v_shift, t_shift = make_clip(d, "shifted", long_alone, RELEASE + 90, END + 89)    # 12 s, 3 s late
+        v_into, t_into = make_clip(d, "into_hand", long_hand, RELEASE + 90, END + 89)     # and on into the hand
         rawp = lambda name: os.path.join(raws, name)
         rows = [
             dict(id="ok", tracking=t_ok, video=v_ok, raw_video=rawp("clean.mp4"), expected_s=EXPECTED_S),
@@ -161,6 +165,8 @@ def test_clip_check():
             dict(id="half", tracking=t_half, video=v_half, raw_video=rawp("clean.mp4"), expected_s=EXPECTED_S,
                  clip_scale=0.5),
             dict(id="shade", tracking=t_shade, video=v_shade, raw_video=rawp("shaded.mp4"), expected_s=EXPECTED_S),
+            dict(id="shifted", tracking=t_shift, video=v_shift, raw_video=rawp("long_alone.mp4"), expected_s=EXPECTED_S),
+            dict(id="into_hand", tracking=t_into, video=v_into, raw_video=rawp("long_hand.mp4"), expected_s=EXPECTED_S),
         ]
         res, out = run_tool(d, rows)
 
@@ -182,6 +188,11 @@ def test_clip_check():
         assert flags(res["late"]) == ["starts_late"], res["late"]
         assert abs(float(res["late"]["start_minus_release_s"]) - 4) <= 0.2
         assert flags(res["early"]) == ["starts_early"], res["early"]
+        # the protocol length started late also ends late against release + expected_s: one fact, one flag
+        assert flags(res["shifted"]) == ["starts_late"], res["shifted"]
+        assert abs(float(res["shifted"]["end_minus_expected_s"]) - 3) <= 0.2
+        assert flags(res["into_hand"]) == ["ends_late", "starts_late"], res["into_hand"]
+        assert abs(float(res["into_hand"]["next_intrusion_after_clip_s"]) + 2.5) <= 0.2
         assert abs(float(res["early"]["start_minus_release_s"]) + 1.5) <= 0.2
 
         assert flags(res["search"]) == [], res["search"]
@@ -195,6 +206,13 @@ def test_clip_check():
         assert abs(int(res["half"]["raw_start"]) - RELEASE) <= 1 and abs(int(res["half"]["crop_w_px"]) - CW) <= 2
         assert flags(res["shade"]) == [], res["shade"]          # a shadow over the arena is not a hand
         assert abs(int(res["shade"]["trial_end"]) - 420) <= 2
+
+        # flags made again from the columns of the table give the same flags: a second run reuses every row
+        with open(os.path.join(out, "video_qc_clip.csv"), "rb") as fh:
+            table = fh.read()
+        again, _ = run_tool(d, rows)
+        with open(os.path.join(out, "video_qc_clip.csv"), "rb") as fh:
+            assert fh.read() == table
 
         stills = os.listdir(os.path.join(out, "stills", "clip"))
         assert {"cut.jpg", "hand.jpg", "late.jpg", "early.jpg"} <= set(stills) and "ok.jpg" not in stills

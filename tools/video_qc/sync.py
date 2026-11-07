@@ -59,6 +59,7 @@ import numpy as np
 
 import core
 
+VERSION = 1           # results version: raise it when a change can alter the measurements (see core.VERSION)
 ARENA_PX = 360        # decode so that the arena spans about this many pixels
 BACKGROUND_N = 25
 LAG = 8               # frames either side a pose is compared with
@@ -141,7 +142,8 @@ def run(rec, ctx):
     row = {"windows": ";".join(f"{a}-{a + n - 1}" for a, n in windows), "animal": "dark" if sign < 0 else "bright",
            "contrast": core.rnd(cal["contrast"], 1), "floor_noise": core.rnd(cal["noise"], 1)}
     if not cal["visible"]:
-        row.update(frames_checked=0, note="the animal does not stand out from the floor", flags=["no_animal"])
+        row.update(frames_checked=0, note="the animal does not stand out from the floor")
+        row["flags"] = flags(row, rec, opts)
         return row
     if cal["elsewhere"]:
         row["note"] = "the animal stands out from the floor, but not at the tracked point"
@@ -170,7 +172,7 @@ def run(rec, ctx):
     row["animal_clear"] = core.rnd(clear.sum() / max(has_point.sum(), 1))
     row[f"animal_size_{unit}"] = core.rnd(size_px * conv, 2)
     if clear.sum() < FOUND_MIN * max(has_point.sum(), 1) or clear.sum() < 10:
-        row["flags"] = ["no_animal"]
+        row["flags"] = flags(row, rec, opts)
         return row
     found = clear
 
@@ -209,19 +211,12 @@ def run(rec, ctx):
 
     # the whole tracking sits beside the animal: made from a differently cropped or scaled video, or another video
     offset = np.hypot(*shift) > FAR * size_px
-    flags = []
-    if oos.sum() > OUT_OF_STEP_MAX:
-        flags.append("out_of_step")
-    if far.sum() > FAR_SHARE * found.sum() or offset:
-        flags.append("off_animal")
-    if any(g not in (None, 0) for g in lags):
-        flags.append("shifted")
-    row["flags"] = flags
+    row["flags"] = flagged = flags(row, rec, opts)
 
-    if opts.stills and ("out_of_step" in flags or "off_animal" in flags):
+    if opts.stills and ("out_of_step" in flagged or "off_animal" in flagged):
         mark = np.zeros(2) if offset else shift       # from the blob centre to where the video shows the body point
         gap = np.hypot(*(P + mark - C).T)
-        if "out_of_step" in flags:
+        if "out_of_step" in flagged:
             pick = np.where(oos)[0][np.argsort(-(own - best)[oos])][:STILLS_N]
         else:
             pick = np.where(found)[0][np.argsort(-gap[found])][:STILLS_N]
@@ -342,8 +337,11 @@ def calibrate(v, geo, bx, by, total, animal):
     r = 0.4 * hide
 
     def contrast_at(sign, refs):
-        vals = [np.percentile(sign * d[(xx - q[0]) ** 2 + (yy - q[1]) ** 2 < r ** 2], 95)
-                for d, q in zip(diffs, refs) if np.isfinite(q).all()]
+        vals = []
+        for d, q in zip(diffs, refs):
+            disc = (xx - q[0]) ** 2 + (yy - q[1]) ** 2 < r ** 2 if np.isfinite(q).all() else None
+            if disc is not None and disc.any():          # a tracked point off the picture has no pixels around it
+                vals.append(np.percentile(sign * d[disc], 95))
         return float(np.median(vals)) if vals else 0.0
 
     signs = [-1 if animal == "dark" else 1] if animal in ("dark", "bright") else [-1, 1]
@@ -489,6 +487,27 @@ def window_lag(P, C, shift, size_px):
         med[k] = np.nanmedian(d) if np.isfinite(d).sum() >= 30 else np.inf
     k = min(med, key=med.get)
     return k if k != 0 and med[k] < 0.7 * med[0] else 0
+
+
+def flags(row, rec, opts):
+    """The flags of a row, from its columns (a row of this run or one kept from an earlier run)."""
+    if not row.get("windows"):
+        return []                                  # nothing to check (--sync-frames lists none of its rows)
+    n = core.num(row, "frames_checked") or 0
+    clear = core.num(row, "animal_clear")
+    if not n or clear is None or clear < FOUND_MIN or round(clear * n) < 10:
+        return ["no_animal"]
+    unit = "cm" if core.num(row, "animal_size_cm") is not None else "px"
+    out = []
+    if (core.num(row, "out_of_step") or 0) > OUT_OF_STEP_MAX:
+        out.append("out_of_step")
+    size, dx, dy = (core.num(row, f"{k}_{unit}") for k in ("animal_size", "calib_dx", "calib_dy"))
+    offset = None not in (size, dx, dy) and np.hypot(dx, dy) > FAR * size
+    if (core.num(row, "share_far") or 0) > FAR_SHARE or offset:
+        out.append("off_animal")
+    if any(g not in ("", "0") for g in str(row.get("window_lag") or "").split(";")):
+        out.append("shifted")
+    return out
 
 
 def longest_run(frames):
