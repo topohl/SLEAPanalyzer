@@ -32,8 +32,8 @@ recording has a scale, else in px. A pose read a few frames off shows only while
 speed v puts it k * v away, so slow walking can hide one.
 
 Writes video_qc_sync_frames.csv: every out-of-step row, its distance, the frame whose animal its pose fits and the
-distance there. Stills: the worst rows of a flagged recording, red cross = tracked point, green ring = where the video
-shows the body point.
+distance there (written with the table; the rows of recordings a run reuses are kept). Stills: the worst rows of a
+flagged recording, red cross = tracked point, green ring = where the video shows the body point.
 
 Flags:
   out_of_step  more than 2 rows out of step
@@ -74,12 +74,53 @@ FOUND_MIN = 0.5       # below this share of frames with a clear animal the metho
 VISIBLE = 6           # the animal must differ from the floor by this many times the floor's noise
 AREA = (0.4, 1.6)     # a blob is taken as the animal when its area is within this range of the animal's usual area
 STILLS_N = 6
+FRAMES_TABLE = "video_qc_sync_frames.csv"
+FRAMES_COLUMNS = ["id", "frame", "unit", "dist", "fits_frame", "dist_there"]
 
-_frames_out = []      # out-of-step rows of all recordings, written by finish()
+_frames_out = {}      # id -> out-of-step rows of the recordings checked in this run
+_earlier = {}         # id -> out-of-step rows in the frames table when the run started
+
+
+def start(opts):
+    """The frames table of an earlier run, for the recordings this run reuses."""
+    _frames_out.clear()
+    _earlier.clear()
+    path = os.path.join(opts.out_dir, FRAMES_TABLE)
+    if os.path.exists(path):
+        try:
+            for r in core.read_table(path):
+                _earlier.setdefault(r.get("id"), []).append({k: v for k, v in r.items() if k in FRAMES_COLUMNS})
+        except (OSError, UnicodeDecodeError, csv.Error):
+            _earlier.clear()
+
+
+def inputs(rec, opts):
+    """With --sync-frames, the rows listed for this recording (not the file: a new list re-checks only what it
+    changes)."""
+    return listed_frames(opts).get(rec["id"]) if getattr(opts, "sync_frames", None) else None
+
+
+def reuse(row, opts):
+    """A row of an earlier run is kept only with its out-of-step rows in the frames table."""
+    try:
+        n = int(row.get("out_of_step") or 0)
+    except ValueError:
+        return False
+    return len(_earlier.get(row["id"], [])) == n
+
+
+def save(rows, opts):
+    """The frames table of the recordings in `rows` (the check's table): this run's out-of-step rows, and those of
+    the earlier table for rows kept from an earlier run."""
+    out = []
+    for r in rows:
+        out += (_earlier if r.get("_kept") else _frames_out).get(r["id"], [])
+    core.write_csv(out, os.path.join(opts.out_dir, FRAMES_TABLE), columns=FRAMES_COLUMNS)
 
 
 def run(rec, ctx):
     v, opts, track = ctx["video"], ctx["opts"], ctx["track"]
+    _frames_out[rec["id"]] = found_out = []
     body = core.field(rec, "body", "bodycentre")
     if body not in track:
         raise ValueError(f"landmark '{body}' not in the tracking")
@@ -162,9 +203,9 @@ def run(rec, ctx):
     row["window_lag"] = ";".join("" if g is None else str(g) for g in lags)
 
     for j in np.where(oos)[0]:
-        _frames_out.append({"id": rec["id"], "frame": int(frame_no[j]), "unit": unit,
-                            "dist": core.rnd(own[j] * conv, 2), "fits_frame": int(frame_no[j] + lag[j]),
-                            "dist_there": core.rnd(best[j] * conv, 2)})
+        found_out.append({"id": rec["id"], "frame": int(frame_no[j]), "unit": unit,
+                          "dist": core.rnd(own[j] * conv, 2), "fits_frame": int(frame_no[j] + lag[j]),
+                          "dist_there": core.rnd(best[j] * conv, 2)})
 
     # the whole tracking sits beside the animal: made from a differently cropped or scaled video, or another video
     offset = np.hypot(*shift) > FAR * size_px
@@ -191,22 +232,8 @@ def run(rec, ctx):
             else:
                 txt = f"{gap[j] * conv:.1f} {unit} off"
             labels.append((int(frame_no[j]), P[j], C[j] - mark, txt))
-        write_strip(v, labels, size_px, os.path.join(opts.stills_dir, "sync", safe(rec["id"]) + ".jpg"))
+        write_strip(v, labels, size_px, os.path.join(opts.stills_dir, "sync", core.still_name(rec["id"])))
     return row
-
-
-def finish(rows, opts):
-    keys = ["id", "frame", "unit", "dist", "fits_frame", "dist_there"]
-    path = os.path.join(opts.out_dir, "video_qc_sync_frames.csv")
-    out = list(_frames_out)
-    if getattr(opts, "only", None) and os.path.exists(path):   # keep the rows of recordings this run left out
-        ids = {r["id"] for r in rows}
-        out += [r for r in core.read_table(path) if r["id"] not in ids]
-    with open(path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=keys)
-        w.writeheader()
-        w.writerows(out)
-    _frames_out.clear()
 
 
 # ---- where to look ------------------------------------------------------------------------------------------------
@@ -506,7 +533,3 @@ def write_strip(v, labels, size_px, path):
         tiles.append(tile)
     if tiles:
         cv2.imwrite(path, np.hstack(tiles), [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-
-def safe(name):
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", name)

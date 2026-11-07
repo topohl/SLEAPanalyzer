@@ -1,6 +1,7 @@
 """Video QC: checks of tracked recordings that need the video itself. Report only; nothing here changes a score.
 
     python -I tools/video_qc <manifest.csv> <out_dir> [--checks frames,objects,sync,clip] [--only REGEX] [--stills]
+                             [--fresh] [--adopt]
 
 Checks (each one file next to this one; see their docstrings):
   frames   the video has as many frames as the tracking has rows, at the expected rate and length
@@ -9,17 +10,32 @@ Checks (each one file next to this one; see their docstrings):
   sync     the tracked animal is where the video shows it, frame by frame (a pose read from another frame shows up)
   clip     the clip covers the whole trial in the raw recording it was cut from (start, end, cut short or not)
 
-The manifest is described in core.py. Writes video_qc_<check>.csv per check (rewritten every 20 recordings, so a run
-that stops keeps what it had; with --only, the rows of the other recordings stay) and video_qc.csv: one row per
-recording of the manifest with the flags of every check whose table is in out_dir, also those of an earlier run that
-this run did not repeat (e.g. the slower sync and clip checks), and the column checks naming them. Delete a check's
-table to leave it out. stills/ with --stills. Group comparisons (objects) are made over the recordings of one run.
-Tests: tests/test_video_qc_<check>.py.
+The manifest is described in core.py. Writes video_qc_<check>.csv per check (with --only, the rows of the other
+recordings stay) and video_qc.csv: one row per recording of the manifest with the flags of every check whose table is
+in out_dir, also those of an earlier run that this run did not repeat (e.g. the slower sync and clip checks), and the
+column checks naming them. Delete a check's table to leave it out. stills/ with --stills: one per flagged recording.
+
+Runs are incremental. Every row carries 'inputs', a signature of what its result depends on: the content of the
+tracking file, size and time of the video (and of raw_video), the manifest row, the options that change the check's
+results, and the code of the check and of core.py. A run keeps the rows in out_dir whose inputs are unchanged and checks
+the other recordings ("N reused, M to check"); --fresh checks them all. The tables are rewritten every 20 recordings or
+minute, so a run that stops is continued by the next one, and a new release re-checks only what changed. Not part of
+the inputs: the files below raw_dir that the clip check searches (--fresh or --only after adding raw recordings there)
+and the ffmpeg version. --adopt takes the rows of tables written before rows carried inputs as checked, when the table
+is newer than the recording's tracking and video: once, to keep a full run of the earlier version. Group comparisons
+(objects) are made over all rows of the table, kept and new.
+Tests: tests/test_video_qc_<check>.py, tests/test_video_qc_runs.py.
+
+A check module has run(rec, ctx) -> row and may have: start(opts) at the start of a run; inputs(rec, opts), more of
+what a row depends on; reuse(row, opts) -> False when an unchanged row must be checked again all the same; save(rows,
+opts), its other files, written with its table; finish(rows, opts), group comparisons over the whole table, which may
+return ids to check again (a still missing). Rows kept from an earlier run carry '_kept' and their values as text.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib
 import os
 import re
@@ -31,6 +47,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core  # noqa: E402
 
 ALL = ["frames", "objects", "sync", "clip"]
+# options that change a check's results; an option named neither here nor in NOT_RESULTS counts for every check
+OPTIONS = {"frames": ["length_tolerance_s"], "objects": ["object_px_per_cm"],
+           "sync": ["sync_windows", "sync_window_s"], "clip": ["length_tolerance_s"]}
+NOT_RESULTS = {"manifest", "out_dir", "checks", "only", "stills", "ffmpeg", "ffprobe", "fresh", "adopt",
+               "sync_frames",         # its rows for the recording count instead (sync.inputs)
+               "object_offset_cm"}    # only the group comparison, made again over all rows in every run
+SAVE_EVERY, SAVE_S = 20, 60           # partial tables: every this many recordings or seconds
 
 
 def main(argv=None):
@@ -40,6 +63,9 @@ def main(argv=None):
     ap.add_argument("--checks", default="frames,objects", help="comma list of " + ",".join(ALL))
     ap.add_argument("--only", help="regular expression on the manifest id")
     ap.add_argument("--stills", action="store_true", help="write review stills for flagged recordings")
+    ap.add_argument("--fresh", action="store_true", help="check every recording again, also those with unchanged inputs")
+    ap.add_argument("--adopt", action="store_true",
+                    help="take rows without inputs (an earlier version's run) as checked when newer than their files")
     ap.add_argument("--ffmpeg"); ap.add_argument("--ffprobe")
     ap.add_argument("--sync-windows", default="0,0.5,1", help="where the sync check looks: fractions of the video, or all")
     ap.add_argument("--sync-window-s", type=float, default=20, help="length of each sync window, seconds")
@@ -50,11 +76,14 @@ def main(argv=None):
     ap.add_argument("--object-px-per-cm", type=float, default=16.0,
                     help="objects check: converts its cm limits for recordings without a scale")
     opts = ap.parse_args(argv)
+    given = dict(vars(opts))
 
     checks = [c.strip() for c in opts.checks.split(",") if c.strip()]
     bad = [c for c in checks if c not in ALL]
     if bad:
         ap.error("unknown check(s): " + ", ".join(bad))
+    if opts.sync_frames and "sync" in checks and not os.path.isfile(opts.sync_frames):
+        ap.error("--sync-frames: no such file: " + opts.sync_frames)
     mods = {c: importlib.import_module(c) for c in checks}
     opts.ffmpeg = core.find_tool("ffmpeg", opts.ffmpeg)
     opts.ffprobe = core.find_tool("ffprobe", opts.ffprobe)
@@ -70,34 +99,70 @@ def main(argv=None):
         print("nothing to check; nothing written")
         return
     order = {r["id"]: i for i, r in enumerate(every)}
+    by_id = {r["id"]: r for r in recs}
+    run_ids = set(by_id)
 
     def table(c):
         return os.path.join(opts.out_dir, f"video_qc_{c}.csv")
 
-    def save(c):
-        """This run's rows; with --only, also the rows an earlier run wrote for the recordings this one left out."""
-        rows = results[c]
-        if opts.only and os.path.exists(table(c)):
-            ids = {r["id"] for r in rows}
-            rows = rows + [r for r in core.read_table(table(c)) if r["id"] not in ids]
-            rows.sort(key=lambda r: order.get(r["id"], len(order)))
-        core.write_csv(rows, table(c))
-
-    results = {c: [] for c in checks}
+    # what each result depends on, and the rows of earlier runs that stay
     t0 = time.time()
-    if os.path.exists(os.path.join(opts.out_dir, "video_qc.csv")):
-        os.remove(os.path.join(opts.out_dir, "video_qc.csv"))   # stale until this run has finished
-    for k, rec in enumerate(recs):
-        ctx = {"opts": opts}
+    base = {r["id"]: core.recording_inputs(r) for r in recs}
+    named = {k for v in OPTIONS.values() for k in v}
+    sig, results, others = {}, {}, {}
+    for c in checks:
+        m = mods[c]
+        if hasattr(m, "start"):
+            m.start(opts)
+        code = [core.file_md5(m.__file__, text=True), core.file_md5(core.__file__, text=True)]
+        options = {k: v for k, v in sorted(given.items())
+                   if k not in NOT_RESULTS and (k in OPTIONS.get(c, ()) or k not in named)}
+        sig[c] = {r["id"]: core.signature(c, code, options, base[r["id"]],
+                                          m.inputs(r, opts) if hasattr(m, "inputs") else None) for r in recs}
+        earlier = read_earlier(table(c))
+        made = os.path.getmtime(table(c)) if earlier else 0
+        # with --only, the rows of the other recordings stay as they are
+        others[c] = [dict(r, _kept=True) for r in earlier if r["id"] not in run_ids] if opts.only else []
+        results[c] = {}
+        for r in earlier:
+            rid = r["id"]
+            if opts.fresh or rid not in run_ids:
+                continue
+            if not r.get("inputs") and opts.adopt and r.get("_whole") and newer(made, by_id[rid]):
+                r["inputs"] = sig[c][rid]
+            if r.get("inputs") != sig[c][rid]:
+                continue
+            r = dict(r, _kept=True)
+            if hasattr(m, "reuse") and not m.reuse(r, opts):
+                continue
+            results[c][rid] = r
+        print(f"{c}: {len(results[c])} reused, {len(recs) - len(results[c])} to check", flush=True)
+    print(f"  (inputs of {len(recs)} recordings and the earlier tables read in {time.time() - t0:.0f} s)", flush=True)
+
+    def rows_of(c):
+        """The check's table: this run's rows (kept and checked) and, with --only, those of the other recordings."""
+        rows = [results[c][r["id"]] for r in recs if r["id"] in results[c]] + others[c]
+        rows.sort(key=lambda r: order.get(r["id"], len(order)))
+        return rows
+
+    def save(c):
+        rows = rows_of(c)
+        if hasattr(mods[c], "save"):
+            mods[c].save(rows, opts)       # first, so that the table never lists a row whose other files are missing
+        core.write_csv(rows, table(c), last=("inputs",))
+
+    def check(rec, which):
+        """Run the checks `which` on one recording; its old stills go first."""
+        for c in which:
+            old = os.path.join(opts.stills_dir, c, core.still_name(rec["id"]))
+            if os.path.exists(old):
+                os.remove(old)
         try:
-            ctx["track"], ctx["rows"] = core.read_tracking(rec["tracking"])
-            ctx["video"] = core.Video(rec["video"], opts.ffmpeg, opts.ffprobe)
-            ctx["scale"] = core.cm_per_px(rec, ctx["track"])
-            ctx["poly"] = core.arena_polygon(ctx["track"], core.names(rec, "outline") or core.names(rec, "corners", "tl tr br bl"))
+            ctx = core.open_recording(rec, opts)
             setup_error = None
         except Exception as e:  # a missing file stops this recording, not the run
-            setup_error = f"{type(e).__name__}: {e}"
-        for c in checks:
+            ctx, setup_error = None, f"{type(e).__name__}: {e}"
+        for c in which:
             row = {"id": rec["id"]}
             if setup_error:
                 row.update(flags=["unreadable"], error=setup_error)
@@ -109,18 +174,43 @@ def main(argv=None):
                     if os.environ.get("VIDEO_QC_DEBUG"):
                         traceback.print_exc()
             row.setdefault("flags", [])
-            results[c].append(row)
+            row["inputs"] = sig[c][rec["id"]]
+            results[c][rec["id"]] = row
+
+    t0 = last = time.time()
+    if os.path.exists(os.path.join(opts.out_dir, "video_qc.csv")):
+        os.remove(os.path.join(opts.out_dir, "video_qc.csv"))   # stale until this run has finished
+    todo = [r for r in recs if any(r["id"] not in results[c] for c in checks)]
+    for k, rec in enumerate(todo):
+        check(rec, [c for c in checks if rec["id"] not in results[c]])
         done = k + 1
-        if done % 10 == 0 or done == len(recs):
-            print(f"{done} of {len(recs)}  {time.time() - t0:.0f} s", flush=True)
-        if done % 20 == 0 and done < len(recs):   # partial tables, without the group comparisons of finish()
-            for c in checks:
-                save(c)
+        if done % 10 == 0 or done == len(todo):
+            print(f"{done} of {len(todo)}  {time.time() - t0:.0f} s", flush=True)
+        if done < len(todo) and (done % SAVE_EVERY == 0 or time.time() - last >= SAVE_S):
+            try:                            # partial tables, without the group comparisons of finish()
+                for c in checks:
+                    save(c)
+            except OSError as e:
+                print(f"partial tables not written ({e}); the run goes on", flush=True)
+            last = time.time()
 
     for c in checks:
         if hasattr(mods[c], "finish"):
-            mods[c].finish(results[c], opts)   # group comparisons: over the recordings of this run
+            again = set(mods[c].finish(rows_of(c), opts) or ())
+            redo = [r for r in recs if r["id"] in again]
+            if redo:
+                print(f"{c}: {len(redo)} flagged recordings without a still checked again", flush=True)
+                for rec in redo:
+                    check(rec, [c])
+                mods[c].finish(rows_of(c), opts)
         save(c)
+        # a still only for a flagged row of the table
+        folder = os.path.join(opts.stills_dir, c)
+        if os.path.isdir(folder):
+            keep = {core.still_name(r["id"]) for r in rows_of(c) if r.get("flags")}
+            for f in os.listdir(folder):
+                if f.lower().endswith(".jpg") and f not in keep:
+                    os.remove(os.path.join(folder, f))
 
     # flags per recording, from every check's table in out_dir: this run's and those of earlier runs
     flags_of = {}
@@ -145,6 +235,39 @@ def main(argv=None):
     core.write_csv(combined, os.path.join(opts.out_dir, "video_qc.csv"))
     n_flag = sum(1 for r in combined if r["flags"])
     print(f"{n_flag} of {len(combined)} recordings flagged; results in {opts.out_dir}")
+
+
+def read_earlier(path):
+    """Rows of a check's table from an earlier run, flags as a list ([] when there is no table or it cannot be read).
+    A row with more or fewer fields than the header loses its inputs, so that it is checked again."""
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, newline="", encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh))
+    except (OSError, UnicodeDecodeError, csv.Error) as e:
+        print(f"cannot read {path} ({type(e).__name__}: {e}): its recordings are checked again")
+        return []
+    out = []
+    for r in rows:
+        whole = None not in r and None not in r.values()
+        r = {k: ("" if v is None else v) for k, v in r.items() if k is not None}
+        if not r.get("id"):
+            continue
+        if not whole:
+            r["inputs"] = ""
+        r["flags"] = [f for f in (r.get("flags") or "").split(";") if f]
+        r["_whole"] = whole
+        out.append(r)
+    return out
+
+
+def newer(made, rec):
+    """The table was written after the recording's tracking and video last changed (--adopt)."""
+    try:
+        return made > max(os.path.getmtime(rec["tracking"]), os.path.getmtime(core.field(rec, "video", "")))
+    except (OSError, ValueError):
+        return False
 
 
 if __name__ == "__main__":

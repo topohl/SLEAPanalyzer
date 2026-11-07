@@ -77,6 +77,7 @@ OFFSET_CM = 1.0         # default of --object-offset-cm
 PX_PER_CM = 16.0        # default of --object-px-per-cm
 COLOURS = [(0, 255, 255), (255, 255, 0), (255, 0, 255), (0, 255, 0), (0, 165, 255), (255, 128, 128)]
 NOT_COUNTED = {"off_object", "objects_merged", "missing_landmark", "no_outline", "uneven_floor", "error", "unreadable"}
+GROUP_SHIFT = re.compile(r".+_group_shift_(cm|px)")
 
 
 def run(rec, ctx):
@@ -219,8 +220,16 @@ def disk(radius):
 
 
 def finish(rows, opts):
-    """Group-level flag: the points sit on the objects differently in one group than in the others."""
+    """Group-level flag: the points sit on the objects differently in one group than in the others. Made over all
+    rows, also those kept from an earlier run (values read back as text), whose group results are made again. Returns
+    the ids of flagged rows kept from an earlier run that have no still although they could (--stills): they are
+    checked again for it."""
     stills = {id(r): r.pop("_still", None) for r in rows}
+    for r in rows:
+        r["flags"] = [f for f in r.get("flags", []) if f != "group_offset"]
+        for k in r:
+            if GROUP_SHIFT.fullmatch(k):
+                r[k] = ""
     offset_cm = getattr(opts, "object_offset_cm", OFFSET_CM)
     px_per_cm = getattr(opts, "object_px_per_cm", PX_PER_CM)
     keys = {}
@@ -244,23 +253,27 @@ def finish(rows, opts):
                 shift[g] = float(np.hypot(*(med[g] - np.median(np.array(others), axis=0))))
         for r in rows:
             g = (r.get("object_set", ""), r.get("group"))
-            if g in shift and dx in r:
+            if g in shift and r.get(dx) not in (None, ""):
                 r[f"{o}_group_shift_{unit}"] = core.rnd(shift[g], 2)
                 flags = r.setdefault("flags", [])
                 if shift[g] > lim and "group_offset" not in flags:
                     flags.append("group_offset")
+    again = []
     if getattr(opts, "stills", False):
         out = os.path.join(opts.stills_dir, "objects")
         os.makedirs(out, exist_ok=True)
         for r in rows:
             jpg = stills.get(id(r))
+            path = os.path.join(out, core.still_name(r["id"]))
             if r.get("flags") and jpg is not None:
                 img = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
                 bar = np.zeros((30, img.shape[1], 3), np.uint8)
                 text = f"{r['id']}  {r.get('group', '')}  " + " ".join(r["flags"])
                 cv2.putText(bar, text, (8, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
-                name = re.sub(r"[^\w.-]+", "_", str(r["id"])) + ".jpg"
-                cv2.imwrite(os.path.join(out, name), np.vstack([bar, img]), [cv2.IMWRITE_JPEG_QUALITY, 88])
+                cv2.imwrite(path, np.vstack([bar, img]), [cv2.IMWRITE_JPEG_QUALITY, 88])
+            elif r.get("flags") and r.get("_kept") and r.get("n_regions") not in (None, "") and not os.path.exists(path):
+                again.append(r["id"])      # e.g. flagged by the group comparison only now, or the run stopped
+    return again
 
 
 def draw(bg, mask, regions, fx, fy, track, pts, match, row, unit, cm):

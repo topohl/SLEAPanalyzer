@@ -1,4 +1,5 @@
-"""Shared pieces of the video QC: the manifest, tracking files, video probing and decoding, scale, output.
+"""Shared pieces of the video QC: the manifest, tracking files, video probing and decoding, scale, what a result
+depends on (for incremental runs), output.
 
 Nothing here knows about a particular experiment. A recording is one manifest row:
 
@@ -29,12 +30,15 @@ Any other column is carried through to the outputs.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 from fractions import Fraction
 
 import numpy as np
@@ -91,6 +95,56 @@ def number(rec: dict, name: str):
         return float(v) if v is not None else None
     except ValueError:
         return None
+
+
+def open_recording(rec: dict, opts) -> dict:
+    """What the checks read of a recording: tracking, video, scale and arena outline (raises when a file is missing)."""
+    track, rows = read_tracking(rec["tracking"])
+    video = Video(field(rec, "video", ""), opts.ffmpeg, opts.ffprobe)
+    poly = arena_polygon(track, names(rec, "outline") or names(rec, "corners", "tl tr br bl"))
+    return {"opts": opts, "track": track, "rows": rows, "video": video, "scale": cm_per_px(rec, track), "poly": poly}
+
+
+# ---- what a result depends on -----------------------------------------------------------------------------------------
+
+def file_md5(path: str, text: bool = False) -> str:
+    """md5 of a file, 'missing' when it cannot be read; text=True ignores line endings (code)."""
+    h = hashlib.md5()
+    try:
+        with open(path, "rb") as fh:
+            if text:
+                h.update(fh.read().replace(b"\r\n", b"\n"))
+            else:
+                for block in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(block)
+    except (OSError, ValueError):
+        return "missing"
+    return h.hexdigest()
+
+
+def stamp(path: str) -> str:
+    """Size and modification time of a file, or 'missing'."""
+    try:
+        st = os.stat(path)
+    except (OSError, ValueError):
+        return "missing"
+    return f"{st.st_size}:{st.st_mtime_ns}"
+
+
+def recording_inputs(rec: dict) -> dict:
+    """What every check of a recording depends on besides code and options: the content of the tracking file, size
+    and time of the video and the raw_video files, and the manifest row except its id (empty cells left out, so that
+    a new empty column changes nothing)."""
+    raw = [p.strip() for p in (field(rec, "raw_video") or "").split(";") if p.strip()]
+    return {"tracking": file_md5(rec["tracking"]), "video": stamp(field(rec, "video", "")),
+            "raw_video": [stamp(p) for p in raw],
+            "row": {k: (v or "").strip() for k, v in sorted(rec.items(), key=lambda kv: str(kv[0]))
+                    if k and k != "id" and (v or "").strip()}}
+
+
+def signature(*parts) -> str:
+    """16 hex characters of the sha1 of parts (anything json can write)."""
+    return hashlib.sha1(json.dumps(parts, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
 
 # ---- tracking ---------------------------------------------------------------------------------------------------------
@@ -262,18 +316,35 @@ def read_table(path: str) -> list[dict]:
         return list(csv.DictReader(fh))
 
 
-def write_csv(rows: list[dict], path: str):
-    """Rows to csv, the union of their keys as columns; keys starting with '_' (a check's private data) are left out."""
-    keys = []
+def write_csv(rows: list[dict], path: str, columns=(), last=()):
+    """Rows to csv, the union of their keys as columns (`columns` first, also without rows; `last` at the end); keys
+    starting with '_' (a check's private data) are left out. Written to a side file and moved into place, so that a
+    run that stops while writing leaves the earlier table whole."""
+    keys = list(columns)
     for r in rows:
         for k in r:
-            if k not in keys and not k.startswith("_"):
+            if isinstance(k, str) and k not in keys and not k.startswith("_"):
                 keys.append(k)
-    with open(path, "w", newline="", encoding="utf-8") as fh:
+    keys = [k for k in keys if k not in last] + [k for k in last if k in keys]
+    part = path + ".part"
+    with open(part, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=keys)
         w.writeheader()
         for r in rows:
             w.writerow({k: (";".join(v) if isinstance(v, (list, tuple)) else v) for k, v in r.items() if k in keys})
+    for attempt in range(5):   # Windows refuses while another program has the table open
+        try:
+            os.replace(part, path)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(1)
+
+
+def still_name(rec_id) -> str:
+    """File name of a recording's still in stills/<check>/."""
+    return re.sub(r"[^\w.-]+", "_", str(rec_id)) + ".jpg"
 
 
 def rnd(v, d=3):
