@@ -13,8 +13,10 @@
 # tracking file, 23 runs first (about an hour more); -SkipPlausibility leaves it, and the warnings at the end say so.
 #
 # At the end it lists the flags still to review: those without a decision in
-# validation\exp9_boris\config\light_check_decisions.csv, or on a tracking file changed since. After looking at one,
-# add its row there (outcome keep, correct, code_fixed or open; finding; evidence) and run again.
+# validation\exp9_boris\config\light_check_decisions.csv, or on a tracking file changed since. Each such recording gets
+# a review sheet (tools\video_qc\review.py) in video_qc\stills\review. After looking at one, add its row to the decisions
+# file (outcome keep, correct, code_fixed or open; finding; evidence) and run again. The video checks are incremental:
+# a run checks only recordings whose tracking, video or settings changed, and continues a run that stopped.
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Checks = 'frames,objects',
@@ -131,6 +133,19 @@ try {
         }
     }
     Invoke-Step 'light checks (31)' { & $Rscript (Join-Path $scripts '31_light_checks.R') }
+
+    # a review sheet for every recording with flags to review (video_qc\stills\review, copied with the other stills)
+    try {
+        Invoke-Step 'review sheets' {
+            & $Python -I (Join-Path $repo 'tools\video_qc\review.py') (Join-Path $results 'video_qc_manifest.csv') `
+                (Join-Path $results 'light_checks_recordings.csv') (Join-Path $results 'video_qc\stills\review') `
+                --id-columns 'assay phase batch Code' --draw to_review --pairs (Join-Path $results 'light_checks_duplicates.csv')
+        }
+    }
+    catch {
+        Write-Warning $_.Exception.Message
+        $warnings.Add("$($_.Exception.Message): no review sheets this time")
+    }
 
     if ($ReleaseQcDir) { Copy-Results $ReleaseQcDir }
     if (-not $NoCopy) { Copy-Results $ShareDir }
