@@ -8,7 +8,8 @@ param(
     [string]$EpmCalibrationInput = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris\sleap_input\EPM',
     [string]$NorCalibrationInput = 'C:\Users\topohl\iCloudDrive\Dokumente\Analysis\Behavior\correlate_sleap_boris\sleap_input\NOR',
     [string]$BorisNorRoot = 'S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior\B1\NOR\BORIS',
-    [string]$Rscript = 'C:\Users\topohl\AppData\Local\Programs\R\R-4.5.1\bin\x64\Rscript.exe'
+    [string]$Rscript = 'C:\Users\topohl\AppData\Local\Programs\R\R-4.5.1\bin\x64\Rscript.exe',
+    [switch]$SkipQC   # leave out the quality checks at the end (tools\run_exp9_qc.ps1, about 30 min)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -280,7 +281,8 @@ try {
         "epm_calibration_input=$EpmCalibrationInput",
         "nor_calibration_input=$NorCalibrationInput",
         "boris_nor_root=$BorisNorRoot",
-        "rscript=$Rscript"
+        "rscript=$Rscript",
+        "skip_qc=$SkipQC"
     )
     [System.IO.File]::WriteAllLines(
         (Join-Path $releaseRoot 'provenance\build_parameters.txt'),
@@ -288,6 +290,27 @@ try {
     )
     & $Rscript -e "writeLines(capture.output(sessionInfo()), '$($releaseRoot.Replace('\','/'))/provenance/r_session_info.txt')"
     if ($LASTEXITCODE -ne 0) { throw "Could not capture R session information" }
+
+    # Quality checks of the staged recordings with this release (report only), in a separate process: results in
+    # qc\light_checks, the review copy on the lab share refreshed, the flags still to review at the end of qc.log.
+    # A failure is recorded in qc\light_checks\QC_FAILED.txt and does not stop the release.
+    if (-not $SkipQC) {
+        $qcDir = Join-Path $releaseRoot 'qc\light_checks'
+        $qcLog = Join-Path $releaseRoot 'provenance\logs\qc.log'
+        try {
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'tools\run_exp9_qc.ps1') `
+                -Release $releaseRoot -StageRoot $StageRoot -ReleaseQcDir $qcDir -Rscript $Rscript *>&1 |
+                Tee-Object -FilePath $qcLog
+            if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
+        }
+        catch {
+            New-Item -ItemType Directory -Force -Path $qcDir | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $qcDir 'QC_FAILED.txt'),
+                "Quality checks failed ($($_.Exception.Message)); see provenance\logs\qc.log")
+            Write-Warning "Quality checks failed; the release is complete without them (provenance\logs\qc.log)"
+        }
+        $global:LASTEXITCODE = 0
+    }
 
     $manifestRows = Get-ChildItem -LiteralPath $releaseRoot -Recurse -File |
         Where-Object { $_.Name -ne 'bundle_manifest.tsv' } |

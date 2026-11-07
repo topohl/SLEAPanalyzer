@@ -190,8 +190,11 @@ length, arena size and objects. `31` then lists the tool's flags as `video:<chec
 can run on its own into the same folder.
 
 **Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks and `31`, copies
-the results for review to the lab share and ends with the flags to review (about 45 min;
+the results for review to the lab share and ends with the flags to review (about 30 min;
 `-SkipVideo` for the light checks only, `-Checks sync` or `-Checks clip` to add a slower check).
+The release build (`tools/build_exp9_behavior_bundle.ps1`) runs it at the end, keeps the results
+in the release's `qc/light_checks` and the log in `provenance/logs/qc.log` (`-SkipQC` leaves
+it out; a failure is noted in `qc/light_checks/QC_FAILED.txt` and does not stop the release).
 
 ## Layout
 
