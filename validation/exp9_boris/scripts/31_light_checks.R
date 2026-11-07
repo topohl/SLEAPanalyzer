@@ -58,12 +58,17 @@
 # (outcome, finding, evidence, the md5 of the tracking file). The tables then
 # show it under `reviewed`; only flags without a decision, or on a tracking
 # file changed since, are listed under `to_review` and printed at the end.
+# A decision row with a problem (an outcome or flag name that does not exist,
+# a flag decided twice, an md5 that is not one, a recording not staged) is
+# listed at the end, and the flags it decides stay under `to_review`.
 #
 # Writes results/light_checks_recordings.csv (one row per recording, values
 # and flags), results/light_checks_summary.csv (one row per test and trial)
 # and results/light_checks_duplicates.csv (pairs of recordings that are the
 # same trial). Inputs: the staged recordings, the release named in RELEASE,
-# and results/plausibility_summary.csv. Runtime about 20 minutes.
+# and results/plausibility_summary.csv; a warning at the end names an input
+# older than the tracking files (the plausibility summary, the video QC).
+# Runtime about 20 minutes.
 # ============================================================================
 
 suppressMessages({ library(sp); library(stringr); library(yaml); library(data.table) })
@@ -75,8 +80,10 @@ Sys.setenv(SLEAP_ANALYZER_REPO_ROOT = REPO)
 source(file.path(REPO, "02_SLEAPanalzyer", "DLCAnalyzer_Functions_final.R"))
 source(file.path(REPO, "02_SLEAPanalzyer", "core", "assay_config.R"))
 RES <- file.path(PROJ, "results")
-STAGE <- Sys.getenv("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
-RELEASE <- Sys.getenv("EXP9_RELEASE", "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/SLEAPanalyzer_v2/releases/2026-11-05_exp9_all-batches_canonical-landmark-repair")
+# an environment variable set to "" counts as not set (PowerShell can leave a removed variable empty)
+env <- function(name, default = "") { v <- Sys.getenv(name); if (nzchar(v)) v else default }
+STAGE <- env("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
+RELEASE <- env("EXP9_RELEASE", "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/SLEAPanalyzer_v2/releases/2026-11-05_exp9_all-batches_canonical-landmark-repair")
 CORNERS <- c("tl", "tr", "br", "bl")
 FPS <- 30                 # the rate the scoring assumes for one tracking row
 FPS_VIDEO <- 30000 / 1001 # the rate the cameras recorded
@@ -106,10 +113,11 @@ recordings <- rbindlist(list(
   data.table(assay = "EPM", phase = "EPM", batch = paste0("B", 1:6))[
     , .(file = list.files(file.path(STAGE, "EPM", batch), "[.]csv$", full.names = TRUE)), by = .(assay, phase, batch)]))
 recordings[, Code := str_extract(basename(file), "^[A-Za-z0-9]{4}")]
+staged <- recordings[, paste(assay, phase, batch, Code)]   # all staged recordings, also on a subset run (decisions check)
 # EXP9_LIGHT_ONLY (a regular expression on "test phase batch code") checks a subset and writes to a temporary folder
-ONLY <- Sys.getenv("EXP9_LIGHT_ONLY")
+ONLY <- env("EXP9_LIGHT_ONLY")
 if (nzchar(ONLY)) recordings <- recordings[grepl(ONLY, paste(assay, phase, batch, Code))]
-OUT <- if (nzchar(ONLY)) Sys.getenv("EXP9_LIGHT_OUT", tempdir()) else RES
+OUT <- if (nzchar(ONLY)) env("EXP9_LIGHT_OUT", tempdir()) else RES
 recordings[, md5 := unname(tools::md5sum(file))]
 cat(nrow(recordings), "recordings\n")
 
@@ -266,7 +274,24 @@ chk <- merge(chk, animals[, .(Code, assay = "NOR", phase = "NOV", total_contact_
 chk <- merge(chk, animals[, .(Code, assay = "SocP", phase = "S1", s1_pref = sleap_SocP_S1_pref_index)], by = c("Code", "assay", "phase"), all.x = TRUE)
 
 # ---- frame-level checks from the plausibility screen (information) -----------------------------------------------------
-scr <- fread(file.path(RES, "plausibility_summary.csv"))
+# 23_plausibility_screen.R reads the same tracking files. A tracking file newer than its summary, or a recording without a
+# row in it, may have stale values: listed at the end (tools/run_exp9_qc.ps1 reruns 23 first when its summary is older).
+# EXP9_PLAUSIBILITY reads another summary file.
+stale <- character()   # inputs older than the tracking, printed at the end
+PLAUSIBILITY <- env("EXP9_PLAUSIBILITY", file.path(RES, "plausibility_summary.csv"))
+if (file.exists(PLAUSIBILITY)) {
+  scr <- fread(PLAUSIBILITY)
+  newer <- sum(file.mtime(recordings$file) > file.mtime(PLAUSIBILITY))
+  unscreened <- sum(!recordings[, paste(assay, phase, batch, Code)] %in% scr[, paste(assay, phase, batch, Code)])
+  if (newer || unscreened) stale <- c(stale, sprintf("%s (written %s) is %s: the jump, skeleton, outside_arena and raised values may be stale; rerun 23_plausibility_screen.R",
+    PLAUSIBILITY, format(file.mtime(PLAUSIBILITY), "%Y-%m-%d %H:%M"), paste(c(
+      if (newer) sprintf("older than %d of the %d tracking files checked here", newer, nrow(recordings)),
+      if (unscreened) sprintf("missing %d of the %d recordings checked here", unscreened, nrow(recordings))), collapse = " and ")))
+} else {
+  scr <- data.table(assay = character(), phase = character(), batch = character(), Code = character(),
+                    jump_s = numeric(), skeleton_s = numeric(), outside_arena_s = numeric(), raised_s = numeric())
+  stale <- c(stale, sprintf("no %s: the jump, skeleton, outside_arena and raised values are empty; run 23_plausibility_screen.R", PLAUSIBILITY))
+}
 chk <- merge(chk, scr[, .(assay, phase, batch, Code, jump_s, skeleton_s, outside_arena_s, raised_s)],
              by = c("assay", "phase", "batch", "Code"), all.x = TRUE)
 
@@ -287,7 +312,7 @@ chk <- merge(chk, rz, by = c("Code", "assay", "phase"), all.x = TRUE)
 # tools/video_qc run on the manifest of 32_video_qc_manifest.R with out_dir results/video_qc (the command is in 32). Its
 # flags join as video:<check>:<flag>; video_flags is "none" for a recording checked without a flag, empty for one not
 # checked, and video_checks names the checks that ran on it.
-VIDEO_QC <- Sys.getenv("EXP9_VIDEO_QC", file.path(RES, "video_qc", "video_qc.csv"))
+VIDEO_QC <- env("EXP9_VIDEO_QC", file.path(RES, "video_qc", "video_qc.csv"))
 vq <- if (file.exists(VIDEO_QC) && file.size(VIDEO_QC) > 2) tryCatch(fread(VIDEO_QC, colClasses = "character"), error = function(e) NULL)
 if (file.exists(VIDEO_QC) && !all(c("id", "flags") %in% names(vq))) {
   cat("video QC file empty or not readable, video flags not joined:", VIDEO_QC, "\n"); vq <- NULL
@@ -301,14 +326,16 @@ if (!is.null(vq)) {
   cat(sum(!is.na(chk$video_flags)), "of", nrow(chk), "recordings have video QC results in", VIDEO_QC, "\n")
   # the oldest table it combines decides whether the video QC is older than the tracking
   tabs <- file.path(dirname(VIDEO_QC), paste0("video_qc_", unique(unlist(strsplit(stats::na.omit(vq$checks), ";", fixed = TRUE))), ".csv"))
-  if (any(file.mtime(recordings$file) > min(file.mtime(c(VIDEO_QC, tabs[file.exists(tabs)])))))
-    cat("  tracking files newer than the video QC: rerun 32_video_qc_manifest.R and tools/video_qc\n")
+  newer <- sum(file.mtime(recordings$file) > min(file.mtime(c(VIDEO_QC, tabs[file.exists(tabs)]))))
+  if (newer) stale <- c(stale, sprintf("%s or a table it combines is older than %d of the %d tracking files checked here: rerun 32_video_qc_manifest.R and tools/video_qc",
+                                       VIDEO_QC, newer, nrow(recordings)))
 }
 
 # ---- flags ---------------------------------------------------------------------------------------------------------------
 chk <- merge(chk, EXPECT[, .(assay, expected_s = duration_s, expected_aspect = width_cm / height_cm)], by = "assay")
 chk[, moving_length_rel := moving_length_cm / stats::median(moving_length_cm, na.rm = TRUE), by = .(assay, Sex, batch)]
-flag <- function(cond, name) ifelse(cond %in% TRUE, name, NA_character_)
+FLAG_NAMES <- character()   # every flag name of this script, collected by flag(): the decisions file may use these
+flag <- function(cond, name) { FLAG_NAMES <<- union(FLAG_NAMES, name); ifelse(cond %in% TRUE, name, NA_character_) }
 chk[, flags := apply(cbind(
   flag(abs(duration_s - expected_s) > LIMIT$length_s, "length"),
   flag(last_bin_share < LIMIT$last_bin, "partial_last_bin"),
@@ -335,11 +362,42 @@ if ("video_flags" %in% names(chk))
 # config/light_check_decisions.csv: the outcome of each flag looked at (keep, correct, code_fixed, open), with the md5 of
 # the tracking file it was decided on. A flag with a decision on the same file goes to `reviewed` as "flag: outcome";
 # a new flag, or one on a tracking file changed since its decision, goes to `to_review`.
-DECISIONS <- Sys.getenv("EXP9_LIGHT_DECISIONS", file.path(PROJ, "config", "light_check_decisions.csv"))
+# The file is checked first. An outcome not among OUTCOMES, a flag that is neither one of FLAG_NAMES nor video:<check>:<flag>,
+# a recording and flag decided twice (in one row or two), a tracking_md5 that is not an md5, or a recording that is not
+# staged is listed at the end under "decisions file problems"; the flags such a row decides stay under `to_review`.
+DECISIONS <- env("EXP9_LIGHT_DECISIONS", file.path(PROJ, "config", "light_check_decisions.csv"))
+OUTCOMES <- c("keep", "correct", "code_fixed", "open")
+VIDEO_CHECKS <- local({   # the checks of tools/video_qc (its ALL list)
+  p <- file.path(REPO, "tools", "video_qc", "__main__.py")
+  a <- if (file.exists(p)) grep("^ALL = \\[", readLines(p, warn = FALSE), value = TRUE) else character()
+  if (length(a)) gsub("[\" ]", "", strsplit(sub("^ALL = \\[(.*)\\].*", "\\1", a[1]), ",")[[1]]) else "[a-z_]+" })
 dec <- if (file.exists(DECISIONS)) fread(DECISIONS, colClasses = "character") else NULL
-dec <- if (!is.null(dec) && nrow(dec)) rbindlist(lapply(seq_len(nrow(dec)), function(i)
-  dec[i, .(id = paste(assay, phase, batch, Code), flag = trimws(strsplit(flags, ";", fixed = TRUE)[[1]]), outcome, tracking_md5)])) else
-  data.table(id = character(), flag = character(), outcome = character(), tracking_md5 = character())
+problems <- data.table(row = character(), recording = character(), problem = character())
+if (!is.null(dec) && length(miss <- setdiff(c("assay", "phase", "batch", "Code", "flags", "outcome", "tracking_md5"), names(dec)))) {
+  problems <- data.table(row = "1", recording = "", problem = paste("no column", paste(miss, collapse = ", "), "(decisions not used)"))
+  dec <- NULL
+}
+dec <- if (!is.null(dec) && nrow(dec)) rbindlist(lapply(seq_len(nrow(dec)), function(i) {
+  f <- trimws(strsplit(dec$flags[i], ";", fixed = TRUE)[[1]]); f <- f[!is.na(f) & nzchar(f)]
+  dec[i, .(row = i + 1L, id = paste(assay, phase, batch, Code), flag = if (length(f)) f else NA_character_, outcome,
+           tracking_md5 = tolower(tracking_md5))] })) else
+  data.table(row = integer(), id = character(), flag = character(), outcome = character(), tracking_md5 = character())
+dec[, key := paste(id, flag)]
+video_form <- sprintf("^video:(%s):[A-Za-z0-9_.-]+$", paste(VIDEO_CHECKS, collapse = "|"))
+dec[, `:=`(no_flag = is.na(flag), bad_flag = !is.na(flag) & !flag %in% FLAG_NAMES & !grepl(video_form, flag),
+           bad_outcome = !outcome %in% OUTCOMES, bad_md5 = !grepl("^[0-9a-f]{32}$", tracking_md5),
+           twice = !is.na(flag) & (duplicated(key) | duplicated(key, fromLast = TRUE)), unstaged = !id %in% staged)]
+dec[, problem := no_flag | bad_flag | bad_outcome | bad_md5 | twice | unstaged]
+problems <- unique(rbind(problems,
+  dec[(no_flag), .(row = as.character(row), recording = id, problem = "no flag")],
+  dec[(bad_flag), .(row = as.character(row), recording = id, problem = sprintf(
+    "flag \"%s\" is neither a flag of this script nor video:<check>:<flag> (%s)", flag, paste(VIDEO_CHECKS, collapse = ", ")))],
+  dec[(bad_outcome), .(row = as.character(row), recording = id, problem = sprintf(
+    "outcome \"%s\" is not one of %s", outcome, paste(OUTCOMES, collapse = ", ")))],
+  dec[(bad_md5), .(row = as.character(row), recording = id, problem = sprintf("tracking_md5 \"%s\" is not 32 hexadecimal characters", tracking_md5))],
+  dec[(twice), .(row = paste(unique(row), collapse = ", "), recording = id[1], problem = sprintf("\"%s\" decided more than once", flag[1])), by = key][, key := NULL],
+  dec[(unstaged), .(row = as.character(row), recording = id, problem = "not among the staged recordings")]))
+problems <- problems[order(as.integer(sub(",.*", "", row)))]
 chk[, md5 := recordings$md5[match(paste(assay, phase, batch, Code), recordings[, paste(assay, phase, batch, Code)])]]
 seen <- character()
 rev_cols <- lapply(seq_len(nrow(chk)), function(i) {
@@ -347,16 +405,19 @@ rev_cols <- lapply(seq_len(nrow(chk)), function(i) {
   if (!length(f)) return(c(reviewed = "", to_review = ""))   # paste() would turn no flag into one
   rid <- chk[i, paste(assay, phase, batch, Code)]
   seen <<- c(seen, paste(rid, f))
-  j <- match(paste(rid, f), paste(dec$id, dec$flag))
-  ok <- !is.na(j) & dec$tracking_md5[j] %in% chk$md5[i]
-  changed <- !is.na(j) & !ok
+  j <- match(paste(rid, f), dec$key)
+  bad <- !is.na(j) & dec$problem[j]
+  ok <- !is.na(j) & !bad & dec$tracking_md5[j] %in% chk$md5[i]
+  changed <- !is.na(j) & !bad & !ok
   c(reviewed = paste(if (any(ok)) paste0(f[ok], ": ", dec$outcome[j[ok]]), collapse = "; "),
-    to_review = paste(c(f[is.na(j)], if (any(changed)) paste(f[changed], "(tracking changed since its decision)")), collapse = "; "))
+    to_review = paste(c(f[is.na(j)], if (any(changed)) paste(f[changed], "(tracking changed since its decision)"),
+                        if (any(bad)) paste(f[bad], "(see decisions file problems)")), collapse = "; "))
 })
 chk[, `:=`(reviewed = vapply(rev_cols, `[[`, "", "reviewed"), to_review = vapply(rev_cols, `[[`, "", "to_review"), md5 = NULL)]
-gone <- dec[id %in% chk[, paste(assay, phase, batch, Code)] & !paste(id, flag) %in% seen]
-cat(sprintf("\nreview decisions (%s): %d of %d flags decided; %d recordings with flags to look at\n", basename(DECISIONS),
-            sum(nzchar(unlist(strsplit(chk$reviewed, "; ", fixed = TRUE)))), length(seen), sum(nzchar(chk$to_review))))
+gone <- dec[!problem & id %in% chk[, paste(assay, phase, batch, Code)] & !key %in% seen]
+cat(sprintf("\nreview decisions (%s): %d of %d flags decided; %d recordings with flags to look at%s\n", basename(DECISIONS),
+            sum(nzchar(unlist(strsplit(chk$reviewed, "; ", fixed = TRUE)))), length(seen), sum(nzchar(chk$to_review)),
+            if (nrow(problems)) sprintf("; %d problems in the decisions file, listed at the end", nrow(problems)) else ""))
 if (any(nzchar(chk$to_review))) print(as.data.frame(chk[nzchar(to_review), .(assay, phase, batch, Code, to_review)]))
 if (nrow(gone)) { cat("decisions whose flag is no longer set (corrected? then drop the row):\n"); print(as.data.frame(gone[, .(id, flag, outcome)])) }
 setcolorder(chk, c("assay", "phase", "batch", "Code", "Sex", "flags", "reviewed", "to_review"))
@@ -394,3 +455,6 @@ fwrite(summ, file.path(OUT, "light_checks_summary.csv"))
 print(as.data.frame(summ))
 cat("\nsame trial twice:\n"); print(as.data.frame(duplicates))
 cat("\nflagged recordings:\n"); print(as.data.frame(chk[flags != "", .(assay, phase, batch, Code, flags)]))
+if (nrow(problems)) cat(sprintf("\ndecisions file problems (%s, row 1 is the header):", DECISIONS),
+                        problems[, sprintf("  row %-7s %-18s %s", row, recording, problem)], sep = "\n")
+if (length(stale)) cat("\nWARNING, inputs that may be stale:", paste0("  ", stale), sep = "\n")
