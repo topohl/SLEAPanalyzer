@@ -39,9 +39,11 @@ Flags:
   out_of_step  more than 2 rows out of step
   off_animal   the tracked point is farther than 0.6 animal sizes from the animal in more than 10% of the frames, or
                the whole tracking is that far beside it (calib_dx, calib_dy: made from another crop or scale)
-  shifted      a whole window fits the video best a constant number of frames away: tracking rows and video frames do
-               not line up there. In a window the decoder reached by seeking this can also be the decoder; rerun with
-               --sync-windows all to decode from the first frame
+  shifted      every window that can tell (window_lag not empty) fits the video best the same number of frames away,
+               not 0: tracking rows and video frames do not line up. A reader offset is a property of the file, so a
+               lag in one window alone is not flagged: the blob centre sits a few mm ahead of the body point along the
+               body, which in a window of slow movement fits a lag of 1-3 frames (Exp9: all 80 one-window lags were
+               this). window_lag keeps every window's value
   no_animal    the animal does not stand out from the floor, or is clear in fewer than half of the frames: the method
                failed on this video (contrast, lighting, outline, an animal that never moves), which says nothing about
                the tracking; no other flag is set then
@@ -505,7 +507,8 @@ def flags(row, rec, opts):
     offset = None not in (size, dx, dy) and np.hypot(dx, dy) > FAR * size
     if (core.num(row, "share_far") or 0) > FAR_SHARE or offset:
         out.append("off_animal")
-    if any(g not in ("", "0") for g in str(row.get("window_lag") or "").split(";")):
+    lags = [g for g in str(row.get("window_lag") or "").split(";") if g not in ("", "None")]
+    if lags and len(set(lags)) == 1 and lags[0] != "0":
         out.append("shifted")
     return out
 

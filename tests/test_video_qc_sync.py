@@ -243,7 +243,21 @@ def test_recordings_that_cannot_be_checked():
         assert flags(rows["nose"]) == ["error"] and "nose" in rows["nose"]["error"], rows["nose"]
 
 
+def test_shifted_needs_the_windows_to_agree():
+    """A reader offset belongs to the file: flagged when every window that can tell has the same lag, not for a lag in
+    one window of three (the blob centre ahead of the body point in a slow window)."""
+    import sync
+    row = {"windows": "0-599;900-1499;1800-2399", "frames_checked": 1800, "animal_clear": 1.0, "out_of_step": 0,
+           "animal_size_cm": 5.0, "calib_dx_cm": 0.1, "calib_dy_cm": 0.0, "share_far": 0.0}
+    for lag, want in (("0;0;0", []), ("0;-1;0", []), ("-2;;0", []), ("-2;;-2", ["shifted"]), ("3", ["shifted"]),
+                      (";;", []), ("-1;-1;-1", ["shifted"]), ("-1;-2;-1", [])):
+        assert sync.flags(dict(row, window_lag=lag), None, None) == want, lag
+    text = {k: str(v) for k, v in row.items()}                       # a row kept from an earlier run: text
+    assert sync.flags(dict(text, window_lag="2;2;2"), None, None) == ["shifted"]
+
+
 if __name__ == "__main__":
+    test_shifted_needs_the_windows_to_agree()
     test_finds_rows_out_of_step_and_passes_clean(); test_windows_seek_to_the_right_frames()
     test_listed_frames_only(); test_off_animal_shifted_and_no_animal(); test_bright_animal_without_scale_in_px()
     test_tracking_of_another_video_or_crop_is_off_the_animal(); test_small_arena_in_a_larger_frame_at_25_fps()
