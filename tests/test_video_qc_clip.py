@@ -218,6 +218,15 @@ def test_clip_check():
         assert {"cut.jpg", "hand.jpg", "late.jpg", "early.jpg"} <= set(stills) and "ok.jpg" not in stills
 
 
+def test_rows_placed_before_the_search_went_on_are_checked_again():
+    sys.path.insert(0, TOOL)
+    import clip
+    again = {"0.2": False, "0.04": True, "": True, "1.262": True}          # a fair fit, a good one, none, no raw
+    for score, keep in again.items():
+        assert clip.reuse({"align_score": score}, None) is keep, score
+    assert clip.reuse({"align_score": "0.2", "raw_search": "best of all"}, None) is True
+
+
 def test_clip_check_harder():
     sys.path.insert(0, TOOL)
     import core
@@ -258,6 +267,16 @@ def test_clip_check_harder():
         shutil.copy(os.path.join(gone, "first_cut", "M1K1.mp4"), os.path.join(beside, "clips"))
         rows.append(dict(id="recut_beside", tracking=t, video=os.path.join(beside, "clips", "M1K1_recut.mp4"),
                          raw_dir=beside, expected_s=EXPECTED_S))
+        # another trial filmed in the same arena that shares 9 of the 12 s (a sibling mouse) fits fairly and is tried
+        # first (its number is in the clip's name); the clip's own recording, tried later, fits better and is taken
+        sib = os.path.join(d, "sib")
+        os.makedirs(os.path.join(sib, "C1"))
+        own, other = list(frames(450, 31, 420)), list(frames(450, 32, 420))
+        write(os.path.join(sib, "C1", "GX010270.mp4"), [im for im, _ in own[:RELEASE + 270] + other[RELEASE + 270:]],
+              (W, H))
+        write(os.path.join(sib, "C1", "GX010999.mp4"), [im for im, _ in own], (W, H))
+        v, t = make_clip(sib, "E9_GX010270_sib", own, RELEASE, END - 1, folder="clips")
+        rows.append(dict(id="sibling", tracking=t, video=v, raw_dir=sib, expected_s=EXPECTED_S))
         # a faint animal (28 grey levels on the floor): found when given; an empty-arena recording and another trial
         # of the same view must not pass for its raw
         faint = make_raw(rawp("faint.mp4"), 450, 13, hand_back=420, animal=172)
@@ -297,6 +316,9 @@ def test_clip_check_harder():
         gone = res["recut_gone"]
         assert flags(gone) == ["raw_clip_sized"] and gone["raw"].endswith("M1K1.mp4"), gone
         assert flags(res["recut_beside"]) == ["raw_not_found"] and "M1K1" not in res["recut_beside"]["tried"], res["recut_beside"]
+        sib_row = res["sibling"]
+        assert sib_row["raw"].endswith("GX010999.mp4") and sib_row["raw_search"] == "best of all", sib_row
+        assert res["sibling"]["tried"].startswith("GX010270.mp4 0.") and flags(res["sibling"]) == [], res["sibling"]
         assert flags(res["faint"]) == [], res["faint"]
         assert flags(res["faint_decoys"]) == ["raw_not_found"], res["faint_decoys"]
         assert float(res["faint_decoys"]["align_score"]) > 0.4
@@ -313,6 +335,7 @@ def test_clip_check_harder():
 
 
 if __name__ == "__main__":
+    test_rows_placed_before_the_search_went_on_are_checked_again()
     test_clip_check()
     test_clip_check_harder()
     print("ok")

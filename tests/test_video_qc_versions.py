@@ -17,7 +17,7 @@ RECORDED = {   # file: (VERSION, md5 of its measuring code)
     "frames": (1, "235245cccfcefe1be511fbf4557beb0d"),
     "objects": (1, "c58f49aac46104035f24a00acb19b383"),
     "sync": (1, "92347bf0d69e1e8d27c9fa28339d2523"),
-    "clip": (1, "860005672808c15593a9189232cea025"),
+    "clip": (1, "859b711ef62467dea1fce070ac455c43"),   # 2026-11-08 search: rows it can change rechecked via reuse()
 }
 
 

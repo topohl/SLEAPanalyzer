@@ -15,7 +15,9 @@ How:
   3. The clip's place in the raw: the first 40 s of the clip and every raw key frame, both minus the clip background
      and blurred, so mostly the animal is left, compared at every offset. Score = summed squared difference over
      summed energy, relative to what a raw showing nothing there would score (0 = the same animal in the same place
-     at every key frame, about 1 = unrelated or empty). A raw with a score up to 0.4 is taken. The clip's first and
+     at every key frame, about 1 = unrelated or empty). A raw scoring up to 0.05 is taken at once; one up to 0.4
+     only when no other candidate scores lower (another trial filmed in the same arena, a sibling mouse or the same
+     mouse's other trial, can score 0.2-0.4; raw_search says which way the raw was taken). The clip's first and
      last frames are then found to the frame by template matching at 1/4 scale (finer for clips under 1080 px) within
      +-20 frames, which also refines the crop box; when one end matches several frames alike (nothing moves), the
      pair that fits the clip's frame count is taken.
@@ -37,6 +39,7 @@ the seconds of it decoded, in the order tried; '-' = could not be placed), raw_s
 and last frame in the raw, counted over the chapters; start_at / end_at name the file and its own frame),
 match_start / match_end (normalised squared difference of those matches; near 0 = the same picture),
 raw_span_minus_clip_frames (clip frames dropped or added between raw and clip), clip_frames, raw_frames, raw_fps,
+raw_search (first good: the first candidate scoring up to 0.05; best of all: every candidate tried, the lowest taken),
 crop box in raw px, release (raw frame and s), start_minus_release_s, expected_end_s (release + expected_s),
 end_minus_expected_s (clip end minus that), trial_end (next intrusion or raw end; trial_end_by), next_intrusion_raw_s
 and next_intrusion_after_clip_s, alone_to_expected (the raw shows the animal alone up to release + expected_s),
@@ -81,7 +84,8 @@ VERSION = 1            # results version: raise it when a change can alter the m
 THUMB_W = 192          # raw key-frame thumbnails, px wide (1920 -> 1/10)
 HEAD_S = 60            # first pass over the candidates: the first minute of each
 ALIGN_S = 40           # clip seconds matched against the raw
-ACCEPT = 0.4           # alignment score up to which a raw is taken
+ACCEPT = 0.4           # alignment score up to which a raw is taken ...
+GOOD = 0.05            # ... at once up to this; above it only when no other candidate scores lower
 NULL_MIN = 0.05        # the clip's first seconds must stand out this much from the noise floor to be placed at all
 SCENE_MIN = 0.5        # candidates whose view correlates less with the clip background are skipped
 FINE = 0.25            # scale of the exact frame search, relative to the raw ...
@@ -389,8 +393,9 @@ def align(r, clip, rate):
 
 
 def find(cands, clip, opts):
-    """The first candidate recording the clip aligns with: (match, best try, 'name score' per try). Candidates no
-    larger than the clip (another cut of the same trial, perhaps) come after all larger ones."""
+    """The recording the clip aligns with: (match, best try, 'name score' per try). The first candidate scoring up
+    to GOOD is taken at once; else the lowest score up to ACCEPT over all candidates. Candidates no larger than the clip
+    (another cut of the same trial, perhaps) come after all larger ones."""
     recs, log = [], []
     for paths in cands:
         r = recording(paths, opts)
@@ -413,6 +418,7 @@ def find(cands, clip, opts):
     best, tried = None, set()
     larger = any(not small for *_, small in recs)
     for tier in (False, True):
+        fair = None                       # the lowest score up to ACCEPT in this tier
         for whole in (False, True):
             for r, rate, _, small in recs:
                 if small != tier or (whole and r.upto >= r.n and id(r) in tried):
@@ -428,8 +434,12 @@ def find(cands, clip, opts):
                 m.update(rate=rate, clip_sized=small and larger)
                 if best is None or (np.isfinite(m["score"]) and not best["score"] <= m["score"]):
                     best = m
-                if m["score"] <= ACCEPT:
-                    return m, best, log
+                if m["score"] <= GOOD:
+                    return dict(m, search="first good"), best, log
+                if m["score"] <= ACCEPT and (fair is None or m["score"] < fair["score"]):
+                    fair = m
+        if fair is not None:              # a recording larger than the clip before any clip-sized one
+            return dict(fair, search="best of all"), best, log
     return None, best, log
 
 
@@ -631,6 +641,13 @@ def trial(sc, s, e, lo, hi):
 
 # ---- the check --------------------------------------------------------------------------------------------------------
 
+def reuse(row, opts):
+    """A row placed before the search went on past a fair fit (no raw_search) is checked again when its score was
+    above GOOD: another candidate may fit better. Rows up to GOOD would be placed the same way now."""
+    score = core.num(row, "align_score")
+    return bool(row.get("raw_search")) or score is None or not GOOD < score <= ACCEPT
+
+
 def run(rec, ctx):
     opts = ctx["opts"]
     clip = Clip(rec, ctx["video"])
@@ -668,7 +685,7 @@ def run(rec, ctx):
             row["error"] = "not placed: the view differs, or the clip holds fewer than 4 of the raw's key frames"
         return row
     r, rate, fps = m["r"], m["rate"], m["r"].fps
-    row.update(raw=r.paths, found_by="name" if how == "search" and name_hint(clip.path, r.paths) else how,
+    row.update(raw_search=m["search"], raw=r.paths, found_by="name" if how == "search" and name_hint(clip.path, r.paths) else how,
                raw_fps=core.rnd(fps, 4), raw_frames=r.n)
 
     s, e, sq_s, sq_e, box = place_clip(r, clip, m, rate)
