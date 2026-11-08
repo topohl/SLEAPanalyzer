@@ -168,7 +168,8 @@ time constants for the pose of the moment (`landmark_repair_pose_decay_s`). `Rsc
 **`31` — light checks.** One row per recording of every test: its length against the
 protocol, an open field last minute too short to count, the same trial twice (identical
 files, or two body-centre tracks that coincide at some offset), landmarks the test uses
-that are missing, arena shape, corner drift, corner loss and camera shift, the length and
+that are missing, straight-line fills (gaps the staged files bridged; flagged over 5 s or 10%
+of rows), arena shape, corner drift, corner loss and camera shift, the length and
 nose-tail order of the moving mouse, poses taken from another video frame, the novel object
 positions, plus maze time off every zone, open field time the scoring dropped, novel object
 total contact, and readouts more than 3.5 robust SD from their test and sex. Report only.
