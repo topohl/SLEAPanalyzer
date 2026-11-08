@@ -64,7 +64,7 @@ NOT_RESULTS = {"manifest", "out_dir", "checks", "only", "stills", "ffmpeg", "ffp
                "object_offset_cm"}    # only the group comparison, made again over all rows in every run
 FAILED = {"error", "unreadable"}      # flags of a row whose check failed: checked again in every run
 WHY = {"data": "data", "options": "options", "code": "code", "earlier version": "earlier version",
-       "error": "error before", "reuse": "files incomplete", "new": "new"}
+       "error": "error before", "reuse": "asked by the check", "new": "new"}
 SAVE_EVERY, SAVE_S = 20, 60           # partial tables: every this many recordings or seconds
 
 
