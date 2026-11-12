@@ -544,7 +544,7 @@ class Layout:
 
     def strays(self) -> list[Path]:
         """Exports of this recording anywhere under SLEAP/ outside geom/, animal/ and formatted/ (SLEAP's export dialog
-        saves next to the labels file: SLEAP/, SLEAP/SLEAP_projects, SLEAP/predictions ...), archives left out."""
+        saves next to the labels file: SLEAP/projects, SLEAP/predictions ...), archives left out."""
         out = []
         for p in sorted(self.sleap.rglob("*.analysis.h5")):
             parts = p.relative_to(self.sleap).parts
