@@ -211,11 +211,69 @@ def process_one(geom_path: Path, animal_path: Path, dst: Path,
         keep_merged.parent.mkdir(parents=True, exist_ok=True)
         merged.to_csv(keep_merged, index=False)
 
+    return write_formatted(merged, dst)
+
+
+def format_merged(merged_path: Path, dst: Path,
+                  rename: dict[str, str] | None = None,
+                  digits: int | None = None) -> dict:
+    """Write the formatted CSV from a merged locs CSV (geom columns, then animal columns).
+
+    This is the route the 2023-2024 files took: locs CSVs, then the merged CSV
+    written and read back, then the formatted file. Reading the numbers twice
+    instead of once changes the last digit of about one value in five (at most
+    6e-14 px), so this route, not ``process_one``, reproduces the existing
+    EPM, OFT and SocP files byte for byte. *rename* maps old bodypart names to
+    new ones (``{"center": "bodycentre"}`` for the open-field batches 1-2).
+    *digits* writes the coordinates at that many significant digits
+    (``significant``); the open-field batches 1-2 were written at 10.
+    """
+    merged = pd.read_csv(merged_path)
+    if len(merged) == 0:
+        raise ValueError(f"{dst.name}: no data rows in {Path(merged_path).name}")
+    if rename:
+        merged = merged.rename(columns={
+            f"{old}_{axis}": f"{new}_{axis}"
+            for old, new in rename.items() for axis in ("x", "y")})
+    return write_formatted(merged, dst, digits)
+
+
+def significant(values, digits: int) -> list[str]:
+    """Each value as text at *digits* significant digits, as the 2023 open-field writer wrote them.
+
+    The shortest text of the number (what pandas writes) is rounded half-up in
+    decimal, trailing zeros are dropped, and a missing value stays empty:
+    415.03132971989045 -> 415.0313297, 126.51241302490234 -> 126.512413,
+    920.0 -> 920. Reproduces the open-field B1 and B2 formatted files byte for
+    byte from their merged CSVs.
+    """
+    from decimal import ROUND_HALF_UP, Decimal
+
+    out = []
+    for v in values:
+        if v != v:                                   # NaN
+            out.append("")
+            continue
+        d = Decimal(repr(float(v)))
+        if d == 0:
+            out.append("0")
+            continue
+        r = d.quantize(Decimal(1).scaleb(d.adjusted() - (digits - 1)), rounding=ROUND_HALF_UP)
+        t = format(r, "f")
+        if "." in t:
+            t = t.rstrip("0").rstrip(".")
+        out.append(t)
+    return out
+
+
+def write_formatted(merged: pd.DataFrame, dst: Path, digits: int | None = None) -> dict:
+    """The DLCAnalyzer CSV for a merged locs table: three header rows, then frame, x, y, likelihood = 1."""
     bodyparts = bodyparts_of(merged, dst.name)
     body = pd.DataFrame({"frame": range(len(merged))})
     for bp in bodyparts:
-        body[f"{bp}_x"] = merged[f"{bp}_x"].values
-        body[f"{bp}_y"] = merged[f"{bp}_y"].values
+        for axis in ("x", "y"):
+            col = merged[f"{bp}_{axis}"].values
+            body[f"{bp}_{axis}"] = significant(col, digits) if digits else col
         body[f"{bp}_likelihood"] = 1
 
     expected = 1 + 3 * len(bodyparts)

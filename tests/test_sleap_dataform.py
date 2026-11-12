@@ -86,5 +86,41 @@ class CodeFilterTest(unittest.TestCase):
             self.assertIn("ZZZZ", str(ctx.exception))
 
 
+class FormatMergedTest(unittest.TestCase):
+    """format_merged writes what process_one writes, from the merged csv, and renames bodyparts on request."""
+
+    def test_same_file_as_process_one_and_rename(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            geom = pd.DataFrame({"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]})
+            animal = pd.DataFrame({"center_x": [5.0, 6.0], "center_y": [7.0, 8.0]})
+            geom.to_csv(root / "geom.csv", index=False)
+            animal.to_csv(root / "animal.csv", index=False)
+            pd.concat([geom, animal], axis=1).to_csv(root / "merged.csv", index=False)
+
+            sd.process_one(root / "geom.csv", root / "animal.csv", root / "a.csv")
+            info = sd.format_merged(root / "merged.csv", root / "b.csv")
+            self.assertEqual(info, {"bodyparts": 2, "cols": 7, "frames": 2})
+            self.assertEqual((root / "a.csv").read_bytes(), (root / "b.csv").read_bytes())
+
+            sd.format_merged(root / "merged.csv", root / "c.csv", {"center": "bodycentre"})
+            rows = (root / "c.csv").read_bytes().decode("utf-8").splitlines()
+            self.assertEqual(rows[1], "bodyparts,tl,tl,tl,bodycentre,bodycentre,bodycentre")
+            self.assertEqual(rows[3:], ["0,1.0,3.0,1,5.0,7.0,1", "1,2.0,4.0,1,6.0,8.0,1"])
+
+    def test_ten_significant_digits_as_the_open_field_b1_b2_files(self) -> None:
+        # half-up on the number's shortest text: '%.10g' would give 1.23456789 for 1.2345678905 (its binary value
+        # is just below the half); trailing zeros dropped; an empty value stays empty
+        self.assertEqual(sd.significant([415.03132971989045, 126.51241302490234, 920.0, 1.2345678905, -0.000123456789012,
+                                         float("nan"), 0.0], 10),
+                         ["415.0313297", "126.512413", "920", "1.234567891", "-0.000123456789", "", "0"])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pd.DataFrame({"tl_x": [129.52841186523438, 1.0], "tl_y": [float("nan"), 2.5]}).to_csv(root / "m.csv", index=False)
+            sd.format_merged(root / "m.csv", root / "f.csv", digits=10)
+            rows = (root / "f.csv").read_bytes().decode("utf-8").split("\r\n")
+            self.assertEqual(rows[3:5], ["0,129.5284119,,1", "1,1,2.5,1"])
+
+
 if __name__ == "__main__":
     unittest.main()
