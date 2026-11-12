@@ -56,7 +56,7 @@ OFT OFT B1 S7I3,OFT,OFT,B1,S7I3,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;ob
 OFT OFT B1 T2H7,OFT,OFT,B1,T2H7,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
 OFT OFT B1 U5P3,OFT,OFT,B1,U5P3,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
 OFT OFT B1 V2P0,OFT,OFT,B1,V2P0,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
-OFT OFT B1 X1H0,OFT,OFT,B1,X1H0,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,sync:out_of_step
+OFT OFT B1 X1H0,OFT,OFT,B1,X1H0,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
 OFT OFT B1 Y0F3,OFT,OFT,B1,Y0F3,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
 OFT OFT B1 Y6V5,OFT,OFT,B1,Y6V5,600,49x49,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
 SocP HAB B1 A1L9,SocP,HAB,B1,A1L9,600,44x24,tl tr br bl,,,,bodycentre,B1,frames;objects;sync;clip,
@@ -253,7 +253,7 @@ SocP S2 B2 T4W6,SocP,S2,B2,T4W6,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;ob
 SocP HAB B2 V4F5,SocP,HAB,B2,V4F5,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,clip:starts_late
 SocP S1 B2 V4F5,SocP,S1,B2,V4F5,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,
 SocP S2 B2 V4F5,SocP,S2,B2,V4F5,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,clip:starts_late
-SocP HAB B2 W2N9,SocP,HAB,B2,W2N9,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,clip:starts_late
+SocP HAB B2 W2N9,SocP,HAB,B2,W2N9,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,
 SocP S1 B2 W2N9,SocP,S1,B2,W2N9,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,
 SocP S2 B2 W2N9,SocP,S2,B2,W2N9,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,
 SocP HAB B2 Z8S9,SocP,HAB,B2,Z8S9,600,44x24,tl tr br bl,,,,bodycentre,B2,frames;objects;sync;clip,
@@ -485,7 +485,7 @@ SocP S1 B4 I2N8,SocP,S1,B4,I2N8,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;ob
 SocP S2 B4 I2N8,SocP,S2,B4,I2N8,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,
 SocP HAB B4 I4O9,SocP,HAB,B4,I4O9,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,frames:length;clip:ended_early
 SocP S1 B4 I4O9,SocP,S1,B4,I4O9,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,
-SocP S2 B4 I4O9,SocP,S2,B4,I4O9,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,clip:release_not_seen;clip:intrusion_in_clip
+SocP S2 B4 I4O9,SocP,S2,B4,I4O9,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,
 SocP HAB B4 J8F5,SocP,HAB,B4,J8F5,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,frames:length;clip:ended_early
 SocP S1 B4 J8F5,SocP,S1,B4,J8F5,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,frames:length;clip:intrusion_in_clip;clip:ended_early
 SocP S2 B4 J8F5,SocP,S2,B4,J8F5,600,44x24,tl tr br bl,,,,bodycentre,B4,frames;objects;sync;clip,clip:raw_not_found
