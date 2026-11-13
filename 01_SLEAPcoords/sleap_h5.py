@@ -18,7 +18,7 @@ byte-identical):
 
 * NOR   B5 H1E2 (to 1e-9).
 * EPM   one recording in each of B1-B6, and B6 R8I2.
-* OFT   B1 X1H0 (its h5 files sit under ``predictions/export_h5_files``), B2 A0S5 geom, B3-B6 one recording each.
+* OFT   B1 X1H0 (its h5 files sit under ``SLEAP/old/export_h5_files``), B2 A0S5 geom, B3-B6 one recording each.
 * SocP  one recording in each of B1-B6, and B2 G6K2 S2, B2 W2N9 HAB, B4 I4O9 S2.
 
 A few batches labelled one node differently in their locs files (``BATCH_LABELS``: EPM B2-B4 ``neck`` for spine1,

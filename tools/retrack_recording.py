@@ -535,7 +535,7 @@ class Layout:
 
     def archived_exports(self) -> list[Path]:
         """Exports and locs files of this recording the tool archived earlier (a re-track was installed before; open field
-        batch 1 keeps its old exports in predictions/, so there only the archived locs files show it)."""
+        batch 1 keeps its old exports in SLEAP/old/export_h5_files, so there only the archived locs files show it)."""
         out = []
         for d in self.dirs.values():
             for a in sorted(d.glob("_superseded_*")) if d.is_dir() else []:
