@@ -69,12 +69,13 @@ config <- list(
   # Experiment paths.
   # Machine-specific paths. Override them from a YAML file rather than by
   # editing this script: see config/oft.example.yaml and set
-  # SLEAP_ANALYZER_CONFIG to your own copy.
-  behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
+  # SLEAP_ANALYZER_CONFIG to your own copy. behavior_root has no default: the
+  # output is written under it, so it must be chosen, never assumed.
+  behavior_root = NULL,
   animal_id_code_file = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt",
 
-  input_subdir = file.path("OFT", "SLEAP", "formatted"),
-  output_subdir = file.path("OFT", "SLEAP", "output_v1.2.0"),
+  input_subdir = file.path("OFT", "formatted"),
+  output_subdir = file.path("OFT", "output_v1.2.0"),
   csv_pattern = "\\.csv$",
 
   code_regex = "^[A-Za-z0-9]{4}",
@@ -157,6 +158,13 @@ config <- apply_config_overlay(
   config,
   path_fields = c("behavior_root", "animal_id_code_file")
 )
+if (!is.character(config$behavior_root) || length(config$behavior_root) != 1 || !nzchar(config$behavior_root)) {
+  stop(
+    "behavior_root is not set. Give it in a YAML file named by SLEAP_ANALYZER_CONFIG ",
+    "(see config/oft.example.yaml); the output is written under it, so point it at a ",
+    "working copy of the tracking, not at the raw data."
+  )
+}
 
 if (file.exists(config$animal_id_code_file)) {
   animalIDCode <- read.table(config$animal_id_code_file, header = TRUE)

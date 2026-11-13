@@ -44,9 +44,9 @@ for (pkg in optional_packages) {
 }
 
 config <- list(
-  behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
+  behavior_root = NULL,
   global_output_folder = "OFT_SLEAP_output_v1.2.0",
-  batch_output_subdir = file.path("OFT", "SLEAP", "output_v1.2.0"),
+  batch_output_subdir = file.path("OFT", "output_v1.2.0"),
   batches = c("B1"),
   fps = 30,
 
@@ -73,6 +73,19 @@ config <- list(
   plot_width_double_col = 180 / 25.4,
   plot_height_double_col = 85 / 25.4
 )
+
+# The root is never assumed: give it, and any other key above, in a YAML file
+# named by SLEAP_ANALYZER_CONFIG. Output is written under it.
+script_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else getwd()
+})
+source(file.path(script_dir, "core", "config.R"))
+config <- apply_config_overlay(config, path_fields = "behavior_root")
+if (!is.character(config$behavior_root) || length(config$behavior_root) != 1 || !nzchar(config$behavior_root)) {
+  stop("behavior_root is not set. Give it in a YAML file named by SLEAP_ANALYZER_CONFIG; ",
+       "it is the behavior_root the OFT run (DLCA_OFT v1.2.0.R) used.")
+}
 
 safe_divide <- function(x, y) {
   ifelse(is.na(y) | y == 0, NA_real_, x / y)

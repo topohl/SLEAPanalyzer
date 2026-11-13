@@ -17,6 +17,9 @@
 #' 5. Extracts behavioral metrics and saves results in CSV format.
 #' 6. Generates and saves density plots of movement patterns.
 
+stop("Kept for provenance only: it writes into Raw Data/Behavior/<batch>/OFT/SLEAP/, the layout before the tracking ",
+     "moved to Analysis/Behavior/SLEAP. Use DLCA_OFT v1.2.0.R.")
+
 # Load required packages using pacman
 if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")

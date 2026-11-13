@@ -203,7 +203,7 @@ it out; a failure is noted in `qc/light_checks/QC_FAILED.txt` and does not stop 
 ## Layout
 
 ```
-scripts/    34 R scripts, as described above
+scripts/    34 R scripts, as described above, and exp9_paths.R (where the Exp9 tracking and records are)
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT) and the QC review decisions
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

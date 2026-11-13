@@ -7,6 +7,10 @@ silently execute an old version of it.
     python sleap_dataform.py --batch B6 --assay SocP --dry-run
     python sleap_dataform.py --batch B6 --assay SocP --overwrite
 
+It reads ``geom/`` and ``animal/`` of one test in the tracking root (``exp9_paths.TRACKING_ROOT``,
+``Analysis/Behavior/SLEAP/<batch>/<assay>/``) and writes ``formatted/`` there: SocP into ``formatted/<PHASE>/``,
+NOR, EPM and OFT flat in ``formatted/``.
+
 Output format is unchanged from the original notebook: three header rows, then
 one row per frame of ``frame, x, y, likelihood`` per bodypart. SLEAP's
 ``analysis_locs`` export carries no confidence column, so ``likelihood`` is 1
@@ -40,13 +44,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import exp9_paths
+
 # --------------------------------------------------------------------------- #
 # configuration
 # --------------------------------------------------------------------------- #
 
-BEHAVIOR_ROOT = Path(
-    r"S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior"
-)
+#: The tracking root, ``<batch>/<assay>/{geom,animal,formatted}``. The name is
+#: kept for DLCA_DataForm.ipynb; the path is ``exp9_paths.TRACKING_ROOT``.
+BEHAVIOR_ROOT = exp9_paths.TRACKING_ROOT
 
 #: Phases per assay. An empty tuple means the assay has a single unphased
 #: recording per animal, so files are named ``<CODE>`` and land flat in
@@ -57,6 +63,12 @@ PHASES: dict[str, tuple[str, ...]] = {
     "EPM": (),
     "OFT": (),
 }
+
+#: Assays whose formatted files sit in one folder per phase,
+#: ``formatted/<PHASE>/``. NOR names the phase in the file only and keeps all
+#: its files flat in ``formatted/``, where staging and the re-track tool read
+#: them.
+PHASE_FOLDERS = ("SocP",)
 
 #: Legacy infix in the existing formatted filenames. Kept so re-running
 #: overwrites in place rather than creating a second set of files.
@@ -135,14 +147,17 @@ def stem_for(code: str, phase: str) -> str:
     return f"{code}_{phase}" if phase else code
 
 
-def output_path(formatted_root: Path, code: str, phase: str) -> Path:
+def output_path(formatted_root: Path, code: str, phase: str, assay: str) -> Path:
     """Where the formatted CSV for one recording belongs.
 
     Matches the existing corpus exactly: ``<CODE>_<PHASE>.merged_locs_formatted.csv``
-    inside ``formatted/<PHASE>/``, or flat for unphased assays.
+    inside ``formatted/<PHASE>/`` for SocP (``PHASE_FOLDERS``), flat in
+    ``formatted/`` for NOR and the unphased assays.
     """
     name = f"{stem_for(code, phase)}{NAME_INFIX}_formatted.csv"
-    return (formatted_root / phase / name) if phase else (formatted_root / name)
+    if phase and assay in PHASE_FOLDERS:
+        return formatted_root / phase / name
+    return formatted_root / name
 
 
 # --------------------------------------------------------------------------- #
@@ -329,13 +344,14 @@ def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
         raise ValueError(f"unknown assay {assay!r}; add it to PHASES")
     phases = PHASES[assay]
 
-    sleap = root / batch / assay / "SLEAP"
-    animal, geom = sleap / "animal", sleap / "geom"
+    test_dir = exp9_paths.tracking_dir(batch, assay, root)
+    animal, geom = test_dir / "animal", test_dir / "geom"
     for d in (animal, geom):
         if not d.is_dir():
             raise FileNotFoundError(f"missing input folder: {d}")
-    formatted_root = formatted_dir or (sleap / "formatted")
-    merged_root = (sleap / "merged") if keep_merged else None
+    formatted_root = formatted_dir or (test_dir / "formatted")
+    # Not merged/: that folder holds the chain's merged csv files, which the re-track tool reads and archives.
+    merged_root = (test_dir / "merged_debug") if keep_merged else None
 
     say = print if verbose else (lambda *a, **k: None)
     say(f"{batch} / {assay}")
@@ -366,7 +382,7 @@ def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
     # ---- plan every path before writing anything --------------------------
     plan: dict[tuple[str, str], Path] = {}
     for code, phase in paired:
-        dst = output_path(formatted_root, code, phase)
+        dst = output_path(formatted_root, code, phase, assay)
         if dst in plan.values():
             raise RuntimeError(f"name collision: ({code},{phase}) maps to {dst}")
         plan[(code, phase)] = dst
@@ -501,16 +517,17 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--batch", required=True, help="cohort, e.g. B6")
     ap.add_argument("--assay", required=True, choices=sorted(PHASES))
-    ap.add_argument("--root", type=Path, default=BEHAVIOR_ROOT,
-                    help="behaviour data root")
+    ap.add_argument("--root", "--tracking-root", dest="root", type=Path, default=BEHAVIOR_ROOT,
+                    help="tracking root, <batch>/<assay>/{geom,animal,formatted} (default %(default)s)")
     ap.add_argument("--formatted-dir", type=Path, default=None,
-                    help="write elsewhere instead of <SLEAP>/formatted (for testing)")
+                    help="write elsewhere instead of <batch>/<assay>/formatted (for testing)")
     ap.add_argument("--overwrite", action="store_true",
                     help="replace existing formatted files")
     ap.add_argument("--dry-run", action="store_true",
                     help="report what would be written, change nothing")
     ap.add_argument("--keep-merged", action="store_true",
-                    help="also write the intermediate merged CSVs (debugging only)")
+                    help="also write the intermediate merged CSVs into <batch>/<assay>/merged_debug "
+                         "(debugging only; nothing reads them)")
     ap.add_argument("--code", default=None,
                     help="only this animal code (e.g. H1E2); other files in the folders are not parsed")
     args = ap.parse_args(argv)

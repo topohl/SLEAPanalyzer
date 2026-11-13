@@ -81,7 +81,9 @@ assert_tensorflow_environment <- function() {
 }
 
 config <- list(
-  behavior_root = "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior",
+  # No default: output is written under it. Give it in a YAML file named by
+  # SLEAP_ANALYZER_CONFIG; it is the behavior_root the OFT run used.
+  behavior_root = NULL,
   global_output_folder = "OFT_SLEAP_output_v1.2.0",
   unsupervised_folder = "unsupervised_motifs_v1.0.0",
 
@@ -134,6 +136,10 @@ source(file.path(core_dir, "io.R"))
 source_behavior_core(core_dir, envir = environment())
 
 config <- apply_config_overlay(config, path_fields = c("behavior_root"))
+if (!is.character(config$behavior_root) || length(config$behavior_root) != 1 || !nzchar(config$behavior_root)) {
+  stop("behavior_root is not set. Give it in a YAML file named by SLEAP_ANALYZER_CONFIG; ",
+       "it is the behavior_root the OFT run (DLCA_OFT v1.2.0.R) used.")
+}
 
 set.seed(config$random_seed)
 assert_tensorflow_environment()

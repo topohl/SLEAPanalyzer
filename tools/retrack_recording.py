@@ -2,6 +2,10 @@
 
     h5 export -> locs.csv (geom + animal) -> merged + formatted CSV -> staged copy -> scoring of that batch -> before/after
 
+Where the files are: the tracking of one test in ``<tracking root>/<batch>/<assay>/`` (geom/, animal/, merged/,
+formatted/; default ``exp9_paths.TRACKING_ROOT``, Analysis/Behavior/SLEAP), its records (the SocP side files
+``novelLoc<phase>.txt``) in ``<records root>/<batch>/<assay>/`` (default ``exp9_paths.RECORDS_ROOT``, Raw Data/Behavior).
+
 Plan only by default: nothing is written. --apply does it. Nothing is deleted: every file that is replaced moves to
 ``_superseded_<date>/`` (h5 and locs files, the merged csv, staged copies) or ``formatted/old/`` (formatted files; the
 audit script 07 skips only that folder name); for EPM, OFT and SocP a second file of the same name archived on the same
@@ -33,12 +37,13 @@ copies it to ``<config input_dir>/<batch>/<CODE>_<PHASE>.csv``, backs up the bat
 
 EPM, OFT and SocP:
   * Where the new export goes. Put the arena (geom) and animal exports in
-    ``Raw Data/Behavior/<batch>/<assay>/SLEAP/geom/`` and ``.../animal/`` under SLEAP's new default name, which carries
+    ``<tracking root>/<batch>/<assay>/geom/`` and ``.../animal/`` under SLEAP's new default name, which carries
     the video name (never the name of the export in place: SLEAP would overwrite it before it is archived). It must
     contain the animal code (SocP: ``_<CODE>_<PHASE>``), end in ``.analysis.h5`` and not contain ``_old``. Or leave
     the exports anywhere and pass ``--geom-h5``/``--animal-h5``; they are then copied into those folders (under a name
     with ``_<CODE>[_<PHASE>]`` added if theirs would not be found again). The plan prints the folders, an example name,
-    and exports of the recording lying in SLEAP/ or SLEAP/predictions, where the tool does not read them.
+    and exports of the recording lying elsewhere in the test's folder (projects/, predictions/ ...), where the tool
+    does not read them.
   * Which export is which. In place: it rebuilds its locs file, or it has a locs file of its own that it does not
     rebuild, or it is older than the chain's locs files ("in place, does not rebuild": used only with ``--rebuild`` or
     when named with ``--geom-h5``/``--animal-h5``). New: no locs file of its own and newer than the chain's. Replaced
@@ -53,8 +58,9 @@ EPM, OFT and SocP:
     offset of up to 60 s (``--accept-duplicate``). Reported without stopping: the arena's side ratio (SocP, OFT), the
     arm width through the 60 cm calibration (EPM), how far the arena points moved against the animal's other phases.
   * Files written: the locs csv next to each h5 (``sleap_h5.extract_locs`` with the batch's labels), the merged csv in
-    SLEAP/ and the formatted csv (``sleap_dataform.format_merged``: the route that reproduces the existing files byte
-    for byte; OFT B1/B2 at 10 significant digits, as written in 2023), both under the names this animal already has;
+    merged/ (a replaced one moves to merged/_superseded_<date>/) and the formatted csv (``sleap_dataform.format_merged``:
+    the route that reproduces the existing files byte for byte; OFT B1/B2 at 10 significant digits, as written in
+    2023), both under the names this animal already has;
     every other formatted file that staging would take for the animal moves to formatted/old/ (SocP:
     formatted/old/<PH>_old/ where it exists, and the flat copy in formatted/ of B3/B5 to formatted/old/). The staged
     copy is written as ``08_stage_all_batches.R`` writes it (EPM: with the neck alias, by 08's own ``copy_with_neck``
@@ -78,8 +84,9 @@ EPM, OFT and SocP:
   * If the exports in place do not rebuild the files in the chain (an interrupted run), the plan lists what differs;
     ``--apply --rebuild`` carries it out without a new export.
 
-Testing on copies: ``--raw-root`` (or ``--root``), ``--stage-root``, ``--output-root`` and ``--qc-root`` point the tool,
-and the scoring through the temporary config, at other folders.
+Testing on copies: ``--tracking-root`` (or ``--root``; ``--raw-root`` is its old name, still accepted),
+``--records-root``, ``--stage-root``, ``--output-root`` and ``--qc-root`` point the tool, and the scoring through the
+temporary config, at other folders.
 """
 
 from __future__ import annotations
@@ -103,6 +110,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "01_SLEAPcoords"))
+import exp9_paths as ep  # noqa: E402
 import sleap_dataform as sd  # noqa: E402
 import sleap_h5 as sh  # noqa: E402
 
@@ -113,7 +121,7 @@ STAGE_SCRIPT = Path("validation") / "exp9_boris" / "scripts" / "08_stage_all_bat
 LIGHT_CHECKS = REPO / "validation" / "exp9_boris" / "scripts" / "31_light_checks.R"
 RELEASE_SCRIPT = REPO / "tools" / "build_exp9_behavior_bundle.ps1"
 DECISIONS = CONFIG_DIR / "light_check_decisions.csv"
-QC_ROOT = Path(r"S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Analysis\Behavior\SLEAP\qc\light_checks")
+QC_ROOT = ep.TRACKING_ROOT / "qc" / "light_checks"
 DEFAULT_RSCRIPT = Path(r"C:\Users\topohl\AppData\Local\Programs\R\R-4.5.1\bin\x64\Rscript.exe")
 TODAY = dt.date.today().isoformat()
 
@@ -162,6 +170,22 @@ def one_h5(folder: Path, code: str, phase: str, explicit: Path | None) -> Path:
         raise SystemExit(f"expected exactly one *_{code}_{phase}.analysis.h5 in {folder}, found {[p.name for p in hits]}; "
                          "name it with --geom-h5 / --animal-h5")
     return hits[0]
+
+
+def check_tracking(test_dir: Path) -> None:
+    """Stop unless *test_dir* is a test's tracking folder, with geom/ and animal/ in it. This catches the layout before
+    the move (the tracking in <batch>/<assay>/SLEAP/) and a records folder given as the tracking (Raw Data/Behavior as
+    --raw-root), so that nothing is written beside the records."""
+    if not test_dir.is_dir():
+        raise SystemExit(f"{test_dir} does not exist")
+    if not (test_dir / "geom").is_dir() and (test_dir / "SLEAP" / "geom").is_dir():
+        raise SystemExit(f"{test_dir} keeps its tracking in SLEAP/, the layout before the move: point --tracking-root at "
+                         f"the folder whose <batch>/<assay>/ holds geom/ and animal/ (default {ep.TRACKING_ROOT})")
+    if not ((test_dir / "geom").is_dir() and (test_dir / "animal").is_dir()):
+        why = ("B1 NOR keeps its tracking in NOR_NOV_tracking/, which this tool does not handle"
+               if (test_dir / "NOR_NOV_tracking").is_dir() else
+               f"not a tracking folder (a records folder given as the tracking root?); default {ep.TRACKING_ROOT}")
+        raise SystemExit(f"{test_dir} has no geom/ and animal/: {why}")
 
 
 def install(new: Path, dst: Path, archive_dir: Path, apply: bool, log: list[str]) -> bool:
@@ -239,8 +263,9 @@ def retarget(text: str, moves: list[tuple[str, str]]) -> str:
 
 def run_nor(args: argparse.Namespace) -> int:
     config = args.config or DEFAULT_CONFIG
-    sleap = args.raw_root / args.batch / args.assay / "SLEAP"
-    geom_dir, animal_dir, fmt_dir = sleap / "geom", sleap / "animal", sleap / "formatted"
+    tdir = ep.tracking_dir(args.batch, args.assay, args.tracking_root)
+    check_tracking(tdir)
+    geom_dir, animal_dir, fmt_dir = tdir / "geom", tdir / "animal", tdir / "formatted"
     input_dir, output_dir = Path(config_value(config, "input_dir")), Path(config_value(config, "output_dir"))
     moves = []
     if args.stage_root:
@@ -394,6 +419,9 @@ FORMAT_RENAME = {("OFT", "B1"): {"center": "bodycentre"}, ("OFT", "B2"): {"cente
 #: Significant digits of the formatted files where the batch was written rounded (open field B1/B2, 2023 writer).
 FORMAT_DIGITS = {("OFT", "B1"): 10, ("OFT", "B2"): 10}
 
+#: Open field batch 1: the record that pairs each animal with its GoPro clip (in the records, B1/OFT/).
+B1_OFT_PAIRS = "E9_SIS_B1_OF_19Nov2022.txt"
+
 #: Where the scoring writes no run_manifest.yaml (open field), the tool keeps the md5 of the staged file it scored here,
 #: in the batch's output folder.
 MARKER = "retrack_scored.tsv"
@@ -475,15 +503,17 @@ class Layout:
     code: str
     phase: str
     clip: str | None
-    raw_root: Path
+    tracking_root: Path
     stage_root: Path
     codes: list[str] = field(default_factory=list)
+    records_root: Path | None = None              # None: exp9_paths.RECORDS_ROOT
 
     def __post_init__(self) -> None:
-        self.sleap = self.raw_root / self.batch / self.assay / "SLEAP"
-        self.dirs = {"geom": self.sleap / "geom", "animal": self.sleap / "animal"}
-        self.fmt_dir = self.sleap / "formatted" / self.phase if self.phase else self.sleap / "formatted"
-        self.fmt_old = self.sleap / "formatted" / "old"
+        self.test_dir = ep.tracking_dir(self.batch, self.assay, self.tracking_root)   # the tracking of this test
+        self.dirs = {"geom": self.test_dir / "geom", "animal": self.test_dir / "animal"}
+        self.merged_dir = self.test_dir / "merged"
+        self.fmt_dir = self.test_dir / "formatted" / self.phase if self.phase else self.test_dir / "formatted"
+        self.fmt_old = self.test_dir / "formatted" / "old"
         tail = [self.batch] + ([self.phase] if self.phase else [])
         self.stage_dir = self.stage_root.joinpath(self.assay, *tail)
         self.staged = self.stage_dir / (f"{self.code}_{self.phase}.csv" if self.phase else f"{self.code}.csv")
@@ -535,7 +565,7 @@ class Layout:
 
     def archived_exports(self) -> list[Path]:
         """Exports and locs files of this recording the tool archived earlier (a re-track was installed before; open field
-        batch 1 keeps its old exports in SLEAP/old/export_h5_files, so there only the archived locs files show it)."""
+        batch 1 keeps its old exports in old/export_h5_files, so there only the archived locs files show it)."""
         out = []
         for d in self.dirs.values():
             for a in sorted(d.glob("_superseded_*")) if d.is_dir() else []:
@@ -543,12 +573,12 @@ class Layout:
         return out
 
     def strays(self) -> list[Path]:
-        """Exports of this recording anywhere under SLEAP/ outside geom/, animal/ and formatted/ (SLEAP's export dialog
-        saves next to the labels file: SLEAP/projects, SLEAP/predictions ...), archives left out."""
+        """Exports of this recording anywhere in the test's folder outside geom/, animal/, merged/ and formatted/ (SLEAP's
+        export dialog saves next to the labels file: projects/, predictions/ ...), archives and old/ left out."""
         out = []
-        for p in sorted(self.sleap.rglob("*.analysis.h5")):
-            parts = p.relative_to(self.sleap).parts
-            if parts[0] in ("geom", "animal", "formatted") or any(x == "old" or x.startswith("_superseded_") for x in parts[:-1]):
+        for p in sorted(self.test_dir.rglob("*.analysis.h5")):
+            parts = p.relative_to(self.test_dir).parts
+            if parts[0] in ("geom", "animal", "merged", "formatted") or any(x == "old" or x.startswith("_superseded_") for x in parts[:-1]):
                 continue
             if self.pattern.search(p.name):
                 out.append(p)
@@ -577,26 +607,29 @@ class Layout:
 
     def flat_copies(self) -> list[Path]:
         """SocP B3/B5: copies of the recording's formatted file directly in formatted/, beside formatted/<PH>/."""
-        return self.mine(self.sleap / "formatted", ".csv") if self.phase else []
+        return self.mine(self.test_dir / "formatted", ".csv") if self.phase else []
 
     def merged_existing(self) -> list[Path]:
-        return [p for p in self.mine(self.sleap, ".csv")]
+        """The merged csv files of this recording in merged/ (not its archives)."""
+        return self.mine(self.merged_dir, ".csv")
 
     def merged_target(self, g: str) -> Path:
         """Batches that name the merged csv after the geom locs follow the new export; the others keep the name."""
         existing = self.merged_existing()
         name, follows_stem = default_merged(self.assay, self.batch, self.code, self.phase, g)
-        default = self.sleap / name
+        default = self.merged_dir / name
         if default in existing or follows_stem or not existing:
             return default
         named = [p for p in existing if ".merged_locs" in p.name]
         return (named or existing)[0]
 
     def side_files(self) -> tuple[Path, Path] | None:
+        """SocP: the side file in the records and its staged copy."""
         if self.assay != "SocP":
             return None
         side = "S1" if self.phase == "HAB" else self.phase          # 08: HAB is staged with the S1 side file
-        return self.raw_root / self.batch / "SocP" / f"novelLoc{side}.txt", self.stage_dir / f"novelLoc{self.phase}.txt"
+        return (ep.records_dir(self.batch, "SocP", self.records_root) / f"novelLoc{side}.txt",
+                self.stage_dir / f"novelLoc{self.phase}.txt")
 
 
 def side_value(path: Path, code: str) -> str | None:
@@ -958,11 +991,12 @@ def check_clip(lay: Layout) -> tuple[bool, str]:
     animal's (the tool would rewrite that animal's locs and merged files)."""
     fmt = lay.formatted_existing()
     merged = [p for p in lay.merged_existing() if token(lay.clip).search(p.name) and ".merged_locs" in p.name]
+    pairs = ep.records_dir("B1", "OFT", lay.records_root) / B1_OFT_PAIRS
     if not fmt:
         return True, f"{lay.code} has no formatted file in {lay.fmt_dir}: --clip {lay.clip} cannot be checked against it"
     if not merged:
-        return False, (f"no merged csv of clip {lay.clip} in {lay.sleap}: cannot confirm that {lay.clip} is {lay.code}'s "
-                       "clip (the pair sheet B1/OFT/E9_SIS_B1_OF_19Nov2022.txt gives it; --accept-clip overrides)")
+        return False, (f"no merged csv of clip {lay.clip} in {lay.merged_dir}: cannot confirm that {lay.clip} is "
+                       f"{lay.code}'s clip (the pair sheet {pairs} gives it; --accept-clip overrides)")
     with tempfile.TemporaryDirectory(prefix="retrack_clip_") as tmp:
         out = Path(tmp) / fmt[0].name
         sd.format_merged(merged[0], out, FORMAT_RENAME.get((lay.assay, lay.batch)), FORMAT_DIGITS.get((lay.assay, lay.batch)))
@@ -973,8 +1007,8 @@ def check_clip(lay: Layout) -> tuple[bool, str]:
         if pa == pb and a.shape == b.shape and np.allclose(a, b, rtol=1e-9, atol=1e-6, equal_nan=True):
             return True, f"{merged[0].name} formats to {fmt[0].name} (to 10 significant digits): {lay.clip} is {lay.code}'s clip"
     return False, (f"{merged[0].name} does not format to {lay.code}'s {fmt[0].name}: --clip {lay.clip} is another "
-                   "animal's clip, or the chain was edited (the pair sheet B1/OFT/E9_SIS_B1_OF_19Nov2022.txt gives the "
-                   "clip; --accept-clip overrides)")
+                   f"animal's clip, or the chain was edited (the pair sheet {pairs} gives the clip; --accept-clip "
+                   "overrides)")
 
 
 def example_name(lay: Layout, kind: str, current: list[Path]) -> str:
@@ -1337,7 +1371,8 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
     phase = phase if spec.phases else ""
     if args.assay == "OFT" and args.batch == "B1" and not args.clip:
         raise SystemExit("open field batch 1 names its tracking files by GoPro clip: pass --clip (X1H0 = GX010804; "
-                         "the pair sheet B1/OFT/E9_SIS_B1_OF_19Nov2022.txt or the h5 video_path give the clip)")
+                         f"the pair sheet {ep.records_dir('B1', 'OFT', args.records_root) / B1_OFT_PAIRS} or the h5 "
+                         "video_path give the clip)")
     if args.reuse_geom and (args.geom_h5 is not None):
         raise SystemExit("--reuse-geom and --geom-h5 exclude each other")
 
@@ -1360,11 +1395,14 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
     qc_value = text_value(cfg_text, "qc_decisions_file", config.name, required=False)
     qc_file = (config.parent / qc_value).resolve() if qc_value and qc_value != "~" else None
     stage_root = args.stage_root or stage_default
-    lay = Layout(args.assay, args.batch, args.code, phase, args.clip, args.raw_root, stage_root, load_codes(stage_root))
+    lay = Layout(args.assay, args.batch, args.code, phase, args.clip, args.tracking_root, stage_root, load_codes(stage_root),
+                 args.records_root)
     mode = "APPLY" if args.apply else "PLAN (nothing is written; add --apply)"
     print(f"{lay.label}: {mode}")
-    if not lay.sleap.is_dir():
-        raise SystemExit(f"{lay.sleap} does not exist")
+    check_tracking(lay.test_dir)
+    if not lay.merged_dir.is_dir():                         # every EPM, OFT and SocP test has merged csv files
+        raise SystemExit(f"{lay.merged_dir} is missing: the merged csv files of {lay.batch} {lay.assay} were not moved "
+                         "into merged/ (a re-track would start a second merged file under the default name)")
     if args.assay == "OFT" and args.batch == "B2":
         print("  note      the 2023 B2 animal locs files left a column empty when its first or last frame was empty "
               "(4 animals, columns the score does not use); a new export is filled like every other batch")
@@ -1530,10 +1568,10 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
                 else:
                     left.append(p)
             actions.append(plan_file(locs[k], locs_dst, arch))
-        root_arch = lay.sleap / f"_superseded_{TODAY}"
-        merged_action = plan_file(merged, merged_dst, root_arch)
+        merged_arch = lay.merged_dir / f"_superseded_{TODAY}"
+        merged_action = plan_file(merged, merged_dst, merged_arch)
         if merged_action.verb != "unchanged":               # other merged copies (B1, B3) have no reader: moved
-            actions += [Action("move", p, archive=root_arch)  # only with the one they stand beside
+            actions += [Action("move", p, archive=merged_arch)  # only with the one they stand beside
                         for p in lay.merged_existing() if p != merged_dst]
         actions.append(merged_action)
         fmt_moves = [Action("move", p, archive=lay.fmt_archive) for p in lay.formatted_existing() if p != fmt_dst]
@@ -1772,15 +1810,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--phase", choices=sorted({p for v in sd.PHASES.values() for p in v}),
                     help="NOR: NOV (novel object) or HAB; SocP: HAB, S1 or S2; EPM and OFT: none")
     ap.add_argument("--static-landmark", nargs="*", default=[], metavar="NODE", help="NOR: geom landmarks held at their first labelled position, e.g. objR")
-    ap.add_argument("--root", "--raw-root", dest="raw_root", type=Path, default=sd.BEHAVIOR_ROOT, help="Raw Data/Behavior root")
+    ap.add_argument("--tracking-root", "--root", dest="tracking_root", type=Path,
+                    help=f"tracking root, <batch>/<assay>/{{geom,animal,merged,formatted}} (default {ep.TRACKING_ROOT})")
+    ap.add_argument("--raw-root", type=Path, help="old name of --tracking-root, still accepted")
+    ap.add_argument("--records-root", type=Path, default=ep.RECORDS_ROOT,
+                    help="records root, <batch>/<assay>/ with the SocP side files novelLoc<phase>.txt (default %(default)s)")
     ap.add_argument("--stage-root", type=Path, help="staging root instead of the config's (exp9_sleap_staging)")
     ap.add_argument("--output-root", type=Path, help="scored-output root instead of the config's (sleap_output_all)")
     ap.add_argument("--qc-root", type=Path, default=QC_ROOT, help="folder of retrack_list.csv and leave_out_list.csv")
     ap.add_argument("--decisions", type=Path, default=DECISIONS, help=argparse.SUPPRESS)
     ap.add_argument("--config", type=Path, help="scoring config (default: the assay's *_all.yaml in validation/exp9_boris/config)")
     ap.add_argument("--rscript", type=Path, default=DEFAULT_RSCRIPT)
-    ap.add_argument("--geom-h5", type=Path, help="the new arena export, if not (or not alone) in SLEAP/geom/")
-    ap.add_argument("--animal-h5", type=Path, help="the new animal export, if not (or not alone) in SLEAP/animal/")
+    ap.add_argument("--geom-h5", type=Path, help="the new arena export, if not (or not alone) in <batch>/<assay>/geom/")
+    ap.add_argument("--animal-h5", type=Path, help="the new animal export, if not (or not alone) in <batch>/<assay>/animal/")
     ap.add_argument("--reuse-geom", action="store_true", help="EPM/OFT/SocP: keep the geom locs in place (arena not re-tracked)")
     ap.add_argument("--clip", help="OFT B1: the GoPro clip the animal's files are named by, e.g. GX010804")
     ap.add_argument("--accept-length", action="store_true", help="install a recording outside the protocol length")
@@ -1798,6 +1840,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rerun-analysis", action="store_true", help="run the analysis even if no file changed")
     ap.add_argument("--apply", action="store_true", help="make the changes (default: print the plan)")
     args = ap.parse_args(argv)
+    if args.raw_root is not None:
+        if args.tracking_root is not None:
+            ap.error("--raw-root is the old name of --tracking-root: give only one")
+        print("note: --raw-root is the old name of --tracking-root (the tracking moved out of Raw Data); "
+              f"taken as the tracking root {args.raw_root}", file=sys.stderr)
+        args.tracking_root = args.raw_root
+    if args.tracking_root is None:
+        args.tracking_root = ep.TRACKING_ROOT
+    if os.path.normcase(os.path.abspath(args.tracking_root)) == os.path.normcase(os.path.abspath(args.records_root)):
+        ap.error(f"the tracking root and the records root are the same folder ({args.tracking_root}): the tracking is "
+                 f"in {ep.TRACKING_ROOT}, the records in {ep.RECORDS_ROOT}")
     if args.assay == "NOR":
         if args.phase not in sd.PHASES["NOR"]:
             ap.error("NOR needs --phase NOV or HAB")

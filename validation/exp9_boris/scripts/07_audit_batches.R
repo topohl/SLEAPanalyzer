@@ -2,8 +2,10 @@
 # 07_audit_batches.R
 #
 # Pre-flight audit before extending the pipeline from Batch 1 to B1-B6.
-# Reads nothing but geometry and file names; runs no analysis and writes
-# nothing outside results/.
+# Reads nothing but the file names and geometry of the formatted/ tracking of
+# each test under the tracking root (exp9_paths.R, EXP9_TRACKING_ROOT); runs no
+# analysis and writes nothing outside results/ (EXP9_AUDIT_DIR). A missing
+# formatted/ folder stops the audit.
 #
 # It exists because the Batch-1 conventions do NOT hold across batches, and
 # every way they break is silent:
@@ -30,9 +32,15 @@ suppressMessages({
   library(tidyr)
 })
 
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+source(file.path(SCRIPTS, "exp9_paths.R"))   # TRACKING_ROOT, tracking_dir()
 PROJ <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
-RAW  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior"
-RES  <- file.path(PROJ, "results")
+RES  <- Sys.getenv("EXP9_AUDIT_DIR", file.path(PROJ, "results"))
+if (!dir.exists(TRACKING_ROOT)) stop("tracking root not found: ", TRACKING_ROOT, " (set EXP9_TRACKING_ROOT)")
 dir.create(RES, showWarnings = FALSE, recursive = TRUE)
 
 id_code <- read.delim("s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt",
@@ -57,9 +65,16 @@ true_code <- function(x) {
 }
 
 # --- 1. Inventory and code extraction --------------------------------------
+# Every batch has all four tests, so a missing formatted/ folder is an error,
+# not an empty inventory.
+formatted_dir <- function(batch, assay) {
+  base <- file.path(tracking_dir(batch, assay), "formatted")
+  if (!dir.exists(base)) stop("formatted folder missing: ", base)
+  base
+}
+
 assay_dirs <- function(batch, assay) {
-  base <- file.path(RAW, batch, assay, "SLEAP", "formatted")
-  if (!dir.exists(base)) return(character(0))
+  base <- formatted_dir(batch, assay)
   subs <- list.dirs(base, recursive = FALSE)
   subs <- subs[!grepl("/old$", subs)]
   if (length(subs) > 0) c(base, subs) else base
@@ -177,7 +192,7 @@ cat("\n=== 6. GEOMETRY BY BATCH ===\n")
 
 cat("\n--- EPM: tl-bl is the 60 cm tip-to-tip span; arm width should read ~5 cm ---\n")
 epm_geo <- bind_rows(lapply(BATCHES, function(b) {
-  f <- list.files(file.path(RAW, b, "EPM/SLEAP/formatted"),
+  f <- list.files(formatted_dir(b, "EPM"),
                   pattern = "[.]csv$", full.names = TRUE)
   f <- head(f, 3)
   bind_rows(lapply(f, function(p) {
@@ -199,7 +214,7 @@ print(epm_geo %>% group_by(batch) %>%
 cat("\n--- NOR / SocP: arena corner polygon, as a rectangle check ---\n")
 rect_geo <- bind_rows(lapply(c("NOR", "SocP"), function(a) {
   bind_rows(lapply(BATCHES, function(b) {
-    base <- file.path(RAW, b, a, "SLEAP/formatted")
+    base <- formatted_dir(b, a)
     d <- if (a == "SocP" && dir.exists(file.path(base, "S1"))) file.path(base, "S1") else base
     f <- head(list.files(d, pattern = "[.]csv$", full.names = TRUE), 3)
     bind_rows(lapply(f, function(p) {

@@ -18,9 +18,25 @@ import pandas as pd
 MODULE_DIR = Path(__file__).resolve().parents[1] / "01_SLEAPcoords"
 sys.path.insert(0, str(MODULE_DIR))
 
+import exp9_paths  # noqa: E402
 import sleap_h5 as sh  # noqa: E402
 
 GEOM_NODES = ["tl", "tr", "br", "bl", "objL", "objR"]
+
+#: EXP9_CORPUS_TESTS=1 asks for the tests that read the tracking on the share: a missing folder is then a failure.
+CORPUS = bool(os.environ.get("EXP9_CORPUS_TESTS"))
+
+
+def need_tracking(test: unittest.TestCase, folders: list[Path], always: bool = False) -> None:
+    """Skip *test* unless the corpus tests were asked for (or *always*) and *folders* exist; asked for, a missing
+    folder fails it (the tracking root may not be there yet)."""
+    if not CORPUS and not always:
+        raise unittest.SkipTest("set EXP9_CORPUS_TESTS=1 with the Exp9 tracking on the share available")
+    missing = [str(f) for f in folders if not f.is_dir()]
+    if missing and CORPUS:
+        test.fail(f"EXP9_CORPUS_TESTS is set but the tracking is not there: {missing}")
+    if missing:
+        raise unittest.SkipTest(f"Exp9 tracking not available: {missing[0]}")
 
 
 def write_h5(path: Path, tracks: np.ndarray, nodes: list[str]) -> Path:
@@ -120,17 +136,18 @@ class ExtractTest(unittest.TestCase):
 
 
 class Reproduces2024CorpusTest(unittest.TestCase):
-    """The conversion must give the committed 2024 locs files from the 2024 h5 files (needs the S: share)."""
+    """The conversion must give the committed 2024 locs files from the 2024 h5 files (reads the tracking on the share
+    when B5/NOR is there; skipped when it is not, a failure with EXP9_CORPUS_TESTS=1)."""
 
-    SLEAP = Path(r"S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior\B5\NOR\SLEAP")
+    TEST_DIR = exp9_paths.tracking_dir("B5", "NOR")
 
-    @unittest.skipUnless(SLEAP.exists(), "Exp9 raw data share not available")
     def test_b5_h1e2_geom_and_animal(self) -> None:
+        need_tracking(self, [self.TEST_DIR], always=True)
         cases = [
-            ("geom", self.SLEAP / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOR.analysis.h5",
-             self.SLEAP / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOR.analysis_locs.csv"),
-            ("animal", self.SLEAP / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOR.analysis.h5",
-             self.SLEAP / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOR.analysis_locs.csv"),
+            ("geom", self.TEST_DIR / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOR.analysis.h5",
+             self.TEST_DIR / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOR.analysis_locs.csv"),
+            ("animal", self.TEST_DIR / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOR.analysis.h5",
+             self.TEST_DIR / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOR.analysis_locs.csv"),
         ]
         for kind, h5, ref in cases:
             with self.subTest(kind=kind):
@@ -227,7 +244,7 @@ def notebook_labels(notebook: str, variable: str) -> list[str]:
 
 #: The labels each assay's locs files carry, from the notebooks that wrote them. The open field has no such notebook
 #: (OFT/OFTBatch_*.ipynb name the corners tl, tr, br, bl, before and after their June 2026 rewrite): its labels are
-#: the header of its locs files, Raw Data/Behavior/B1-B6/OFT/SLEAP/{geom,animal}/*_locs.csv (B3-B6; B1 and B2 write
+#: the header of its locs files, <tracking root>/B1-B6/OFT/{geom,animal}/*_locs.csv (B3-B6; B1 and B2 write
 #: 'center' for bodycentre, BATCH_LABELS), checked by OpenFieldCorpusLabelsTest.
 LABELS = {
     ("NOR", "geom"): notebook_labels("NOR/NORBatch_geom.ipynb", "geom_indices"),
@@ -320,9 +337,9 @@ class StoredNodesTest(unittest.TestCase):
 
 
 class ReproducesCorpusOtherAssaysTest(unittest.TestCase):
-    """One recording per assay and label variant, byte for byte (reads the S: share; set EXP9_CORPUS_TESTS=1)."""
+    """One recording per assay and label variant, byte for byte (reads the tracking on the share; EXP9_CORPUS_TESTS=1)."""
 
-    RAW = Path(r"S:\Lab_Member\Tobi\Experiments\Exp9_Social-Stress\Raw Data\Behavior")
+    TRACKING = exp9_paths.TRACKING_ROOT
     CASES = [("EPM", "B3", "animal/E9_SIS_B3_EPM-animal.000_E9_SIS_B3_B3N2.analysis.h5"),
              ("EPM", "B6", "geom/E9_B6_EPM-geom.000_E9_B6_A2C8_EPM.analysis.h5"),
              ("OFT", "B4", "animal/E9_B4_OFT-animal.000_E9_B4_A0I4_OFT.analysis.h5"),
@@ -330,13 +347,12 @@ class ReproducesCorpusOtherAssaysTest(unittest.TestCase):
              ("SocP", "B2", "animal/SocP-animal-charge4.000_E9_SIS_B2_A0S5_HAB.analysis.h5"),
              ("SocP", "B2", "geom/SocP-geom-charge4.000_E9_SIS_B2_A0S5_HAB.analysis.h5")]
 
-    @unittest.skipUnless(__import__("os").environ.get("EXP9_CORPUS_TESTS") and RAW.exists(),
-                         "set EXP9_CORPUS_TESTS=1 with the Exp9 raw data share available")
     def test_locs_files_are_rebuilt_byte_for_byte(self) -> None:
         import io
+        need_tracking(self, sorted({exp9_paths.tracking_dir(b, a, self.TRACKING) for a, b, _ in self.CASES}))
         for assay, batch, rel in self.CASES:
             with self.subTest(assay=assay, batch=batch, file=rel):
-                h5 = self.RAW / batch / assay / "SLEAP" / rel
+                h5 = exp9_paths.tracking_dir(batch, assay, self.TRACKING) / rel
                 df, _ = sh.extract_locs(h5, rel.split("/")[0], assay, batch=batch)
                 buf = io.BytesIO()
                 df.to_csv(buf, index=False, lineterminator="\r\n")
@@ -346,15 +362,15 @@ class ReproducesCorpusOtherAssaysTest(unittest.TestCase):
 class OpenFieldCorpusLabelsTest(unittest.TestCase):
     """The open-field labels are those of the locs files on the share (reads one header line per batch and kind)."""
 
-    RAW = ReproducesCorpusOtherAssaysTest.RAW
+    TRACKING = ReproducesCorpusOtherAssaysTest.TRACKING
+    BATCHES = ("B1", "B2", "B3", "B4", "B5", "B6")
 
-    @unittest.skipUnless(os.environ.get("EXP9_CORPUS_TESTS") and RAW.exists(),
-                         "set EXP9_CORPUS_TESTS=1 with the Exp9 raw data share available")
     def test_open_field_locs_headers(self) -> None:
-        for batch in ("B1", "B2", "B3", "B4", "B5", "B6"):
+        need_tracking(self, [exp9_paths.tracking_dir(b, "OFT", self.TRACKING) for b in self.BATCHES])
+        for batch in self.BATCHES:
             for kind in ("geom", "animal"):
                 with self.subTest(batch=batch, kind=kind):
-                    first = sorted((self.RAW / batch / "OFT" / "SLEAP" / kind).glob("*_locs.csv"))[0]
+                    first = sorted((exp9_paths.tracking_dir(batch, "OFT", self.TRACKING) / kind).glob("*_locs.csv"))[0]
                     with open(first, encoding="utf-8") as fh:
                         header = fh.readline().strip().split(",")
                     rename = sh.BATCH_LABELS.get(("OFT", batch, kind), {})

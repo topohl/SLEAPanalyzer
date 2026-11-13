@@ -199,7 +199,7 @@ try {
             -Source (Join-Path $configDir $name) `
             -Destination (Join-Path $releaseRoot "provenance\configs\$name")
     }
-    foreach ($name in '00_theme.R','05_correlate.R','08_stage_all_batches.R','09_assemble_all_batches.R','10_analyse_all_batches.R','11_finalize_output_bundle.R','11_recalibrate_nosedips.R','12_calibrate_nor_contact.R','13_compare_nor_detectors.R') {
+    foreach ($name in '00_theme.R','05_correlate.R','08_stage_all_batches.R','exp9_paths.R','09_assemble_all_batches.R','10_analyse_all_batches.R','11_finalize_output_bundle.R','11_recalibrate_nosedips.R','12_calibrate_nor_contact.R','13_compare_nor_detectors.R') {
         Copy-RecordedFile `
             -Source (Join-Path $repoRoot "validation\exp9_boris\scripts\$name") `
             -Destination (Join-Path $releaseRoot "provenance\scripts\$name")

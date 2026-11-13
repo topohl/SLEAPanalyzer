@@ -99,29 +99,41 @@ def md5(p: Path) -> str:
 
 
 class Chain:
-    """Builds the current chain of one recording the way the corpus was built (locs, merged, formatted, staged)."""
+    """Builds the current chain of one recording the way the corpus was built (locs, merged, formatted, staged).
+
+    The tracking sits in <tmp>/tracking/<batch>/<assay>/{geom,animal,merged,formatted}, the records (SocP side files)
+    in <tmp>/records/<batch>/<assay>/."""
 
     def __init__(self, tmp: Path) -> None:
-        self.raw, self.stage, self.out, self.qc = tmp / "raw", tmp / "stage", tmp / "out", tmp / "qc"
+        self.tracking, self.records = tmp / "tracking", tmp / "records"
+        self.stage, self.out, self.qc = tmp / "stage", tmp / "out", tmp / "qc"
         self.qc.mkdir(parents=True)
         self.codes: list[str] = []
 
     def export(self, assay, batch, kind, name, xy, video=None, where=None) -> Path:
-        d = where or (self.raw / batch / assay / "SLEAP" / kind)
+        d = where or (self.tracking / batch / assay / kind)
         return write_h5(d / name, xy, stored(assay, kind), video)
 
     def locs(self, assay, batch, kind, h5: Path, locs_name: str | None = None) -> Path:
         df, _ = sh.extract_locs(h5, kind, assay, batch=batch)
-        p = self.raw / batch / assay / "SLEAP" / kind / (locs_name or h5.name[:-3] + "_locs.csv")
+        p = self.tracking / batch / assay / kind / (locs_name or h5.name[:-3] + "_locs.csv")
         p.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(p, index=False)
         return p
 
+    def record(self, batch, assay, name, text) -> Path:
+        """A record file (a SocP side file) in the records root."""
+        p = self.records / batch / assay / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return p
+
     def finish(self, assay, batch, code, phase, g_locs: Path, a_locs: Path, merged_name, fmt_name) -> Path:
-        sleap = self.raw / batch / assay / "SLEAP"
-        merged = sleap / merged_name
+        tdir = self.tracking / batch / assay
+        merged = tdir / "merged" / merged_name
+        merged.parent.mkdir(parents=True, exist_ok=True)
         pd.concat([pd.read_csv(g_locs), pd.read_csv(a_locs)], axis=1).to_csv(merged, index=False)
-        fmt_dir = sleap / "formatted" / phase if phase else sleap / "formatted"
+        fmt_dir = tdir / "formatted" / phase if phase else tdir / "formatted"
         fmt = fmt_dir / fmt_name
         sd.format_merged(merged, fmt, rr.FORMAT_RENAME.get((assay, batch)), rr.FORMAT_DIGITS.get((assay, batch)))
         tail = [batch] + ([phase] if phase else [])
@@ -137,8 +149,8 @@ class Chain:
         return fmt
 
     def args(self, *extra: str) -> list[str]:
-        return ["--raw-root", str(self.raw), "--stage-root", str(self.stage), "--qc-root", str(self.qc),
-                "--rscript", str(self.raw / "no_R.exe"), *extra]
+        return ["--tracking-root", str(self.tracking), "--records-root", str(self.records), "--stage-root", str(self.stage),
+                "--qc-root", str(self.qc), "--rscript", str(self.tracking / "no_R.exe"), *extra]
 
 
 class FakeScorer:
@@ -289,13 +301,65 @@ class EpmTest(Stubs):
         self.assertEqual(code, 0, out)
         self.assertIn("rebuild every file in the chain", out)
         self.assertIn("WAITING FOR THE NEW EXPORT", out)
-        self.assertIn(str(c.raw / "B6" / "EPM" / "SLEAP" / "geom"), out)
+        self.assertIn(str(c.tracking / "B6" / "EPM" / "geom"), out)
         self.assertIn("E9_B6_EPM-geom.<NNN>_E9_B6_R8I2_EPM.analysis.h5", out)
         self.assertIn("do not export under the name of the geom export in place (E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.analysis.h5)", out)
         self.assertIn("the current output was scored from the staged file in place", out)
         self.assertIn(str(rr.CONFIG_DIR / "epm_all.yaml"), out)                  # the full config path
         self.assertEqual(tree_state(self.tmp), before)
         self.assertEqual(self.scorer.calls, [])
+
+    def test_the_old_raw_root_option_is_taken_as_the_tracking_root(self) -> None:
+        c = self.build()
+        old = [("--raw-root" if a == "--tracking-root" else a) for a in self.base(c)]
+        code, out = run_tool(old)
+        self.assertEqual(code, 0, out)
+        self.assertIn("--raw-root is the old name of --tracking-root", out)
+        self.assertIn("rebuild every file in the chain", out)
+        self.assertIn(str(c.tracking / "B6" / "EPM" / "geom"), out)
+        code, out = run_tool(old + ["--tracking-root", str(c.tracking)])          # both: refused
+        self.assertNotEqual(code, 0)
+        before_move = self.tmp / "raw"                                             # the layout before the move
+        for assay in ("EPM", "NOR"):
+            (before_move / "B6" / assay / "SLEAP" / "geom").mkdir(parents=True)
+        nor = c.args("--batch", "B6", "--assay", "NOR", "--code", "R8I2", "--phase", "NOV")
+        for argv in (old, nor):
+            code, out = run_tool([str(before_move) if a == str(c.tracking) else a for a in argv])
+            self.assertNotEqual(code, 0, out)
+            self.assertIn("keeps its tracking in SLEAP/, the layout before the move", out)
+
+    def test_a_records_folder_is_not_taken_as_the_tracking(self) -> None:
+        c = self.build()
+        self.add_new_export(c)
+        records = self.tmp / "records_after_move"                                  # Raw Data/Behavior after the move
+        for assay in ("EPM", "NOR"):
+            (records / "B6" / assay).mkdir(parents=True)
+            (records / "B6" / assay / "run_sheet.txt").write_text("x")
+        state = lambda: (tree_state(self.tmp), sorted(str(p) for p in self.tmp.rglob("*")))
+        before = state()
+        epm = self.base(c, "--accept-length", "--skip-analysis")
+        nor = c.args("--batch", "B6", "--assay", "NOR", "--code", "R8I2", "--phase", "NOV", "--skip-analysis")
+        for option in ("--raw-root", "--tracking-root"):
+            for argv in (epm, nor, epm + ["--apply"], nor + ["--apply"]):
+                argv = [option if a == "--tracking-root" else a for a in argv]
+                code, out = run_tool([str(records) if a == str(c.tracking) else a for a in argv])
+                self.assertNotEqual(code, 0, out)
+                self.assertIn("has no geom/ and animal/", out)
+        self.assertEqual(state(), before)                                          # nothing written, no folder made
+        code, out = run_tool(epm + ["--records-root", str(c.tracking)])           # the same folder for both roots
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("are the same folder", out)
+
+    def test_a_missing_merged_folder_stops_the_tool(self) -> None:
+        c = self.build()
+        merged = c.tracking / "B6" / "EPM" / "merged"
+        moved = self.tmp / "merged_not_moved_yet"
+        merged.rename(moved)
+        before = tree_state(self.tmp)
+        code, out = run_tool(self.base(c))
+        self.assertNotEqual(code, 0, out)
+        self.assertIn(f"{merged} is missing", out)
+        self.assertEqual(tree_state(self.tmp), before)
 
     def test_new_export_is_installed_old_files_are_kept_and_only_this_animal_changes(self) -> None:
         c = self.build()
@@ -311,16 +375,16 @@ class EpmTest(Stubs):
 
         code, out = run_tool(base + ["--apply", "--baseline"])
         self.assertEqual(code, 0, out)
-        sleap = c.raw / "B6" / "EPM" / "SLEAP"
+        tdir = c.tracking / "B6" / "EPM"
         arch = f"_superseded_{TODAY}"
         for kind in ("geom", "animal"):
-            self.assertTrue((sleap / kind / arch / f"E9_B6_EPM-{kind}.013_E9_B6_R8I2_EPM.analysis.h5").exists())
-            self.assertTrue((sleap / kind / arch / f"E9_B6_EPM-{kind}.013_E9_B6_R8I2_EPM.analysis_locs.csv").exists())
-            self.assertTrue((sleap / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis_locs.csv").exists())
-        self.assertTrue((sleap / arch / "E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.merged_locs.csv").exists())
-        self.assertTrue((sleap / "E9_B6_EPM-geom.019_E9_B6_R8I2_EPM.merged_locs.csv").exists())
-        self.assertTrue((sleap / "formatted" / "old" / "R8I2_EPM.merged_locs_formatted.csv").exists())
-        self.assertEqual(sorted(p.name for p in (sleap / "formatted").glob("*.csv")),
+            self.assertTrue((tdir / kind / arch / f"E9_B6_EPM-{kind}.013_E9_B6_R8I2_EPM.analysis.h5").exists())
+            self.assertTrue((tdir / kind / arch / f"E9_B6_EPM-{kind}.013_E9_B6_R8I2_EPM.analysis_locs.csv").exists())
+            self.assertTrue((tdir / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / arch / "E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.merged_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / "E9_B6_EPM-geom.019_E9_B6_R8I2_EPM.merged_locs.csv").exists())
+        self.assertTrue((tdir / "formatted" / "old" / "R8I2_EPM.merged_locs_formatted.csv").exists())
+        self.assertEqual(sorted(p.name for p in (tdir / "formatted").glob("*.csv")),
                          ["A2C8_EPM.merged_locs_formatted.csv", "R8I2_EPM.merged_locs_formatted.csv"])
         self.assertTrue((c.stage / "EPM" / arch / "B6" / "R8I2.csv").exists())
         parts, data = rr.read_dlc(c.stage / "EPM" / "B6" / "R8I2.csv")
@@ -409,7 +473,7 @@ class EpmTest(Stubs):
         self.add_new_export(c)
         names = list(stored("EPM", "animal"))
         names[1], names[2] = names[2], names[1]
-        write_h5(c.raw / "B6" / "EPM" / "SLEAP" / "animal" / "E9_B6_EPM-animal.019_E9_B6_R8I2_EPM.analysis.h5",
+        write_h5(c.tracking / "B6" / "EPM" / "animal" / "E9_B6_EPM-animal.019_E9_B6_R8I2_EPM.analysis.h5",
                  animal_xy("EPM", 99), names)
         code, out = run_tool(self.base(c, "--accept-length"))
         self.assertIn("cannot be read as a EPM export", out)
@@ -417,7 +481,7 @@ class EpmTest(Stubs):
 
     def test_files_that_differ_from_the_exports_in_place_need_rebuild(self) -> None:
         c = self.build()
-        fmt = c.raw / "B6" / "EPM" / "SLEAP" / "formatted" / "R8I2_EPM.merged_locs_formatted.csv"
+        fmt = c.tracking / "B6" / "EPM" / "formatted" / "R8I2_EPM.merged_locs_formatted.csv"
         fmt.write_bytes(fmt.read_bytes().replace(b"\r\n0,", b"\r\n0,0", 1))        # an edited formatted file
         args = self.base(c)
         code, out = run_tool(args)
@@ -451,10 +515,10 @@ class EpmTest(Stubs):
         base = self.base(c, "--accept-length", "--apply", "--skip-analysis")
         self.add_new_export(c, seed=99)
         self.assertEqual(run_tool(base)[0], 0)
-        sleap = c.raw / "B6" / "EPM" / "SLEAP"
-        first = (sleap / "formatted" / "R8I2_EPM.merged_locs_formatted.csv").read_bytes()
+        tdir = c.tracking / "B6" / "EPM"
+        first = (tdir / "formatted" / "R8I2_EPM.merged_locs_formatted.csv").read_bytes()
         for kind in ("geom", "animal"):                          # a corrected export under the same name
-            write_h5(sleap / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis.h5",
+            write_h5(tdir / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis.h5",
                      geom_xy("EPM", seed=8) if kind == "geom" else animal_xy("EPM", 98), stored("EPM", kind))
         code, out = run_tool(base)                               # in place but not rebuilding: not taken as new
         self.assertNotEqual(code, 0)
@@ -462,7 +526,7 @@ class EpmTest(Stubs):
         self.assertIn("add --rebuild", out)
         code, out = run_tool(base + ["--rebuild"])
         self.assertEqual(code, 0, out)
-        old = sleap / "formatted" / "old"
+        old = tdir / "formatted" / "old"
         self.assertEqual(sorted(p.name for p in old.iterdir()),
                          ["R8I2_EPM.merged_locs_formatted.csv", "R8I2_EPM.merged_locs_formatted__2.csv"])
         self.assertEqual((old / "R8I2_EPM.merged_locs_formatted__2.csv").read_bytes(), first)
@@ -472,7 +536,7 @@ class EpmTest(Stubs):
         c = self.build()
         self.add_new_export(c)
         for kind in ("geom", "animal"):
-            p = c.raw / "B6" / "EPM" / "SLEAP" / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis.h5"
+            p = c.tracking / "B6" / "EPM" / kind / f"E9_B6_EPM-{kind}.019_E9_B6_R8I2_EPM.analysis.h5"
             os.utime(p, (1.6e9, 1.6e9))                         # 2020: older than the chain's locs files
         code, out = run_tool(self.base(c, "--accept-length"))
         self.assertEqual(code, 0, out)
@@ -595,7 +659,7 @@ class EpmTest(Stubs):
         a = c.export("EPM", "B6", "animal", "E9_B6_EPM-animal.019_E9_B6_R8I2_EPM.analysis.h5", animal_xy("EPM", 99), where=elsewhere)
         code, out = run_tool(self.base(c, "--accept-length", "--geom-h5", str(g), "--animal-h5", str(a), "--apply", "--skip-analysis"))
         self.assertEqual(code, 0, out)
-        geom = c.raw / "B6" / "EPM" / "SLEAP" / "geom"
+        geom = c.tracking / "B6" / "EPM" / "geom"
         self.assertEqual(sorted(p.name for p in geom.glob("*R8I2*")),
                          ["E9_B6_EPM-geom.019_E9_B6_R8I2_EPM.analysis.h5", "E9_B6_EPM-geom.019_E9_B6_R8I2_EPM.analysis_locs.csv"])
         self.assertTrue(g.exists())                             # the source is copied, not moved
@@ -614,7 +678,7 @@ class EpmTest(Stubs):
         self.assertEqual(tree_state(self.tmp), before)
         code, out = run_tool(args + ["--accept-name"])
         self.assertEqual(code, 0, out)
-        geom = c.raw / "B6" / "EPM" / "SLEAP" / "geom"
+        geom = c.tracking / "B6" / "EPM" / "geom"
         self.assertTrue((geom / "arena_new_R8I2.analysis.h5").exists())
         self.assertTrue((geom / "arena_new_R8I2.analysis_locs.csv").exists())
         state = tree_state(self.tmp)
@@ -645,9 +709,9 @@ class EpmTest(Stubs):
 
     def test_only_exports_and_locs_files_are_archived_and_stray_exports_are_listed(self) -> None:
         c = self.build()
-        geom = c.raw / "B6" / "EPM" / "SLEAP" / "geom"
+        geom = c.tracking / "B6" / "EPM" / "geom"
         (geom / "E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.notes.txt").write_text("a note")
-        pred = c.raw / "B6" / "EPM" / "SLEAP" / "predictions"
+        pred = c.tracking / "B6" / "EPM" / "predictions"
         write_h5(pred / "E9_B6_EPM-animal.019_E9_B6_R8I2_EPM.analysis.h5", animal_xy("EPM", 99), stored("EPM", "animal"))
         code, out = run_tool(self.base(c))
         self.assertIn(f"export not in geom/ or animal/ (the tool does not read it): {pred / 'E9_B6_EPM-animal.019_E9_B6_R8I2_EPM.analysis.h5'}", out)
@@ -687,7 +751,7 @@ class EpmB3Test(Stubs):
             a = c.export("EPM", "B3", "animal", f"E9_SIS_B3_EPM-animal.{stem}.analysis.h5", animal_xy("EPM", seed=20 + i))
             c.finish("EPM", "B3", code, "", c.locs("EPM", "B3", "geom", g), c.locs("EPM", "B3", "animal", a),
                      f"E9_SIS_B3_EPM-geom.{stem}.merged_locs.csv", f"E9_SIS_B3_EPM_B3_{code}_formatted.csv")
-        sleap = c.raw / "B3" / "EPM" / "SLEAP"
+        tdir = c.tracking / "B3" / "EPM"
         base = c.args("--batch", "B3", "--assay", "EPM", "--code", "D9Q7", "--output-root", str(c.out), "--accept-length")
         code, out = run_tool(base)
         self.assertEqual(code, 0, out)
@@ -696,12 +760,12 @@ class EpmB3Test(Stubs):
         c.export("EPM", "B3", "animal", "E9_SIS_B3_EPM-animal.020_E9_SIS_B3_D9Q7.analysis.h5", animal_xy("EPM", 77))
         code, out = run_tool(base + ["--apply", "--skip-analysis"])
         self.assertEqual(code, 0, out)
-        locs = pd.read_csv(sleap / "animal" / "E9_SIS_B3_EPM-animal.020_E9_SIS_B3_D9Q7.analysis_locs.csv")
+        locs = pd.read_csv(tdir / "animal" / "E9_SIS_B3_EPM-animal.020_E9_SIS_B3_D9Q7.analysis_locs.csv")
         self.assertEqual(list(locs.columns[12:14]), ["neck_x", "neck_y"])
-        self.assertEqual(sorted(p.name for p in (sleap / "formatted").glob("*.csv")),
+        self.assertEqual(sorted(p.name for p in (tdir / "formatted").glob("*.csv")),
                          ["E9_SIS_B3_EPM_B3_B3N2_formatted.csv", "E9_SIS_B3_EPM_B3_D9Q7_formatted.csv"])
-        self.assertTrue((sleap / "formatted" / "old" / "E9_SIS_B3_EPM_B3_D9Q7_formatted.csv").exists())
-        self.assertTrue((sleap / "E9_SIS_B3_EPM-geom.020_E9_SIS_B3_D9Q7.merged_locs.csv").exists())
+        self.assertTrue((tdir / "formatted" / "old" / "E9_SIS_B3_EPM_B3_D9Q7_formatted.csv").exists())
+        self.assertTrue((tdir / "merged" / "E9_SIS_B3_EPM-geom.020_E9_SIS_B3_D9Q7.merged_locs.csv").exists())
         parts, _ = rr.read_dlc(c.stage / "EPM" / "B3" / "D9Q7.csv")
         self.assertEqual(parts.count("neck"), 3)
         self.assertNotIn("spine1", parts)                         # staged as the batch had it: neck, no alias added
@@ -723,7 +787,7 @@ class SocpTest(Stubs):
                      f"B2_{code}_{phase}.merged_locs.csv", f"{code}_{phase}.merged_locs_formatted.csv")
         for ph in ("S1", "S2"):
             side = "Code\tNovelLoc\nG6K2\tR\nA0S5\tL\n"
-            (c.raw / "B2" / "SocP" / f"novelLoc{ph}.txt").write_text(side)
+            c.record("B2", "SocP", f"novelLoc{ph}.txt", side)
             (c.stage / "SocP" / "B2" / ph / f"novelLoc{ph}.txt").write_text(side)
         cfg = self.tmp / "socp_cfg.yaml"
         cfg.write_text(f"input_dir: {(c.stage / 'SocP').as_posix()}\noutput_dir: {(c.out / 'SocP').as_posix()}\n"
@@ -747,19 +811,20 @@ class SocpTest(Stubs):
         self.assertEqual(code, 0, out)
         self.assertIn("socp_all.yaml", out)
         self.assertIn("side file novelLocS2.txt: G6K2 R", out)
+        self.assertIn(str(c.records / "B2" / "SocP" / "novelLocS2.txt"), out)    # the side file is read from the records
         self.assertIn("vs S1", out)
         self.assertIn("copies    body centre against 2 staged SocP B2 files (every phase)", out)
         self.assertIn("'^SocP [A-Za-z0-9]+ B2 '", out)
         code, out = run_tool(self.args(c, "--apply", "--baseline"))
         self.assertEqual(code, 0, out)
-        sleap, arch = c.raw / "B2" / "SocP" / "SLEAP", f"_superseded_{TODAY}"
-        self.assertTrue((sleap / "geom" / arch / "SocP-geom-charge4.001_E9_SIS_B2_G6K2_S2.analysis.h5").exists())
-        self.assertTrue((sleap / "animal" / "SocP-animal-retrack.000_E9_SIS_B2_G6K2_S2.analysis_locs.csv").exists())
-        self.assertTrue((sleap / arch / "B2_G6K2_S2.merged_locs.csv").exists())
-        self.assertTrue((sleap / "B2_G6K2_S2.merged_locs.csv").exists())       # B2 keeps its merged name
-        self.assertTrue((sleap / "formatted" / "old" / "G6K2_S2.merged_locs_formatted.csv").exists())
+        tdir, arch = c.tracking / "B2" / "SocP", f"_superseded_{TODAY}"
+        self.assertTrue((tdir / "geom" / arch / "SocP-geom-charge4.001_E9_SIS_B2_G6K2_S2.analysis.h5").exists())
+        self.assertTrue((tdir / "animal" / "SocP-animal-retrack.000_E9_SIS_B2_G6K2_S2.analysis_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / arch / "B2_G6K2_S2.merged_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / "B2_G6K2_S2.merged_locs.csv").exists())       # B2 keeps its merged name
+        self.assertTrue((tdir / "formatted" / "old" / "G6K2_S2.merged_locs_formatted.csv").exists())
         self.assertTrue((c.stage / "SocP" / arch / "B2" / "S2" / "G6K2_S2.csv").exists())
-        self.assertTrue((sleap / "geom" / "SocP-geom-charge4.000_E9_SIS_B2_G6K2_S1.analysis.h5").exists())   # S1 untouched
+        self.assertTrue((tdir / "geom" / "SocP-geom-charge4.000_E9_SIS_B2_G6K2_S1.analysis.h5").exists())   # S1 untouched
         self.assertIn("phases: [S2]", self.scorer.calls[0])
         self.assertIn("qc_decisions_file: " + (rr.CONFIG_DIR / "qc_decisions_socp.csv").resolve().as_posix(), self.scorer.calls[0])
         self.assertIn("animals whose rows changed: ['G6K2']", out)
@@ -787,10 +852,10 @@ class SocpTest(Stubs):
 
     def test_a_byte_copy_of_another_staged_file_is_refused(self) -> None:
         c = self.build()
-        sleap = c.raw / "B2" / "SocP" / "SLEAP"
+        tdir = c.tracking / "B2" / "SocP"
         for kind in ("geom", "animal"):
-            src = sleap / kind / f"SocP-{kind}-charge4.002_E9_SIS_B2_A0S5_S2.analysis.h5"
-            (sleap / kind / f"SocP-{kind}-retrack.000_E9_SIS_B2_G6K2_S2.analysis.h5").write_bytes(src.read_bytes())
+            src = tdir / kind / f"SocP-{kind}-charge4.002_E9_SIS_B2_A0S5_S2.analysis.h5"
+            (tdir / kind / f"SocP-{kind}-retrack.000_E9_SIS_B2_G6K2_S2.analysis.h5").write_bytes(src.read_bytes())
         code, out = run_tool(self.args(c))
         self.assertIn("byte-identical to", out)
         self.assertIn("A0S5_S2.csv", out)
@@ -842,17 +907,17 @@ class SocpB1Test(Stubs):
 
     def test_gx_names_and_the_phase_archive_folder(self) -> None:
         c = Chain(self.tmp)
-        sleap = c.raw / "B1" / "SocP" / "SLEAP"
+        tdir = c.tracking / "B1" / "SocP"
         for i, (code, gx, seed) in enumerate([("A1L9", "GX0786", 1), ("C2P4", "GX0790", 2)]):
             stem = f"charge1.{i:03d}_{code}_{gx}_S1"
             g = c.export("SocP", "B1", "geom", f"SocP-geom-{stem}.analysis.h5", geom_xy("SocP", seed=seed))
             a = c.export("SocP", "B1", "animal", f"SocP-animal-{stem}.analysis.h5", animal_xy("SocP", seed))
             c.finish("SocP", "B1", code, "S1", c.locs("SocP", "B1", "geom", g), c.locs("SocP", "B1", "animal", a),
                      f"{code}_{gx}_S1.merged_locs.csv", f"{code}_S1.merged_locs_formatted.csv")
-            (sleap / f"{code}_S1.merged_locs.csv").write_bytes((sleap / f"{code}_{gx}_S1.merged_locs.csv").read_bytes())
-        (sleap / "formatted" / "old" / "S1_old").mkdir(parents=True)
+            (tdir / "merged" / f"{code}_S1.merged_locs.csv").write_bytes((tdir / "merged" / f"{code}_{gx}_S1.merged_locs.csv").read_bytes())
+        (tdir / "formatted" / "old" / "S1_old").mkdir(parents=True)
         side = "Code\tNovelLoc\nA1L9\tR\nC2P4\tL\n"
-        (c.raw / "B1" / "SocP" / "novelLocS1.txt").write_text(side)
+        c.record("B1", "SocP", "novelLocS1.txt", side)
         (c.stage / "SocP" / "B1" / "S1" / "novelLocS1.txt").write_text(side)
         base = c.args("--batch", "B1", "--assay", "SocP", "--code", "A1L9", "--phase", "S1", "--output-root", str(c.out),
                       "--accept-length")
@@ -860,18 +925,18 @@ class SocpB1Test(Stubs):
         self.assertIn("rebuild every file in the chain", out)
         c.export("SocP", "B1", "geom", "SocP-geom-retrack.000_A1L9_GX0786_S1.analysis.h5", geom_xy("SocP", seed=5))
         c.export("SocP", "B1", "animal", "SocP-animal-retrack.000_A1L9_GX0786_S1.analysis.h5", animal_xy("SocP", 55))
-        untouched = tree_state(sleap / "formatted" / "S1")
+        untouched = tree_state(tdir / "formatted" / "S1")
         code, out = run_tool(base + ["--apply", "--skip-analysis"])
         self.assertEqual(code, 0, out)
         arch = f"_superseded_{TODAY}"
-        self.assertTrue((sleap / "formatted" / "old" / "S1_old" / "A1L9_S1.merged_locs_formatted.csv").exists())
-        self.assertNotEqual((sleap / "formatted" / "S1" / "A1L9_S1.merged_locs_formatted.csv").read_bytes(),
-                            (sleap / "formatted" / "old" / "S1_old" / "A1L9_S1.merged_locs_formatted.csv").read_bytes())
-        self.assertEqual(tree_state(sleap / "formatted" / "S1")["C2P4_S1.merged_locs_formatted.csv"],
+        self.assertTrue((tdir / "formatted" / "old" / "S1_old" / "A1L9_S1.merged_locs_formatted.csv").exists())
+        self.assertNotEqual((tdir / "formatted" / "S1" / "A1L9_S1.merged_locs_formatted.csv").read_bytes(),
+                            (tdir / "formatted" / "old" / "S1_old" / "A1L9_S1.merged_locs_formatted.csv").read_bytes())
+        self.assertEqual(tree_state(tdir / "formatted" / "S1")["C2P4_S1.merged_locs_formatted.csv"],
                          untouched["C2P4_S1.merged_locs_formatted.csv"])
-        self.assertTrue((sleap / "geom" / arch / "SocP-geom-charge1.000_A1L9_GX0786_S1.analysis.h5").exists())
-        self.assertTrue((sleap / "A1L9_GX0786_S1.merged_locs.csv").exists())     # the merged name in place is kept
-        self.assertTrue((sleap / arch / "A1L9_S1.merged_locs.csv").exists())     # the second merged copy is archived
+        self.assertTrue((tdir / "geom" / arch / "SocP-geom-charge1.000_A1L9_GX0786_S1.analysis.h5").exists())
+        self.assertTrue((tdir / "merged" / "A1L9_GX0786_S1.merged_locs.csv").exists())     # the merged name in place is kept
+        self.assertTrue((tdir / "merged" / arch / "A1L9_S1.merged_locs.csv").exists())     # the second merged copy is archived
         self.assertTrue((c.stage / "SocP" / "B1" / "S1" / "A1L9_S1.csv").exists())
         state = tree_state(self.tmp)
         code, out = run_tool(base + ["--apply", "--skip-analysis"])
@@ -883,17 +948,18 @@ class SocpB3Test(Stubs):
 
     def test_the_flat_copy_moves_to_old_with_the_phase_file(self) -> None:
         c = Chain(self.tmp)
-        sleap = c.raw / "B3" / "SocP" / "SLEAP"
+        tdir = c.tracking / "B3" / "SocP"
         for i, (code, seed) in enumerate([("B3N2", 1), ("D9Q7", 2)]):
             stem = f"{i:03d}_E9_SIS_B3_{code}_S2"
             g = c.export("SocP", "B3", "geom", f"E9_SIS_B3_SocP-geom.{stem}.analysis.h5", geom_xy("SocP", seed=seed))
             a = c.export("SocP", "B3", "animal", f"E9_SIS_B3_SocP-animal.{stem}.analysis.h5", animal_xy("SocP", seed))
             fmt = c.finish("SocP", "B3", code, "S2", c.locs("SocP", "B3", "geom", g), c.locs("SocP", "B3", "animal", a),
                            f"E9_SIS_B3_SocP-geom.{stem}.merged_locs.csv", f"{code}_S2.merged_locs_formatted.csv")
-            (sleap / "formatted" / fmt.name).write_bytes(fmt.read_bytes())
-            (sleap / f"B3_{code}_S2.analysis_locs.csv").write_bytes((sleap / f"E9_SIS_B3_SocP-geom.{stem}.merged_locs.csv").read_bytes())
+            (tdir / "formatted" / fmt.name).write_bytes(fmt.read_bytes())
+            (tdir / "merged" / f"B3_{code}_S2.analysis_locs.csv").write_bytes(
+                (tdir / "merged" / f"E9_SIS_B3_SocP-geom.{stem}.merged_locs.csv").read_bytes())
         side = "Code\tNovelLoc\nB3N2\tR\nD9Q7\tL\n"
-        (c.raw / "B3" / "SocP" / "novelLocS2.txt").write_text(side)
+        c.record("B3", "SocP", "novelLocS2.txt", side)
         (c.stage / "SocP" / "B3" / "S2" / "novelLocS2.txt").write_text(side)
         base = c.args("--batch", "B3", "--assay", "SocP", "--code", "D9Q7", "--phase", "S2", "--output-root", str(c.out),
                       "--accept-length")
@@ -903,15 +969,15 @@ class SocpB3Test(Stubs):
         c.export("SocP", "B3", "animal", "E9_SIS_B3_SocP-animal.020_E9_SIS_B3_D9Q7_S2.analysis.h5", animal_xy("SocP", 88))
         code, out = run_tool(base)
         self.assertEqual(code, 0, out)
-        self.assertIn(f"move        {sleap / 'formatted' / 'D9Q7_S2.merged_locs_formatted.csv'}", out)
+        self.assertIn(f"move        {tdir / 'formatted' / 'D9Q7_S2.merged_locs_formatted.csv'}", out)
         code, out = run_tool(base + ["--apply", "--skip-analysis"])
         self.assertEqual(code, 0, out)
-        self.assertEqual(sorted(p.name for p in (sleap / "formatted").glob("*.csv")), ["B3N2_S2.merged_locs_formatted.csv"])
-        self.assertEqual(sorted(p.name for p in (sleap / "formatted" / "old").iterdir()),
+        self.assertEqual(sorted(p.name for p in (tdir / "formatted").glob("*.csv")), ["B3N2_S2.merged_locs_formatted.csv"])
+        self.assertEqual(sorted(p.name for p in (tdir / "formatted" / "old").iterdir()),
                          ["D9Q7_S2.merged_locs_formatted.csv", "D9Q7_S2.merged_locs_formatted__2.csv"])
-        self.assertTrue((sleap / "E9_SIS_B3_SocP-geom.020_E9_SIS_B3_D9Q7_S2.merged_locs.csv").exists())   # follows the export
-        self.assertTrue((sleap / f"_superseded_{TODAY}" / "B3_D9Q7_S2.analysis_locs.csv").exists())
-        self.assertTrue((sleap / f"_superseded_{TODAY}" / "E9_SIS_B3_SocP-geom.001_E9_SIS_B3_D9Q7_S2.merged_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / "E9_SIS_B3_SocP-geom.020_E9_SIS_B3_D9Q7_S2.merged_locs.csv").exists())   # follows the export
+        self.assertTrue((tdir / "merged" / f"_superseded_{TODAY}" / "B3_D9Q7_S2.analysis_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / f"_superseded_{TODAY}" / "E9_SIS_B3_SocP-geom.001_E9_SIS_B3_D9Q7_S2.merged_locs.csv").exists())
 
 
 # --------------------------------------------------------------------------- #
@@ -921,7 +987,7 @@ class SocpB3Test(Stubs):
 class OftTest(Stubs):
     def build(self) -> Chain:
         c = Chain(self.tmp)
-        pred = c.raw / "B1" / "OFT" / "SLEAP" / "predictions"
+        pred = c.tracking / "B1" / "OFT" / "predictions"
         for code, clip, seed in [("A1L9", "GX010796", 1), ("X1H0", "GX010804", 2)]:
             g = c.export("OFT", "B1", "geom", f"OFT_edges.0_{clip}_cropped.analysis.h5", geom_xy("OFT", seed=seed), where=pred)
             a = c.export("OFT", "B1", "animal", f"E9_B1_{clip}.analysis.h5", animal_xy("OFT", seed), where=pred,
@@ -964,16 +1030,16 @@ class OftTest(Stubs):
     def test_b1_new_animal_export_with_the_corners_in_place(self) -> None:
         c = self.build()
         self.new_export(c)
-        g_before = tree_state(c.raw / "B1" / "OFT" / "SLEAP" / "geom")
+        g_before = tree_state(c.tracking / "B1" / "OFT" / "geom")
         all_before = tree_state(c.stage / "OFT" / "OFT_SLEAP_output_v1.2.0")
         code, out = run_tool(self.base(c, "--apply", "--baseline"))
         self.assertEqual(code, 0, out)
-        sleap, arch = c.raw / "B1" / "OFT" / "SLEAP", f"_superseded_{TODAY}"
-        self.assertEqual(tree_state(sleap / "geom"), g_before)                  # corners reused, not touched
-        self.assertTrue((sleap / "animal" / arch / "E9_B1_OFT_GX010804.analysis_locs.csv").exists())
-        self.assertEqual(pd.read_csv(sleap / "animal" / "E9_B1_OFT_GX010804.analysis_locs.csv").columns[18], "center_x")
-        self.assertTrue((sleap / "formatted" / "old" / "E9_B1_OFT_X1H0.merged_locs_formatted.csv").exists())
-        parts, _ = rr.read_dlc(sleap / "formatted" / "E9_B1_OFT_X1H0.merged_locs_formatted.csv")
+        tdir, arch = c.tracking / "B1" / "OFT", f"_superseded_{TODAY}"
+        self.assertEqual(tree_state(tdir / "geom"), g_before)                  # corners reused, not touched
+        self.assertTrue((tdir / "animal" / arch / "E9_B1_OFT_GX010804.analysis_locs.csv").exists())
+        self.assertEqual(pd.read_csv(tdir / "animal" / "E9_B1_OFT_GX010804.analysis_locs.csv").columns[18], "center_x")
+        self.assertTrue((tdir / "formatted" / "old" / "E9_B1_OFT_X1H0.merged_locs_formatted.csv").exists())
+        parts, _ = rr.read_dlc(tdir / "formatted" / "E9_B1_OFT_X1H0.merged_locs_formatted.csv")
         self.assertIn("bodycentre", parts)
         self.assertNotIn("center", parts)
         self.assertTrue((c.stage / "OFT" / arch / "B1" / "X1H0.csv").exists())
@@ -991,7 +1057,7 @@ class OftTest(Stubs):
 
     def test_an_export_saved_next_to_the_labels_file_is_listed(self) -> None:
         c = self.build()
-        projects = c.raw / "B1" / "OFT" / "SLEAP" / "SLEAP_projects"
+        projects = c.tracking / "B1" / "OFT" / "projects"
         write_h5(projects / "OFT_animals_b1.005_X1H0_GX010804.analysis.h5", animal_xy("OFT", 55), stored("OFT", "animal"))
         code, out = run_tool(c.args("--batch", "B1", "--assay", "OFT", "--code", "X1H0", "--clip", "GX010804", "--reuse-geom"))
         self.assertEqual(code, 0, out)
@@ -1082,8 +1148,8 @@ class OftB2Test(Stubs):
     def test_the_chain_in_place_is_reproduced_and_a_new_export_follows_the_batch_names(self) -> None:
         rr.CODE_STATUS = lambda sc, spec: ("same", "same code")
         c = self.build()
-        sleap = c.raw / "B2" / "OFT" / "SLEAP"
-        line = (sleap / "formatted" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").read_text().splitlines()[3]
+        tdir = c.tracking / "B2" / "OFT"
+        line = (tdir / "formatted" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").read_text().splitlines()[3]
         self.assertTrue(all(len(v.replace("-", "").replace(".", "").lstrip("0")) <= 10 for v in line.split(",")))
         base = c.args("--batch", "B2", "--assay", "OFT", "--code", "F9M6", "--accept-length")
         code, out = run_tool(base)
@@ -1095,11 +1161,11 @@ class OftB2Test(Stubs):
         c.export("OFT", "B2", "animal", "OFT-animal.000_E9_SIS_B2_F9M6.analysis.h5", animal_xy("OFT", 66))
         code, out = run_tool(base + ["--apply"])
         self.assertEqual(code, 0, out)
-        self.assertTrue((sleap / "OFT-geom.000_E9_SIS_B2_F9M6.merged_locs.csv").exists())
-        self.assertTrue((sleap / f"_superseded_{TODAY}" / "E9_SIS_B2_F9M6.merged_locs.csv").exists())
-        self.assertTrue((sleap / "formatted" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").exists())
-        self.assertTrue((sleap / "formatted" / "old" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").exists())
-        self.assertEqual(pd.read_csv(sleap / "animal" / "OFT-animal.000_E9_SIS_B2_F9M6.analysis_locs.csv").columns[18], "center_x")
+        self.assertTrue((tdir / "merged" / "OFT-geom.000_E9_SIS_B2_F9M6.merged_locs.csv").exists())
+        self.assertTrue((tdir / "merged" / f"_superseded_{TODAY}" / "E9_SIS_B2_F9M6.merged_locs.csv").exists())
+        self.assertTrue((tdir / "formatted" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").exists())
+        self.assertTrue((tdir / "formatted" / "old" / "E9_SIS_B2_F9M6.merged_locs_formatted.csv").exists())
+        self.assertEqual(pd.read_csv(tdir / "animal" / "OFT-animal.000_E9_SIS_B2_F9M6.analysis_locs.csv").columns[18], "center_x")
         self.assertIn("animals whose rows changed: ['F9M6']", out)
         state = tree_state(self.tmp)
         code, out = run_tool(base + ["--apply"])
@@ -1128,10 +1194,10 @@ class NorTest(Stubs):
         self.assertIn("then      back up", out)
         code, out = run_tool(args + ["--apply"])
         self.assertEqual(code, 0, out)
-        sleap = c.raw / "B5" / "NOR" / "SLEAP"
-        self.assertTrue((sleap / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOV.analysis_locs.csv").exists())
-        self.assertTrue((sleap / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOV.analysis_locs.csv").exists())
-        self.assertTrue((sleap / "formatted" / "H1E2_NOV.merged_locs_formatted.csv").exists())
+        tdir = c.tracking / "B5" / "NOR"
+        self.assertTrue((tdir / "geom" / "E9_B5_NOR-geom.005_E9_B5_H1E2_NOV.analysis_locs.csv").exists())
+        self.assertTrue((tdir / "animal" / "E9_B5_NOR-animal.005_E9_B5_H1E2_NOV.analysis_locs.csv").exists())
+        self.assertTrue((tdir / "formatted" / "H1E2_NOV.merged_locs_formatted.csv").exists())
         self.assertTrue((c.stage / "NOR" / "B5" / "H1E2_NOV.csv").exists())
         self.assertEqual(len(self.scorer.calls), 1)
         self.assertIn("batches: [B5]", self.scorer.calls[0])
@@ -1160,13 +1226,13 @@ class LayoutTest(unittest.TestCase):
     def test_merged_names_follow_the_new_export_only_where_the_batch_names_them_after_it(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             lay = rr.Layout("EPM", "B6", "R8I2", "", None, Path(tmp), Path(tmp) / "s")
-            lay.sleap.mkdir(parents=True)
-            (lay.sleap / "E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.merged_locs.csv").write_text("x")
+            lay.merged_dir.mkdir(parents=True)
+            (lay.merged_dir / "E9_B6_EPM-geom.013_E9_B6_R8I2_EPM.merged_locs.csv").write_text("x")
             self.assertEqual(lay.merged_target("E9_B6_EPM-geom.019_E9_B6_R8I2_EPM").name,
                              "E9_B6_EPM-geom.019_E9_B6_R8I2_EPM.merged_locs.csv")
             lay = rr.Layout("SocP", "B4", "I4O9", "S2", None, Path(tmp), Path(tmp) / "s")
-            lay.sleap.mkdir(parents=True)
-            (lay.sleap / "B4_I4O9_S2.analysis_locs.csv").write_text("x")
+            lay.merged_dir.mkdir(parents=True)
+            (lay.merged_dir / "B4_I4O9_S2.analysis_locs.csv").write_text("x")
             self.assertEqual(lay.merged_target("E9_B4_SocP-geom_2.007_E9_SIS_B4_I4O9_S2").name, "B4_I4O9_S2.analysis_locs.csv")
 
     def test_install_names_carry_the_recording(self) -> None:

@@ -3,7 +3,8 @@
 #
 # Stages the SLEAP tracking exports for B1-B6 x {EPM, NOR, SocP, OFT} into a
 # canonical layout the pipeline can consume without per-batch surprises.
-# Reads Raw Data/ only; nothing there is modified.
+# Reads the formatted/ tracking of each test under the tracking root and the
+# novelLoc sheets under the records root (exp9_paths.R); nothing there is modified.
 #
 # Staging lives OUTSIDE the iCloud project folder: it is ~6 GB of regenerable
 # intermediate data and does not belong in a synced directory. Only pipeline
@@ -38,6 +39,7 @@
 #   OFT      STAGE/OFT/<batch>/<CODE>.csv
 #
 # Environment:
+#   EXP9_TRACKING_ROOT, EXP9_RECORDS_ROOT  where the tracking and the records are (exp9_paths.R)
 #   EXP9_STAGING     staging root (default C:/Users/topohl/Documents/exp9_sleap_staging)
 #   EXP9_AUDIT_DIR   where staging_report.csv goes (default the project's results/)
 #   EXP9_STAGE_PLAN  a csv path: list what would be staged (staged file, source file, size) and stop,
@@ -49,7 +51,12 @@ suppressMessages({
   library(data.table)
 })
 
-RAW   <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior"
+SCRIPTS <- local({
+  a <- commandArgs(trailingOnly = FALSE)
+  p <- sub("^--file=", "", a[grep("^--file=", a)])
+  normalizePath(if (length(p)) dirname(p[[1]]) else ".", winslash = "/")
+})
+source(file.path(SCRIPTS, "exp9_paths.R"))   # TRACKING_ROOT, RECORDS_ROOT, tracking_dir(), records_dir()
 PLAN  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning"
 PROJ  <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
 STAGE <- Sys.getenv("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
@@ -57,10 +64,7 @@ RES   <- Sys.getenv("EXP9_AUDIT_DIR", file.path(PROJ, "results"))
 PLAN_CSV <- Sys.getenv("EXP9_STAGE_PLAN", "")
 PLAN_ONLY <- nzchar(PLAN_CSV)
 BATCHES <- paste0("B", 1:6)
-
-# Where the tracking of one test is (formatted/ lives there) and where its records are (novelLoc sheets).
-tracking_dir <- function(b, assay) file.path(RAW, b, assay, "SLEAP")
-records_dir  <- function(b, assay) file.path(RAW, b, assay)
+if (!dir.exists(TRACKING_ROOT)) stop("tracking root not found: ", TRACKING_ROOT, " (set EXP9_TRACKING_ROOT)")
 
 if (!PLAN_ONLY) {
   dir.create(STAGE, showWarnings = FALSE, recursive = TRUE)

@@ -13,7 +13,23 @@ import pandas as pd
 MODULE_DIR = Path(__file__).resolve().parents[1] / "01_SLEAPcoords"
 sys.path.insert(0, str(MODULE_DIR))
 
+import exp9_paths  # noqa: E402
 import sleap_dataform as sd  # noqa: E402
+
+
+class RootAndOutputPathTest(unittest.TestCase):
+    """The tracking root holds <batch>/<assay>/; only SocP puts its phases in subfolders of formatted/."""
+
+    def test_the_default_root_is_the_tracking_root(self) -> None:
+        self.assertEqual(sd.BEHAVIOR_ROOT, exp9_paths.TRACKING_ROOT)
+        self.assertEqual(exp9_paths.tracking_dir("B5", "NOR", Path("T")), Path("T") / "B5" / "NOR")
+        self.assertEqual(exp9_paths.records_dir("B2", "SocP", Path("R")), Path("R") / "B2" / "SocP")
+
+    def test_socp_in_phase_folders_nor_and_unphased_flat(self) -> None:
+        f = Path("formatted")
+        self.assertEqual(sd.output_path(f, "G6K2", "S2", "SocP"), f / "S2" / "G6K2_S2.merged_locs_formatted.csv")
+        self.assertEqual(sd.output_path(f, "H1E2", "NOV", "NOR"), f / "H1E2_NOV.merged_locs_formatted.csv")
+        self.assertEqual(sd.output_path(f, "R8I2", "", "EPM"), f / "R8I2.merged_locs_formatted.csv")
 
 
 class ProcessOneTest(unittest.TestCase):
@@ -58,7 +74,7 @@ class CodeFilterTest(unittest.TestCase):
     def make_tree(self, root: Path) -> None:
         for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
                           ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
-            d = root / "B5" / "NOR" / "SLEAP" / sub
+            d = root / "B5" / "NOR" / sub
             d.mkdir(parents=True)
             for name in ("H1E2_NOV", "H1E2_HAB", "F8O9_NOR", "F8O9_NOV"):     # F8O9_NOR is the legacy label
                 pd.DataFrame(cols).to_csv(d / f"E9_B5_NOR-{sub}.000_E9_B5_{name}.analysis_locs.csv", index=False)
@@ -75,7 +91,8 @@ class CodeFilterTest(unittest.TestCase):
             self.make_tree(root)
             report = sd.run("B5", "NOR", root=root, code="H1E2", verbose=False)
             self.assertEqual(sorted(zip(report.code, report.phase)), [("H1E2", "HAB"), ("H1E2", "NOV")])
-            out = sorted(p.name for p in (root / "B5" / "NOR" / "SLEAP" / "formatted").rglob("*.csv"))
+            fmt = root / "B5" / "NOR" / "formatted"
+            out = sorted(p.relative_to(fmt).as_posix() for p in fmt.rglob("*.csv"))     # flat: no phase folders
             self.assertEqual(out, ["H1E2_HAB.merged_locs_formatted.csv", "H1E2_NOV.merged_locs_formatted.csv"])
 
     def test_unknown_code_is_a_clear_error(self) -> None:
@@ -84,6 +101,30 @@ class CodeFilterTest(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 sd.run("B5", "NOR", root=Path(tmp), code="ZZZZ", verbose=False)
             self.assertIn("ZZZZ", str(ctx.exception))
+
+
+class SocpRunTest(unittest.TestCase):
+    """SocP is written into formatted/<PHASE>/; --keep-merged writes into merged_debug/, never into the chain's
+    merged/."""
+
+    def test_phase_folders_and_kept_merged_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
+                              ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
+                d = root / "B2" / "SocP" / sub
+                d.mkdir(parents=True)
+                for i, ph in enumerate(("S1", "S2")):
+                    pd.DataFrame({k: [v + 50 * i for v in vs] for k, vs in cols.items()}).to_csv(
+                        d / f"SocP-{sub}-charge4.00{i}_E9_SIS_B2_G6K2_{ph}.analysis_locs.csv", index=False)
+            sd.run("B2", "SocP", root=root, keep_merged=True, verbose=False)
+            test_dir = root / "B2" / "SocP"
+            self.assertEqual(sorted(p.relative_to(test_dir).as_posix() for p in test_dir.rglob("*.csv")
+                                    if p.parent.name not in ("geom", "animal")),
+                             ["formatted/S1/G6K2_S1.merged_locs_formatted.csv",
+                              "formatted/S2/G6K2_S2.merged_locs_formatted.csv",
+                              "merged_debug/G6K2_S1.merged.csv", "merged_debug/G6K2_S2.merged.csv"])
+            self.assertFalse((test_dir / "merged").exists())
 
 
 class FormatMergedTest(unittest.TestCase):

@@ -7,7 +7,7 @@
 # scored video for your object size and camera before results are published."
 #
 # The scaled analysis used the shipped example values (4 cm, [70, 290]). Prior
-# work in Raw Data/.../NOR/SLEAP/output_angle/ swept 5 cm, 6 cm, 70-270 and
+# work (output_angle/ in the NOR tracking folder) swept 5 cm, 6 cm, 70-270 and
 # 80-280, so the choice was already suspected to matter.
 #
 # Batch 1 is the only batch with manual NOR scoring, so this is the only place

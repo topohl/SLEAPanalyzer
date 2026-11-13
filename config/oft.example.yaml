@@ -13,20 +13,20 @@
 # Paths are composed as behavior_root/<batch>/<input_subdir>, and likewise for
 # the output, so both live under the same root.
 #
-# WARNING: as shipped, behavior_root points at the real data tree, so running
-# this file unedited WRITES OUTPUT INTO Raw Data/ -- and overwrite_outputs is
-# TRUE, so it replaces any previous run in place. Copy this file and repoint
-# behavior_root before running it. Unlike the other assays there is no separate
+# behavior_root has no default and the paths below are placeholders. Because
+# the output is written under behavior_root, and overwrite_outputs is TRUE so a
+# previous run is replaced in place, point it at a working copy of the
+# tracking, never at the raw data. Unlike the other assays there is no separate
 # output_dir to redirect: input and output share behavior_root.
 #
 # Interpretation note: OFT measurements form a behavioural profile. Reduced
 # centre occupancy is not by itself a measurement of anxiety, and must be read
 # together with locomotion and immobility.
 
-behavior_root: S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior
-input_subdir: OFT/SLEAP/formatted
-output_subdir: OFT/SLEAP/output_v1.2.0
-animal_id_code_file: S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning/animalIDCode.txt
+behavior_root: /path/to/oft_working_copy
+input_subdir: OFT/formatted
+output_subdir: OFT/output_v1.2.0
+animal_id_code_file: /path/to/animalIDCode.txt
 batches: [B1]
 
 fps: 30
