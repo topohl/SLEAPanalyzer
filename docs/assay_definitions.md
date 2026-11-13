@@ -139,7 +139,11 @@ an assay applies it with `landmark_repair: true` (so far SocP).
    frame, at its typical position in their frame of reference (fitted on the
    recording's own trusted frames). The pair with the smallest error is used
    first; pairs whose 95th-percentile error on trusted frames exceeds
-   `landmark_repair_max_anchor_error_cm` are never used.
+   `landmark_repair_max_anchor_error_cm` are never used (Exp9: 2.5 cm, about
+   a head length and a half; the best nose pair stays under 2.2 cm in all
+   348 recordings, so the limit only rejects a failed fit. It was 2 cm until
+   2026-11-13, when M2L3 phase 1 sat on that edge: 1.995 cm over its whole
+   clip, 2.034 cm without its left-out end).
 3. **Bridge.** Bounded interpolation then fills short gaps that remain.
 
 A rebuilt coordinate has the frame status `reconstructed`: it counts as valid

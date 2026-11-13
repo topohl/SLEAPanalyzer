@@ -80,7 +80,10 @@ landmark_repair_margin_cm: 3
 landmark_repair_margin_fraction: 0.6
 landmark_repair_min_share: 0.5
 landmark_repair_min_landmarks: 4
-landmark_repair_max_anchor_error_cm: 2
+# Raised from 2 to 2.5 cm on 2026-11-13: the best nose pair stays under 2.2 cm in all 348
+# recordings, so the limit only rejects a failed fit; at 2 cm M2L3 phase 1 sat on the edge
+# (1.995 cm whole, 2.034 cm with its leave-out). See "Landmark repair" in docs/assay_definitions.md.
+landmark_repair_max_anchor_error_cm: 2.5
 landmark_repair_outside_cm: 15
 
 min_bout_s: 0.0
