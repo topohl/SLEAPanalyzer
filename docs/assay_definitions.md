@@ -95,7 +95,12 @@ Left-out windows (SocP, EPM). A `qc_decisions_file` row with decision
 lid lifted for the next phase, the mouse off the maze, hands in the arena).
 `apply_leave_out()` removes its frames right after reading, so every measure,
 and the time it is a share of, covers the rest only; `leftOutS` reports the
-time removed. Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
+time removed. The recording-wide references (repair anchor models, median head
+length and body size) are then computed without those frames too, which can
+move a recording across a fixed limit: in Exp9 SocP, M2L3 phase 1's best nose
+model has a 95th-percentile error of 1.995 cm over the whole clip and 2.034 cm
+without its last 24.6 s, so its nose is no longer rebuilt (8.5 s), and its
+stranger contact falls by 6.8 s, of which 0.5 s lay in the window. Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
 window seen in a 29.97 frames/s video is converted from its frame numbers. A
 window inside a recording joins the frames either side of it: distance gains
 the one step between them.
