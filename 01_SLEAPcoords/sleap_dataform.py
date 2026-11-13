@@ -24,11 +24,13 @@ Two design notes, both learned the hard way:
   never appears on a local disk. The intermediates have no downstream
   consumer, so they are not written unless ``--keep-merged`` asks for them.
 
-* Output filenames match the existing corpus exactly, including the legacy
-  ``.merged_locs`` infix. Renaming them created a *parallel* set of 57 files
-  beside the originals, which the overwrite guard could not see (nothing it
-  planned existed yet) and which would have left the downstream staging glob
-  picking up both.
+* Output filenames are the one name of every batch,
+  ``<CODE>[_<PHASE>].merged_locs_formatted.csv`` (the merged csv files in
+  merged/ are ``<CODE>[_<PHASE>].merged_locs.csv``), with the code spelled as
+  08_stage_all_batches.R stages it. A re-run writes over the file in place;
+  any other name would start a *parallel* file beside it, which the overwrite
+  guard cannot see (nothing it planned exists yet) and which the downstream
+  staging would pick up as a second file of the animal.
 """
 
 from __future__ import annotations
@@ -70,9 +72,26 @@ PHASES: dict[str, tuple[str, ...]] = {
 #: them.
 PHASE_FOLDERS = ("SocP",)
 
-#: Legacy infix in the existing formatted filenames. Kept so re-running
-#: overwrites in place rather than creating a second set of files.
+#: Infix of the merged and formatted file names (``<CODE>.merged_locs.csv``,
+#: ``<CODE>.merged_locs_formatted.csv``), kept from the first corpus.
 NAME_INFIX = ".merged_locs"
+
+#: Phase labels some exports carry instead of the phase: five B5 animals
+#: (F8O9, H1E2, M2L3, M7X3, Q3B3) end their novel-object export ``_NOR``.
+LEGACY_PHASES = {"NOR": "NOV"}
+
+#: Export names that misspell the animal code (B1 EPM ``..._M8P1``, B1 NOR
+#: ``R803_...``, B2 SocP ``..._O6O6_<PH>``, B4 SocP ``..._B7C2_S2``). The
+#: formatted file takes the code as staging resolves it.
+MISSPELT = {"M8P1": "M8P3", "R803": "R8O3", "O6O6": "Q6Q6", "B7C2": "B7C9"}
+
+#: The GoPro clip batch 1 puts between code and phase (SocP ``A1L9_GX0786_S1``,
+#: NOR ``A1L9_GX010405_NOV``).
+CLIP = r"(?:_GX\d+)?"
+
+#: The number a video name may end in after the phase or code (the 2026-11-12
+#: re-tracks ``G6K2_S1_1``, B4 NOR ``B4Y7_NOV_1``, B2 EPM ``T4W6_1``).
+SUFFIX = r"(?:_\d+)?"
 
 #: CRLF matches the existing corpus, so re-running reproduces those files
 #: byte-for-byte rather than differing only by line ending. R's read.csv and
@@ -102,44 +121,76 @@ def parse_key(filename: str, phases: tuple[str, ...]) -> tuple[str, str]:
     ``B6_A3R3_S1.merged_locs`` yields ``"locs"`` -- so every output went to the
     same name and overwrote the last. Counting underscores breaks the moment
     the export prefix changes, and it fails silently. This raises instead.
+
+    Batch 1's clip may stand between code and phase (``A1L9_GX010405_NOV``),
+    a number may follow the phase or code (``G6K2_S1_1``), ``_NOR`` stands for
+    ``NOV`` where NOV is a phase (``LEGACY_PHASES``), and a misspelt code is
+    returned as staging spells it (``MISSPELT``).
     """
+    code, phase, _ = read_key(filename, phases)
+    return code, phase
+
+
+def labels_of(phases: tuple[str, ...]) -> list[str]:
+    """The phase labels a file name may carry: the phases and their legacy labels."""
+    return list(phases) + [old for old, new in LEGACY_PHASES.items() if new in phases and old not in phases]
+
+
+def read_key(filename: str, phases: tuple[str, ...]) -> tuple[str, str, bool]:
+    """``(code, phase, legacy)`` of a file name, *legacy* when the phase came from a legacy label (``_NOR``)."""
     stem = Path(filename).name
     if phases:
-        pattern = r"_([A-Z0-9]{4})_(" + "|".join(phases) + r")\."
+        pattern = r"(?<![A-Za-z0-9])([A-Z0-9]{4})" + CLIP + r"_(" + "|".join(labels_of(phases)) + r")" + SUFFIX + r"\."
         hits = re.findall(pattern, stem)
         if len(hits) != 1:
             raise ValueError(
                 f"expected exactly one <CODE>_<PHASE> in {stem!r}, "
                 f"found {len(hits)}: {hits}"
             )
-        return hits[0]
-    hits = re.findall(r"_([A-Z0-9]{4})\.", stem)
+        code, label = hits[0]
+        legacy = label not in phases
+        return MISSPELT.get(code, code), LEGACY_PHASES[label] if legacy else label, legacy
+    hits = re.findall(r"(?<![A-Za-z0-9])([A-Z0-9]{4})" + SUFFIX + r"\.", stem)
     if len(hits) != 1:
         raise ValueError(
             f"expected exactly one <CODE> in {stem!r}, found {len(hits)}: {hits}"
         )
-    return (hits[0], "")
+    return MISSPELT.get(hits[0], hits[0]), "", False
 
 
-def index_folder(folder: Path, phases: tuple[str, ...], code: str | None = None) -> dict[tuple[str, str], Path]:
+def index_folder(folder: Path, phases: tuple[str, ...], code: str | None = None,
+                 notes: list[str] | None = None) -> dict[tuple[str, str], Path]:
     """Map ``(code, phase)`` to path for every CSV in *folder*, refusing duplicates.
 
     With *code*, only that animal's files are looked at -- the others are not even parsed. That is how one re-tracked
-    recording is re-formatted in a folder (B5 NOR) whose other files carry the legacy ``_NOR`` phase label that
-    ``parse_key`` rejects.
+    recording is re-formatted in a folder where another animal's file name does not parse.
+
+    A file with the legacy label (``_NOR``) beside one with the phase itself (``_NOV``, B5 H1E2 after its re-track)
+    is set aside and listed in *notes*; two files of one key otherwise stop it.
     """
     out: dict[tuple[str, str], Path] = {}
+    legacy: dict[tuple[str, str], bool] = {}
+    if code is not None:
+        spelt = "|".join(re.escape(s) for s in [code] + [k for k, v in MISSPELT.items() if v == code])
+        mine = (rf"(?<![A-Za-z0-9])(?:{spelt}){CLIP}_(?:{'|'.join(labels_of(phases))}){SUFFIX}\." if phases
+                else rf"(?<![A-Za-z0-9])(?:{spelt}){SUFFIX}\.")
     for path in sorted(folder.glob("*.csv")):
-        if code is not None and not (phases and re.search(rf"_{re.escape(code)}_(?:{'|'.join(phases)})\.", path.name)
-                                     or not phases and re.search(rf"_{re.escape(code)}\.", path.name)):
+        if code is not None and not re.search(mine, path.name):
             continue
-        key = parse_key(path.name, phases)
-        if key in out:
+        c, ph, old = read_key(path.name, phases)
+        key = (c, ph)
+        if key in out and old != legacy[key]:
+            aside, used = (path, out[key]) if old else (out[key], path)
+            if notes is not None:
+                notes.append(f"{aside.name} not used (legacy label): {used.name} is the {key[1]} trial of {key[0]}")
+            if old:
+                continue
+        elif key in out:
             raise ValueError(
                 f"two files map to {key} in {folder.name}:\n"
                 f"  {out[key].name}\n  {path.name}"
             )
-        out[key] = path
+        out[key], legacy[key] = path, old
     return out
 
 
@@ -147,14 +198,23 @@ def stem_for(code: str, phase: str) -> str:
     return f"{code}_{phase}" if phase else code
 
 
+def merged_name(code: str, phase: str = "") -> str:
+    """The merged csv of one recording, in merged/ of every batch: ``<CODE>[_<PHASE>].merged_locs.csv``."""
+    return f"{stem_for(code, phase)}{NAME_INFIX}.csv"
+
+
+def formatted_name(code: str, phase: str = "") -> str:
+    """The formatted csv of one recording, in every batch: ``<CODE>[_<PHASE>].merged_locs_formatted.csv``."""
+    return f"{stem_for(code, phase)}{NAME_INFIX}_formatted.csv"
+
+
 def output_path(formatted_root: Path, code: str, phase: str, assay: str) -> Path:
     """Where the formatted CSV for one recording belongs.
 
-    Matches the existing corpus exactly: ``<CODE>_<PHASE>.merged_locs_formatted.csv``
-    inside ``formatted/<PHASE>/`` for SocP (``PHASE_FOLDERS``), flat in
-    ``formatted/`` for NOR and the unphased assays.
+    ``formatted_name`` inside ``formatted/<PHASE>/`` for SocP (``PHASE_FOLDERS``),
+    flat in ``formatted/`` for NOR and the unphased assays.
     """
-    name = f"{stem_for(code, phase)}{NAME_INFIX}_formatted.csv"
+    name = formatted_name(code, phase)
     if phase and assay in PHASE_FOLDERS:
         return formatted_root / phase / name
     return formatted_root / name
@@ -360,8 +420,11 @@ def run(batch: str, assay: str, *, root: Path = BEHAVIOR_ROOT,
     say(f"  phases : {phases or '(none)'}")
     say(f"  output : {formatted_root}")
 
-    animal_idx = index_folder(animal, phases, code)
-    geom_idx = index_folder(geom, phases, code)
+    aside: list[str] = []
+    animal_idx = index_folder(animal, phases, code, aside)
+    geom_idx = index_folder(geom, phases, code, aside)
+    for n in aside:
+        say(f"  note: {n}")
     only_animal = sorted(set(animal_idx) - set(geom_idx))
     only_geom = sorted(set(geom_idx) - set(animal_idx))
     paired = sorted(set(animal_idx) & set(geom_idx))

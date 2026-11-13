@@ -1,10 +1,11 @@
 """Where the Exp9 tracking and the behaviour records are.
 
 TRACKING_ROOT  ``<EXP>/Analysis/Behavior/SLEAP``: the SLEAP tracking chain, one folder per test,
-               ``<batch>/<assay>/`` with projects/, predictions/, models/, geom/, animal/, merged/ (merged csv files
-               and their ``_superseded_<date>/`` archives), formatted/ (SocP: formatted/<HAB|S1|S2>/), old/ and notes.
-               B1/NOR has NOR_NOV_tracking/ instead of geom/ and animal/. Beside the batch folders: qc/ (QC
-               material) and old/ (2022-23 training material), which are not batches (batch loops list B1-B6).
+               ``<batch>/<assay>/`` with projects/, predictions/, models/, geom/, animal/ (exports and their locs
+               files), merged/ (``<CODE>[_<PHASE>].merged_locs.csv`` and their ``_superseded_<date>/`` archives),
+               formatted/ (``<CODE>[_<PHASE>].merged_locs_formatted.csv``; SocP in formatted/<HAB|S1|S2>/), old/ and
+               notes. Beside the batch folders: qc/ (QC material) and old/ (2022-23 training material), which are
+               not batches (batch loops list B1-B6).
 RECORDS_ROOT   ``<EXP>/Raw Data/Behavior``: the records of each test, ``<batch>/<assay>/`` (novelLoc.txt for NOR,
                novelLocHAB/S1/S2.txt for SocP, run sheets, BORIS/, TSE/).
 

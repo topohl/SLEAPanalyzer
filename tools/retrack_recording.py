@@ -20,7 +20,7 @@ EPM (one trial per animal, no --phase; staged with the neck alias)
     python tools/retrack_recording.py --batch B6 --assay EPM --code R8I2
     python tools/retrack_recording.py --batch B6 --assay EPM --code R8I2 --apply --baseline
 
-OFT (batch 1 names its tracking files by GoPro clip, so B1 needs --clip; --reuse-geom keeps the corners already tracked)
+OFT (batch 1 names its locs files by GoPro clip, so B1 needs --clip; --reuse-geom keeps the corners already tracked)
     python tools/retrack_recording.py --batch B1 --assay OFT --code X1H0 --clip GX010804 --reuse-geom
     python tools/retrack_recording.py --batch B1 --assay OFT --code X1H0 --clip GX010804 --reuse-geom --apply --baseline
 
@@ -28,12 +28,17 @@ SocP (--phase HAB, S1 or S2; HAB is scored with socp_hab_all.yaml, S1 and S2 wit
     python tools/retrack_recording.py --batch B2 --assay SocP --code G6K2 --phase S2
     python tools/retrack_recording.py --batch B2 --assay SocP --code G6K2 --phase S2 --apply --baseline
 
-NOR, as before: reads the ONE ``*_<CODE>_<PHASE>.analysis.h5`` in geom/ and animal/ (names containing ``_old`` are
-ignored; two matches stop it), writes ``..._<CODE>_<PHASE>.analysis_locs.csv`` next to them (``--static-landmark`` holds
-a hand-labelled static object at its first labelled position), installs ``formatted/<CODE>_<PHASE>.merged_locs_formatted.csv``
-(``sleap_dataform.process_one``; a legacy-labelled file of the same animal such as ``H1E2_NOR...`` moves to formatted/old/),
-copies it to ``<config input_dir>/<batch>/<CODE>_<PHASE>.csv``, backs up the batch's output, runs
-``DLCA_NOR v1.2.1.R`` for that batch only and reports which animals' rows changed (all others must be identical).
+NOR: reads the ONE ``*_<CODE>_<PHASE>*.analysis.h5`` in geom/ and animal/ (batch 1 has the clip between code and
+phase, ``A1L9_GX010405_NOV``; for NOV, B5's legacy ``_NOR`` label counts when no export says ``_NOV``; names containing
+``_old`` are ignored; two matches stop it), writes the locs csv next to them (geom: ``<h5 stem>_locs.csv``;
+``--static-landmark`` holds a hand-labelled static object at its first labelled position), installs
+``merged/<CODE>_<PHASE>.merged_locs.csv`` (a replaced one, and any other merged file of the trial, moves to
+merged/_superseded_<date>/) and ``formatted/<CODE>_<PHASE>.merged_locs_formatted.csv`` (``sleap_dataform.format_merged``,
+as for the other tests; any other file staging would take for the same trial of the animal moves to formatted/old/),
+copies it to ``<config input_dir>/<batch>/<CODE>_<PHASE>.csv`` (config: nor_all.yaml, for HAB nor_hab_all.yaml), backs
+up the batch's output, runs ``DLCA_NOR v1.2.1.R`` for that batch only and reports which animals' rows changed (all
+others must be identical). B5 H1E2 NOV and B1 F9L3 NOV were formatted in memory (2026-10-19, 2026-11-03) and differ
+from this route in the last digit (at most 6e-14 px), so the first run on either replaces its formatted and staged file.
 
 EPM, OFT and SocP:
   * Where the new export goes. Put the arena (geom) and animal exports in
@@ -50,19 +55,20 @@ EPM, OFT and SocP:
     ``.analysis.h5`` and ``_locs.csv`` files move to ``_superseded_<date>/``; other files of the recording stay.
   * Checks, whenever the staged file would change: the stored node names and a single track
     (``sleap_h5.check_export``); a new export's file name and stored video_path name the animal (SocP with the phase;
-    OFT B1 the clip) and no other animal (``--accept-name`` overrides); OFT B1: the merged file of ``--clip`` formats
-    to the animal's formatted file, so the clip is its own (``--accept-clip``); the length against the protocol
+    OFT B1 the clip) and no other animal (``--accept-name`` overrides); OFT B1: the locs files of ``--clip`` merge to
+    the animal's merged file, so the clip is its own (``--accept-clip``); the length against the protocol
     (light-check rule: 5 min EPM, 10 min OFT and SocP, within 2 s at 29.97 frames/s; ``--accept-length``); geom and
     animal of equal length; the same trial twice as 31_light_checks.R finds it: a byte copy of any staged file of the
     assay, or the body centre within 0.15 cm of any staged file of the assay and batch (every animal and phase) at an
     offset of up to 60 s (``--accept-duplicate``). Reported without stopping: the arena's side ratio (SocP, OFT), the
     arm width through the 60 cm calibration (EPM), how far the arena points moved against the animal's other phases.
-  * Files written: the locs csv next to each h5 (``sleap_h5.extract_locs`` with the batch's labels), the merged csv in
-    merged/ (a replaced one moves to merged/_superseded_<date>/) and the formatted csv (``sleap_dataform.format_merged``:
-    the route that reproduces the existing files byte for byte; OFT B1/B2 at 10 significant digits, as written in
-    2023), both under the names this animal already has;
-    every other formatted file that staging would take for the animal moves to formatted/old/ (SocP:
-    formatted/old/<PH>_old/ where it exists, and the flat copy in formatted/ of B3/B5 to formatted/old/). The staged
+  * Files written: the locs csv next to each h5 (``sleap_h5.extract_locs`` with the batch's labels; OFT B1 keeps its
+    ``E9_B1_OFT_<clip>.analysis_locs.csv`` names), the merged csv ``merged/<CODE>[_<PH>].merged_locs.csv`` (a replaced
+    one moves to merged/_superseded_<date>/) and the formatted csv ``formatted/[<PH>/]<CODE>[_<PH>].merged_locs_formatted.csv``
+    (``sleap_dataform.format_merged``: the route that reproduces the existing files byte for byte; OFT B1/B2 at 10
+    significant digits, as written in 2023), one name in every batch; any other formatted file that staging would take
+    for the animal moves to formatted/old/ (SocP: formatted/old/<PH>_old/ where it exists; a copy directly in
+    formatted/ beside formatted/<PH>/ goes to formatted/old/). The staged
     copy is written as ``08_stage_all_batches.R`` writes it (EPM: with the neck alias, by 08's own ``copy_with_neck``
     through Rscript; ``--apply`` without Rscript needs ``--python-neck-copy``). SocP: the side file
     ``novelLoc<phase>.txt`` must already list the animal; it is checked, not changed.
@@ -95,6 +101,7 @@ import argparse
 import csv
 import datetime as dt
 import hashlib
+import itertools
 import os
 import re
 import shutil
@@ -115,7 +122,7 @@ import sleap_dataform as sd  # noqa: E402
 import sleap_h5 as sh  # noqa: E402
 
 CONFIG_DIR = REPO / "validation" / "exp9_boris" / "config"
-DEFAULT_CONFIG = CONFIG_DIR / "nor_all.yaml"
+NOR_CONFIGS = {"NOV": "nor_all.yaml", "HAB": "nor_hab_all.yaml"}   # 08 stages habituation to NOR_HAB/
 NOR_SCRIPT = REPO / "02_SLEAPanalzyer" / "DLCA_NOR v1.2.1.R"
 STAGE_SCRIPT = Path("validation") / "exp9_boris" / "scripts" / "08_stage_all_batches.R"
 LIGHT_CHECKS = REPO / "validation" / "exp9_boris" / "scripts" / "31_light_checks.R"
@@ -162,14 +169,26 @@ def text_value(text: str, key: str, label: str = "config", required: bool = True
     return m.group(1).strip("'\"")
 
 
-def one_h5(folder: Path, code: str, phase: str, explicit: Path | None) -> Path:
+def one_h5(folder: Path, code: str, phase: str, explicit: Path | None, codes: list[str] = ()) -> Path:
+    """The ONE NOR export of *code* and *phase* in *folder* (names with ``_old`` ignored). The code may be followed by
+    batch 1's clip (``A1L9_GX010405_NOV``); for NOV, the legacy ``_NOR`` label (B5) is read when no export says ``_NOV``
+    (B5 H1E2 has both since its re-track: the ``_NOV`` one is used)."""
     if explicit:
         return explicit
-    hits = sorted(p for p in folder.glob(f"*_{code}_{phase}.analysis.h5") if "_old" not in p.name)
-    if len(hits) != 1:
-        raise SystemExit(f"expected exactly one *_{code}_{phase}.analysis.h5 in {folder}, found {[p.name for p in hits]}; "
+    labels = [phase] + [old for old, new in sd.LEGACY_PHASES.items() if new == phase]
+    hits = {}
+    for label in labels:
+        pat = re.compile(rf"(?<![A-Za-z0-9]){spelt(code, codes)}{sd.CLIP}_{label}(?![A-Za-z0-9])")
+        hits[label] = sorted(p for p in folder.glob("*.analysis.h5") if "_old" not in p.name and pat.search(p.name))
+    use = next((h for h in hits.values() if h), [])
+    if len(use) != 1:
+        names = " or ".join(f"*_{code}[_GX<clip>]_{label}*.analysis.h5" for label in labels)
+        raise SystemExit(f"expected exactly one {names} in {folder}, found {[p.name for p in use]}; "
                          "name it with --geom-h5 / --animal-h5")
-    return hits[0]
+    for label, h in hits.items():
+        if h and h is not use:
+            print(f"  note      not used: {', '.join(p.name for p in h)} (legacy _{label} label; {use[0].name} says _{phase})")
+    return use[0]
 
 
 def check_tracking(test_dir: Path) -> None:
@@ -182,7 +201,7 @@ def check_tracking(test_dir: Path) -> None:
         raise SystemExit(f"{test_dir} keeps its tracking in SLEAP/, the layout before the move: point --tracking-root at "
                          f"the folder whose <batch>/<assay>/ holds geom/ and animal/ (default {ep.TRACKING_ROOT})")
     if not ((test_dir / "geom").is_dir() and (test_dir / "animal").is_dir()):
-        why = ("B1 NOR keeps its tracking in NOR_NOV_tracking/, which this tool does not handle"
+        why = ("its tracking is still in NOR_NOV_tracking/, the B1 NOR layout before its files moved to geom/ and animal/"
                if (test_dir / "NOR_NOV_tracking").is_dir() else
                f"not a tracking folder (a records folder given as the tracking root?); default {ep.TRACKING_ROOT}")
         raise SystemExit(f"{test_dir} has no geom/ and animal/: {why}")
@@ -258,14 +277,22 @@ def retarget(text: str, moves: list[tuple[str, str]]) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# NOR (unchanged chain)
+# NOR
 # --------------------------------------------------------------------------- #
 
+def nor_rivals(folder: Path, keep: str, phase: str, code: str, codes: list[str]) -> list[Path]:
+    """The csv files directly in *folder*, other than *keep*, that 08 would take as this NOR trial of *code*."""
+    if not folder.is_dir():
+        return []
+    return [p for p in sorted(folder.glob("*.csv")) if p.name != keep and nor_trial(p.name) == phase
+            and resolve_code(p.stem, codes, code) == code]
+
+
 def run_nor(args: argparse.Namespace) -> int:
-    config = args.config or DEFAULT_CONFIG
+    config = args.config or CONFIG_DIR / NOR_CONFIGS[args.phase]
     tdir = ep.tracking_dir(args.batch, args.assay, args.tracking_root)
     check_tracking(tdir)
-    geom_dir, animal_dir, fmt_dir = tdir / "geom", tdir / "animal", tdir / "formatted"
+    geom_dir, animal_dir, merged_dir, fmt_dir = tdir / "geom", tdir / "animal", tdir / "merged", tdir / "formatted"
     input_dir, output_dir = Path(config_value(config, "input_dir")), Path(config_value(config, "output_dir"))
     moves = []
     if args.stage_root:
@@ -275,13 +302,15 @@ def run_nor(args: argparse.Namespace) -> int:
         moves.append((output_dir.parent.as_posix(), args.output_root.as_posix()))
         output_dir = args.output_root / output_dir.name
     stage_dir, out_dir = input_dir / args.batch, output_dir / args.batch
+    codes = load_codes(input_dir.parent)
+    check_code(args.code, codes)
     arch = f"_superseded_{TODAY}"
     log: list[str] = []
     mode = "APPLY" if args.apply else "PLAN (nothing is written; add --apply)"
     print(f"{args.batch} {args.assay} {args.code} {args.phase}: {mode}")
 
-    geom_h5 = one_h5(geom_dir, args.code, args.phase, args.geom_h5)
-    animal_h5 = one_h5(animal_dir, args.code, args.phase, args.animal_h5)
+    geom_h5 = one_h5(geom_dir, args.code, args.phase, args.geom_h5, codes)
+    animal_h5 = one_h5(animal_dir, args.code, args.phase, args.animal_h5, codes)
     print(f"  geom h5   {geom_h5.name}\n  animal h5 {animal_h5.name}")
     if args.static_landmark:
         print(f"  static    {', '.join(args.static_landmark)}")
@@ -297,27 +326,40 @@ def run_nor(args: argparse.Namespace) -> int:
         a, _ = sh.extract_locs(animal_h5, "animal", args.assay)
         for n in notes:
             print("  note     ", n)
+        if len(g) != len(a):
+            raise SystemExit(f"geom has {len(g)} frames and animal {len(a)}: export both from the same clip")
         g.to_csv(geom_csv, index=False)
         a.to_csv(animal_csv, index=False)
-        fmt_name = f"{args.code}_{args.phase}{sd.NAME_INFIX}_formatted.csv"
+        # the route of the existing files: locs csv files, the merged csv written and read back, then the formatted file
+        merged_name = sd.merged_name(args.code, args.phase)
+        merged_new = work / merged_name
+        pd.concat([pd.read_csv(geom_csv), pd.read_csv(animal_csv)], axis=1).to_csv(merged_new, index=False)
+        fmt_name = sd.formatted_name(args.code, args.phase)
         fmt_new = work / fmt_name
-        info = sd.process_one(geom_csv, animal_csv, fmt_new)
+        info = sd.format_merged(merged_new, fmt_new)
         print(f"  formatted {info['frames']} frames, {info['bodyparts']} landmarks, {int(g.isna().sum().sum() + a.isna().sum().sum())} NaN after filling")
 
         # ---- install, archiving what is replaced
+        def supersede(paths: list[Path], archive: Path) -> None:
+            for p in paths:
+                log.append(f"  supersede   {p}   (-> {archive.parent.name}/{archive.name}/)")
+                if args.apply:
+                    archive.mkdir(parents=True, exist_ok=True)
+                    if (archive / p.name).exists():
+                        raise SystemExit(f"{archive / p.name} already exists")
+                    shutil.move(str(p), str(archive / p.name))
+
         changed = False
         changed |= install(geom_csv, geom_dir / geom_csv.name, geom_dir / arch, args.apply, log)
         changed |= install(animal_csv, animal_dir / animal_csv.name, animal_dir / arch, args.apply, log)
-        legacy = [p for p in sorted(fmt_dir.glob(f"{args.code}_*{sd.NAME_INFIX}_formatted.csv"))
-                  if p.name != fmt_name and not p.name.startswith(f"{args.code}_HAB.")]
-        for p in legacy:                                    # would be staged ahead of the new file (alphabetical, first wins)
-            log.append(f"  supersede   {p}   (-> formatted/old/)")
-            if args.apply:
-                (fmt_dir / "old").mkdir(exist_ok=True)
-                if (fmt_dir / "old" / p.name).exists():
-                    raise SystemExit(f"{fmt_dir / 'old' / p.name} already exists")
-                shutil.move(str(p), str(fmt_dir / "old" / p.name))
-            changed = True
+        merged_dst = merged_dir / merged_name
+        if not (merged_dst.exists() and sha(merged_dst) == sha(merged_new)):
+            # other merged files of the trial have no reader: moved only with the one they stand beside
+            supersede(nor_rivals(merged_dir, merged_name, args.phase, args.code, codes), merged_dir / arch)
+        changed |= install(merged_new, merged_dst, merged_dir / arch, args.apply, log)
+        rivals = nor_rivals(fmt_dir, fmt_name, args.phase, args.code, codes)
+        supersede(rivals, fmt_dir / "old")                  # 08 would stage one of them (alphabetical, first wins)
+        changed |= bool(rivals)
         changed |= install(fmt_new, fmt_dir / fmt_name, fmt_dir / "old", args.apply, log)
         staged = stage_dir / f"{args.code}_{args.phase}.csv"
         changed |= install(fmt_new, staged, stage_dir.parent / arch, args.apply, log)
@@ -430,29 +472,6 @@ MARKER = "retrack_scored.tsv"
 TRIAL_PHASE = {"habituation": "HAB", "hab": "HAB", "phase 1": "S1", "s1": "S1", "phase 2": "S2", "s2": "S2"}
 
 
-def default_formatted(assay: str, batch: str, code: str, phase: str, g: str) -> str:
-    """The formatted name of the batch's convention, used only when the animal has no formatted file yet."""
-    if assay == "SocP":
-        return f"{code}_{phase}{sd.NAME_INFIX}_formatted.csv"
-    if assay == "EPM":
-        return {"B1": f"{code}.merged_locs_formatted.csv", "B2": f"{g}.merged_locs_formatted.csv",
-                "B3": f"E9_SIS_B3_EPM_B3_{code}_formatted.csv", "B4": f"{g}.merged_locs_formatted.csv"
-                }.get(batch, f"{code}_EPM.merged_locs_formatted.csv")
-    return {"B1": f"E9_B1_OFT_{code}.merged_locs_formatted.csv", "B2": f"E9_SIS_B2_{code}.merged_locs_formatted.csv",
-            "B3": f"{code}.merged_locs_formatted.csv"}.get(batch, f"{code}_OFT.merged_locs_formatted.csv")
-
-
-def default_merged(assay: str, batch: str, code: str, phase: str, g: str) -> tuple[str, bool]:
-    """The merged-csv name of the batch's convention, and whether it follows the geom locs stem ({g})."""
-    if assay == "SocP":
-        return (f"{g}.merged_locs.csv", True) if batch in ("B3", "B5") else (f"{batch}_{code}_{phase}.merged_locs.csv", False)
-    if assay == "EPM":
-        return (f"{code}.merged_locs.csv", False) if batch == "B1" else (f"{g}.merged_locs.csv", True)
-    if batch in ("B1", "B2"):                                # E9_B1_OFT_<clip> / E9_SIS_B2_<CODE>: the geom locs stem
-        return f"{g}.merged_locs.csv", True
-    return (f"{code}.merged_locs.csv", False) if batch == "B3" else (f"{code}_OFT.merged_locs.csv", False)
-
-
 def load_codes(stage_root: Path) -> list[str]:
     p = stage_root / "animalIDCode.txt"
     if not p.exists():
@@ -477,6 +496,37 @@ def resolve_code(stem: str, codes: list[str], target: str) -> str | None:
     return alias[0] if len(alias) == 1 else None
 
 
+def spellings(code: str, codes: list[str] = ()) -> list[str]:
+    """How an export name may spell *code*: as written, with lookalikes (0 for O, l for I: B1 NOR's R803 is R8O3), its
+    ALIASES (B1 EPM's M8P1 is M8P3) and the export misspellings of sleap_dataform.MISSPELT (B2 SocP's O6O6 is Q6Q6, B4
+    SocP's B7C2 is B7C9); never as another animal's code."""
+    out = ["".join(p) for p in itertools.product(*[{"O": "O0", "I": "Il"}.get(ch, ch) for ch in code])]
+    out += [k for k, v in {**ALIASES, **sd.MISSPELT}.items() if v == code]
+    return [s for s in dict.fromkeys(out) if s == code or s not in codes]
+
+
+def spelt(code: str, codes: list[str] = ()) -> str:
+    """A regex group of the spellings of *code*."""
+    return "(?:" + "|".join(re.escape(s) for s in spellings(code, codes)) + ")"
+
+
+def check_code(code: str, codes: list[str]) -> None:
+    """Stop unless *code* is spelled as in the animal list (when there is one): every merged, formatted and staged name
+    carries the code as 08 stages it."""
+    if not codes or code in codes:
+        return
+    right = resolve_code(code, codes, code) or sd.MISSPELT.get(code)
+    raise SystemExit(f"--code {code} is not in the animal list (animalIDCode.txt of the staging root)"
+                     + (f"; staging reads it as {right}: pass --code {right}" if right else ""))
+
+
+def nor_trial(name: str) -> str | None:
+    """The NOR trial 08_stage_all_batches.R stages a formatted file as: HAB with '_HAB' in its name, NOV otherwise."""
+    if re.search(r"_HAB[^/]*\.csv$", name):
+        return "HAB"
+    return None if re.search(r"_HAB|combined_output", name, re.I) else "NOV"
+
+
 def token(word: str) -> re.Pattern:
     """*word* as a whole name part (not inside a longer run of letters and digits)."""
     return re.compile(rf"(?<![A-Za-z0-9]){re.escape(word)}(?![A-Za-z0-9])")
@@ -497,7 +547,8 @@ def free_path(p: Path) -> Path:
 
 @dataclass
 class Layout:
-    """Every path of one recording along the chain, for one batch's naming."""
+    """Every path of one recording along the chain. Merged and formatted files carry one name in every batch; the
+    exports and their locs files keep the names they were exported under (OFT B1: locs files named by clip)."""
     assay: str
     batch: str
     code: str
@@ -518,9 +569,10 @@ class Layout:
         self.stage_dir = self.stage_root.joinpath(self.assay, *tail)
         self.staged = self.stage_dir / (f"{self.code}_{self.phase}.csv" if self.phase else f"{self.code}.csv")
         self.stage_arch = self.stage_root.joinpath(self.assay, f"_superseded_{TODAY}", *tail)
-        who = re.escape(self.code) + (f"|{re.escape(self.clip)}" if self.clip else "")
+        code = spelt(self.code, self.codes)                 # exports may misspell it (B1 EPM M8P1)
+        who = code + (f"|{re.escape(self.clip)}" if self.clip else "")
         if self.phase:
-            self.pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(self.code)}(?:_GX\d+)?_{self.phase}(?![A-Za-z0-9])")
+            self.pattern = re.compile(rf"(?<![A-Za-z0-9]){code}{sd.CLIP}_{self.phase}(?![A-Za-z0-9])")
         else:
             self.pattern = re.compile(rf"(?<![A-Za-z0-9])(?:{who})(?![A-Za-z0-9])")
 
@@ -530,7 +582,7 @@ class Layout:
 
     @property
     def by_clip(self) -> bool:
-        """Open field batch 1: the locs and merged files are named by clip, not by export."""
+        """Open field batch 1: the locs files are named by clip, not by export (merged and formatted by code)."""
         return self.assay == "OFT" and self.batch == "B1"
 
     @property
@@ -589,12 +641,9 @@ class Layout:
             return []
         return [p for p in sorted(self.fmt_dir.glob("*.csv")) if resolve_code(p.stem, self.codes, self.code) == self.code]
 
-    def formatted_target(self, g: str) -> Path:
-        existing = self.formatted_existing()
-        default = self.fmt_dir / default_formatted(self.assay, self.batch, self.code, self.phase, g)
-        if default in existing or not existing:
-            return default
-        return existing[0]                                  # the one staging takes today: keep its name
+    def formatted_target(self) -> Path:
+        """``formatted/[<PH>/]<CODE>[_<PH>].merged_locs_formatted.csv``; other formatted files of the animal move away."""
+        return self.fmt_dir / sd.formatted_name(self.code, self.phase)
 
     @property
     def fmt_archive(self) -> Path:
@@ -606,22 +655,17 @@ class Layout:
         return self.fmt_old
 
     def flat_copies(self) -> list[Path]:
-        """SocP B3/B5: copies of the recording's formatted file directly in formatted/, beside formatted/<PH>/."""
+        """SocP: copies of the recording's formatted file directly in formatted/, beside formatted/<PH>/ (B3 and B5 had
+        them; staging never read them)."""
         return self.mine(self.test_dir / "formatted", ".csv") if self.phase else []
 
     def merged_existing(self) -> list[Path]:
         """The merged csv files of this recording in merged/ (not its archives)."""
         return self.mine(self.merged_dir, ".csv")
 
-    def merged_target(self, g: str) -> Path:
-        """Batches that name the merged csv after the geom locs follow the new export; the others keep the name."""
-        existing = self.merged_existing()
-        name, follows_stem = default_merged(self.assay, self.batch, self.code, self.phase, g)
-        default = self.merged_dir / name
-        if default in existing or follows_stem or not existing:
-            return default
-        named = [p for p in existing if ".merged_locs" in p.name]
-        return (named or existing)[0]
+    def merged_target(self) -> Path:
+        """``merged/<CODE>[_<PH>].merged_locs.csv``; other merged files of the recording move away with it."""
+        return self.merged_dir / sd.merged_name(self.code, self.phase)
 
     def side_files(self) -> tuple[Path, Path] | None:
         """SocP: the side file in the records and its staged copy."""
@@ -965,16 +1009,17 @@ def find_exports(lay: Layout, args: argparse.Namespace) -> Exports:
 def identity_problems(lay: Layout, kind: str, h5: Path, video: str) -> list[str]:
     """The export's file name and stored video_path must name the recording (OFT B1: the clip) and no other animal."""
     vname = re.split(r"[\\/]", video)[-1] if video else ""
+    named = re.compile(rf"(?<![A-Za-z0-9]){spelt(lay.code, lay.codes)}(?![A-Za-z0-9])")
     if lay.by_clip:
         what = f"{lay.code} or {lay.clip}"
-        name_ok = bool(token(lay.code).search(h5.name) or token(lay.clip).search(h5.name))
+        name_ok = bool(named.search(h5.name) or token(lay.clip).search(h5.name))
         video_ok, vwhat = bool(token(lay.clip).search(vname)), lay.clip
     elif lay.phase:
         what = vwhat = f"{lay.code}_{lay.phase}"
         name_ok, video_ok = bool(lay.pattern.search(h5.name)), bool(lay.pattern.search(vname))
     else:
         what = vwhat = lay.code
-        name_ok, video_ok = bool(token(lay.code).search(h5.name)), bool(token(lay.code).search(vname))
+        name_ok, video_ok = bool(named.search(h5.name)), bool(named.search(vname))
     out = []
     if not name_ok:
         out.append(f"the {kind} export's file name {h5.name} does not name {what}")
@@ -987,28 +1032,39 @@ def identity_problems(lay: Layout, kind: str, h5: Path, video: str) -> list[str]
 
 
 def check_clip(lay: Layout) -> tuple[bool, str]:
-    """OFT B1: the merged csv of --clip must format to the animal's formatted file in place, or the clip is another
-    animal's (the tool would rewrite that animal's locs and merged files)."""
-    fmt = lay.formatted_existing()
-    merged = [p for p in lay.merged_existing() if token(lay.clip).search(p.name) and ".merged_locs" in p.name]
+    """OFT B1: the geom and animal locs files of --clip must merge to the animal's merged file in place (or, without
+    one, format to its formatted file), or the clip is another animal's (the tool would rewrite that animal's locs
+    files, which are named by clip)."""
     pairs = ep.records_dir("B1", "OFT", lay.records_root) / B1_OFT_PAIRS
-    if not fmt:
-        return True, f"{lay.code} has no formatted file in {lay.fmt_dir}: --clip {lay.clip} cannot be checked against it"
-    if not merged:
-        return False, (f"no merged csv of clip {lay.clip} in {lay.merged_dir}: cannot confirm that {lay.clip} is "
+    locs = {k: lay.locs_path(k, "") for k in ("geom", "animal")}
+    missing = [str(p) for p in locs.values() if not p.exists()]
+    if missing:
+        return False, (f"no locs file of clip {lay.clip}: {', '.join(missing)}; cannot confirm that {lay.clip} is "
                        f"{lay.code}'s clip (the pair sheet {pairs} gives it; --accept-clip overrides)")
+    merged = pd.concat([pd.read_csv(locs["geom"]), pd.read_csv(locs["animal"])], axis=1)
+    what = f"the locs files of {lay.clip}"
+    wrong = (f"--clip {lay.clip} is another animal's clip, or the chain was edited (the pair sheet {pairs} gives the "
+             "clip; --accept-clip overrides)")
+    target = lay.merged_target()
+    if target.exists():
+        if same_table(merged, target):
+            return True, f"{what} merge to {target.name}: {lay.clip} is {lay.code}'s clip"
+        return False, f"{what} do not merge to {lay.code}'s {target.name}: {wrong}"
+    fmt = lay.formatted_existing()
+    if not fmt:
+        return True, (f"{lay.code} has no merged file in {lay.merged_dir} and no formatted file in {lay.fmt_dir}: "
+                      f"--clip {lay.clip} cannot be checked against them")
     with tempfile.TemporaryDirectory(prefix="retrack_clip_") as tmp:
-        out = Path(tmp) / fmt[0].name
-        sd.format_merged(merged[0], out, FORMAT_RENAME.get((lay.assay, lay.batch)), FORMAT_DIGITS.get((lay.assay, lay.batch)))
+        m, out = Path(tmp) / target.name, Path(tmp) / fmt[0].name
+        merged.to_csv(m, index=False)
+        sd.format_merged(m, out, FORMAT_RENAME.get((lay.assay, lay.batch)), FORMAT_DIGITS.get((lay.assay, lay.batch)))
         if out.read_bytes() == fmt[0].read_bytes():
-            return True, f"{merged[0].name} formats to {fmt[0].name} byte for byte: {lay.clip} is {lay.code}'s clip"
+            return True, f"{what} format to {fmt[0].name} byte for byte: {lay.clip} is {lay.code}'s clip"
         pa, a = read_dlc(out)
         pb, b = read_dlc(fmt[0])
         if pa == pb and a.shape == b.shape and np.allclose(a, b, rtol=1e-9, atol=1e-6, equal_nan=True):
-            return True, f"{merged[0].name} formats to {fmt[0].name} (to 10 significant digits): {lay.clip} is {lay.code}'s clip"
-    return False, (f"{merged[0].name} does not format to {lay.code}'s {fmt[0].name}: --clip {lay.clip} is another "
-                   f"animal's clip, or the chain was edited (the pair sheet {pairs} gives the clip; --accept-clip "
-                   "overrides)")
+            return True, f"{what} format to {fmt[0].name} (to 10 significant digits): {lay.clip} is {lay.code}'s clip"
+    return False, f"{what} do not format to {lay.code}'s {fmt[0].name}: {wrong}"
 
 
 def example_name(lay: Layout, kind: str, current: list[Path]) -> str:
@@ -1370,7 +1426,7 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
         raise SystemExit(f"{args.assay} has one trial per animal; leave out --phase")
     phase = phase if spec.phases else ""
     if args.assay == "OFT" and args.batch == "B1" and not args.clip:
-        raise SystemExit("open field batch 1 names its tracking files by GoPro clip: pass --clip (X1H0 = GX010804; "
+        raise SystemExit("open field batch 1 names its locs files by GoPro clip: pass --clip (X1H0 = GX010804; "
                          f"the pair sheet {ep.records_dir('B1', 'OFT', args.records_root) / B1_OFT_PAIRS} or the h5 "
                          "video_path give the clip)")
     if args.reuse_geom and (args.geom_h5 is not None):
@@ -1397,12 +1453,13 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
     stage_root = args.stage_root or stage_default
     lay = Layout(args.assay, args.batch, args.code, phase, args.clip, args.tracking_root, stage_root, load_codes(stage_root),
                  args.records_root)
+    check_code(lay.code, lay.codes)
     mode = "APPLY" if args.apply else "PLAN (nothing is written; add --apply)"
     print(f"{lay.label}: {mode}")
     check_tracking(lay.test_dir)
     if not lay.merged_dir.is_dir():                         # every EPM, OFT and SocP test has merged csv files
         raise SystemExit(f"{lay.merged_dir} is missing: the merged csv files of {lay.batch} {lay.assay} were not moved "
-                         "into merged/ (a re-track would start a second merged file under the default name)")
+                         "into merged/ (a re-track would start a second merged file of the animal)")
     if args.assay == "OFT" and args.batch == "B2":
         print("  note      the 2023 B2 animal locs files left a column empty when its first or last frame was empty "
               "(4 animals, columns the score does not use); a new export is filled like every other batch")
@@ -1497,11 +1554,10 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
             raise SystemExit(f"geom has {n_geom} frames and animal {n_animal}: export both from the same clip"
                              + (" (the reused corners belong to the old clip: track the arena on the new clip, or drop "
                                 "--reuse-geom)" if ex.reuse else ""))
-        g_stem = locs["geom"].name[: -len(".analysis_locs.csv")] if locs["geom"].name.endswith(".analysis_locs.csv") else locs["geom"].stem
-        merged_dst = lay.merged_target(g_stem)
+        merged_dst = lay.merged_target()
         merged = work / merged_dst.name
         pd.concat([pd.read_csv(locs["geom"]), pd.read_csv(locs["animal"])], axis=1).to_csv(merged, index=False)
-        fmt_dst = lay.formatted_target(g_stem)
+        fmt_dst = lay.formatted_target()
         fmt_new = work / "formatted" / fmt_dst.name
         info = sd.format_merged(merged, fmt_new, FORMAT_RENAME.get((lay.assay, lay.batch)),
                                 FORMAT_DIGITS.get((lay.assay, lay.batch)))
@@ -1570,8 +1626,8 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
             actions.append(plan_file(locs[k], locs_dst, arch))
         merged_arch = lay.merged_dir / f"_superseded_{TODAY}"
         merged_action = plan_file(merged, merged_dst, merged_arch)
-        if merged_action.verb != "unchanged":               # other merged copies (B1, B3) have no reader: moved
-            actions += [Action("move", p, archive=merged_arch)  # only with the one they stand beside
+        if merged_action.verb != "unchanged":               # other merged files of the recording have no reader:
+            actions += [Action("move", p, archive=merged_arch)  # moved only with the one they stand beside
                         for p in lay.merged_existing() if p != merged_dst]
         actions.append(merged_action)
         fmt_moves = [Action("move", p, archive=lay.fmt_archive) for p in lay.formatted_existing() if p != fmt_dst]
@@ -1819,18 +1875,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--output-root", type=Path, help="scored-output root instead of the config's (sleap_output_all)")
     ap.add_argument("--qc-root", type=Path, default=QC_ROOT, help="folder of retrack_list.csv and leave_out_list.csv")
     ap.add_argument("--decisions", type=Path, default=DECISIONS, help=argparse.SUPPRESS)
-    ap.add_argument("--config", type=Path, help="scoring config (default: the assay's *_all.yaml in validation/exp9_boris/config)")
+    ap.add_argument("--config", type=Path, help="scoring config (default: the assay's *_all.yaml in validation/exp9_boris/config, "
+                                                "*_hab_all.yaml for NOR and SocP habituation)")
     ap.add_argument("--rscript", type=Path, default=DEFAULT_RSCRIPT)
     ap.add_argument("--geom-h5", type=Path, help="the new arena export, if not (or not alone) in <batch>/<assay>/geom/")
     ap.add_argument("--animal-h5", type=Path, help="the new animal export, if not (or not alone) in <batch>/<assay>/animal/")
     ap.add_argument("--reuse-geom", action="store_true", help="EPM/OFT/SocP: keep the geom locs in place (arena not re-tracked)")
-    ap.add_argument("--clip", help="OFT B1: the GoPro clip the animal's files are named by, e.g. GX010804")
+    ap.add_argument("--clip", help="OFT B1: the GoPro clip the animal's locs files are named by, e.g. GX010804")
     ap.add_argument("--accept-length", action="store_true", help="install a recording outside the protocol length")
     ap.add_argument("--accept-duplicate", action="store_true", help="install a recording that looks like a copy")
     ap.add_argument("--accept-name", action="store_true",
                     help="install a new export whose file name or video_path does not name the animal (OFT B1: the clip)")
     ap.add_argument("--accept-clip", action="store_true",
-                    help="OFT B1: go on although the merged file of --clip does not give the animal's formatted file")
+                    help="OFT B1: go on although the locs files of --clip do not give the animal's merged file")
     ap.add_argument("--python-neck-copy", action="store_true",
                     help="EPM with --apply: write the staged copy in Python when Rscript or 08 is not found")
     ap.add_argument("--baseline", action="store_true", help="score the batch once before installing, compare against that")

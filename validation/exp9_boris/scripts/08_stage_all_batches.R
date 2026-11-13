@@ -12,18 +12,20 @@
 #
 # What this fixes, per 07_audit_batches.R:
 #
-#   1. ANIMAL CODE POSITION. EPM B2/B3/B4, OFT B1/B2 and the SocP B5 root
-#      copies put the code somewhere other than the first four characters, so
-#      the pipeline's str_extract(name, "^[A-Za-z0-9]{4}") returns NA and the
-#      animal silently loses its metadata. Every staged file is renamed
-#      <CODE>... so the rule holds everywhere.
+#   1. ANIMAL CODE POSITION. The pipeline takes the code from the first four
+#      characters (str_extract(name, "^[A-Za-z0-9]{4}")). Formatted files are
+#      named <CODE>[_<PHASE>].merged_locs_formatted.csv in every batch (until
+#      2026-11 EPM B2/B3/B4 and OFT B1/B2 put the code elsewhere). Staging
+#      still finds the code anywhere in the name (resolve_code) and names every
+#      staged file <CODE>..., so an older name stages the same.
 #
 #   2. TRIAL MIXING. B2-B6 keep NOR habituation and novel-object trials in one
 #      folder. Novel-object trials go to NOR/, habituation trials to NOR_HAB/.
 #      Batch 1 habituation was scored by hand (BORIS) and never tracked.
 #
-#   3. DUPLICATE SocP COPIES. B3 and B5 additionally hold 57 flat copies of
-#      their HAB/S1/S2 contents. Only the phase subfolders are staged.
+#   3. DUPLICATE SocP COPIES. B3 and B5 held 57 flat copies of their HAB/S1/S2
+#      files directly in formatted/ (now in formatted/old/flat_copies/). Only
+#      the phase subfolders are staged.
 #
 #   4. EPM `neck`. Added as an alias of spine1, as for Batch 1.
 #
@@ -165,10 +167,11 @@ for (b in BATCHES) {
             file.path(STAGE, "EPM", b), add_neck = TRUE)
 
   # NOR: novel-object trials only, selected by EXCLUDING habituation rather
-  # than by requiring "_NOV". Five B5 animals (F8O9, H1E2, M2L3, M7X3, Q3B3)
-  # name their novel trial "_NOR" instead of "_NOV"; each has exactly one _HAB
-  # and one other file, so the non-HAB file is the novel trial in every batch.
-  # Requiring "_NOV" silently dropped those five.
+  # than by requiring "_NOV". Each animal has exactly one _HAB and one other
+  # file, so the non-HAB file is the novel trial in every batch. The formatted
+  # files say _NOV everywhere since 2026-11, but the exports of five B5 animals
+  # (F8O9, H1E2, M2L3, M7X3, Q3B3) still say "_NOR"; requiring "_NOV" once
+  # silently dropped those five.
   stage_set("NOR", b, file.path(tracking_dir(b, "NOR"), "formatted"),
             file.path(STAGE, "NOR", b),
             exclude = "_HAB|combined_output", suffix = "_NOV")

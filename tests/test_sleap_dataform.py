@@ -31,6 +31,48 @@ class RootAndOutputPathTest(unittest.TestCase):
         self.assertEqual(sd.output_path(f, "H1E2", "NOV", "NOR"), f / "H1E2_NOV.merged_locs_formatted.csv")
         self.assertEqual(sd.output_path(f, "R8I2", "", "EPM"), f / "R8I2.merged_locs_formatted.csv")
 
+    def test_one_merged_and_formatted_name_for_every_batch(self) -> None:
+        self.assertEqual(sd.merged_name("R8I2"), "R8I2.merged_locs.csv")
+        self.assertEqual(sd.merged_name("A1L9", "NOV"), "A1L9_NOV.merged_locs.csv")
+        self.assertEqual(sd.formatted_name("X1H0"), "X1H0.merged_locs_formatted.csv")
+        self.assertEqual(sd.formatted_name("G6K2", "S2"), "G6K2_S2.merged_locs_formatted.csv")
+
+
+class ParseKeyTest(unittest.TestCase):
+    """One (code, phase) per file name, however the batch named its exports."""
+
+    NOR, SOCP = sd.PHASES["NOR"], sd.PHASES["SocP"]
+
+    def test_names_of_every_batch(self) -> None:
+        cases = [
+            ("E9_B6_SocP-animal_3.004_E9_SIS_B6_D3U7_S1.analysis_locs.csv", self.SOCP, ("D3U7", "S1")),
+            ("SocP-geom-charge1.000_A1L9_GX0786_HAB.analysis_locs.csv", self.SOCP, ("A1L9", "HAB")),      # B1 SocP clip
+            ("NOR_B1_geom_predict.000_A1L9_GX010405_NOV.analysis_locs.csv", self.NOR, ("A1L9", "NOV")),   # B1 NOR geom
+            ("A1L9_GX010405_NOV.analysis_locs.csv", self.NOR, ("A1L9", "NOV")),                           # B1 NOR animal
+            ("E9_B5_NOR-geom.003_E9_B5_F8O9_NOR.analysis_locs.csv", self.NOR, ("F8O9", "NOV")),           # B5 legacy label
+            ("E9_B5_NOR-animal.002_E9_B5_F8O9_HAB.analysis_locs.csv", self.NOR, ("F8O9", "HAB")),
+            ("R803_GX010395_NOV.analysis_locs.csv", self.NOR, ("R8O3", "NOV")),                           # misspelt code
+            ("SocP-geom-charge5.004_E9_SIS_B2_O6O6_S1.analysis_locs.csv", self.SOCP, ("Q6Q6", "S1")),     # B2 SocP
+            ("E9_B4_SocP-animal_1.006_E9_SIS_B4_B7C2_S2.analysis_locs.csv", self.SOCP, ("B7C9", "S2")),   # B4 SocP
+            ("E9_B2_SocP-geom_retrack_G6K2.000_E9_SIS_B2_G6K2_S1_1.analysis_locs.csv", self.SOCP, ("G6K2", "S1")),
+            ("E9_B4_NOR-animal.035_E9_B4_B4Y7_NOV_1.analysis_locs.csv", self.NOR, ("B4Y7", "NOV")),
+            ("E9_B1_EPM-geom.018_E9_B1_EPM_GX010035_M8P1.analysis_locs.csv", (), ("M8P3", "")),
+            ("E9_SIS_B2_A0S5.analysis_locs.csv", (), ("A0S5", "")),
+            ("E9_B2_EPM-geom.019_E9_SIS_B2_T4W6_1.analysis_locs.csv", (), ("T4W6", "")),
+        ]
+        for name, phases, want in cases:
+            with self.subTest(name=name):
+                self.assertEqual(sd.parse_key(name, phases), want)
+
+    def test_unclear_names_are_refused(self) -> None:
+        for name, phases in [("E9_B6_SocP_D3U7_NOR.analysis_locs.csv", self.SOCP),   # _NOR is a phase only for NOR
+                             ("x_A1L9_S1.y_B2C3_S2.analysis_locs.csv", self.SOCP),    # two keys
+                             ("A1L9_GX010405_NOVEL.analysis_locs.csv", self.NOR),
+                             ("A1L9_NOV_old.analysis_locs.csv", self.NOR),
+                             ("E9_B1_OFT_GX010379.analysis_locs.csv", ())]:          # named by clip: no code
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                sd.parse_key(name, phases)
+
 
 class ProcessOneTest(unittest.TestCase):
     def test_writes_dlc_header_body_and_crlf_with_runtime_pandas(self) -> None:
@@ -69,19 +111,44 @@ class ProcessOneTest(unittest.TestCase):
 
 
 class CodeFilterTest(unittest.TestCase):
-    """--code formats one animal without parsing the legacy ``_NOR``-labelled siblings (B5 NOR)."""
+    """B5 NOR: the legacy ``_NOR`` label is the novel trial; beside a ``_NOV`` file of the animal it is set aside.
+    --code formats one animal without parsing the others."""
 
-    def make_tree(self, root: Path) -> None:
+    def make_tree(self, root: Path, names=("H1E2_NOV", "H1E2_HAB", "F8O9_NOR", "M2L3_NOR", "M2L3_NOV")) -> None:
         for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
                           ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
             d = root / "B5" / "NOR" / sub
-            d.mkdir(parents=True)
-            for name in ("H1E2_NOV", "H1E2_HAB", "F8O9_NOR", "F8O9_NOV"):     # F8O9_NOR is the legacy label
-                pd.DataFrame(cols).to_csv(d / f"E9_B5_NOR-{sub}.000_E9_B5_{name}.analysis_locs.csv", index=False)
+            d.mkdir(parents=True, exist_ok=True)
+            for i, name in enumerate(names):
+                shift = 100.0 if name.endswith("_NOV") else 0.0
+                pd.DataFrame({k: [v + shift + i for v in vs] for k, vs in cols.items()}).to_csv(
+                    d / f"E9_B5_NOR-{sub}.{i:03d}_E9_B5_{name}.analysis_locs.csv", index=False)
 
-    def test_without_code_the_legacy_label_is_refused(self) -> None:
+    def test_the_legacy_label_is_the_novel_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            self.make_tree(Path(tmp))
+            root = Path(tmp)
+            self.make_tree(root)
+            report = sd.run("B5", "NOR", root=root, verbose=False)
+            self.assertEqual(sorted(zip(report.code, report.phase)),
+                             [("F8O9", "NOV"), ("H1E2", "HAB"), ("H1E2", "NOV"), ("M2L3", "NOV")])
+            fmt = root / "B5" / "NOR" / "formatted"
+            self.assertEqual(sorted(p.name for p in fmt.glob("*.csv")),
+                             ["F8O9_NOV.merged_locs_formatted.csv", "H1E2_HAB.merged_locs_formatted.csv",
+                              "H1E2_NOV.merged_locs_formatted.csv", "M2L3_NOV.merged_locs_formatted.csv"])
+            rows = (fmt / "M2L3_NOV.merged_locs_formatted.csv").read_text().splitlines()
+            self.assertEqual(rows[3], "0,105.0,107.0,1,109.0,111.0,1")      # from the _NOV files, not the _NOR ones
+
+    def test_the_set_aside_files_are_listed_and_two_files_of_one_label_stop_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_tree(root)
+            notes: list[str] = []
+            idx = sd.index_folder(root / "B5" / "NOR" / "geom", sd.PHASES["NOR"], notes=notes)
+            self.assertEqual(idx[("M2L3", "NOV")].name, "E9_B5_NOR-geom.004_E9_B5_M2L3_NOV.analysis_locs.csv")
+            self.assertEqual(len(notes), 1)
+            self.assertIn("E9_B5_NOR-geom.003_E9_B5_M2L3_NOR.analysis_locs.csv not used", notes[0])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.make_tree(Path(tmp), ("F8O9_NOR", "F8O9_HAB", "F8O9_NOR"))
             with self.assertRaises(ValueError):
                 sd.run("B5", "NOR", root=Path(tmp), dry_run=True, verbose=False)
 
@@ -101,6 +168,30 @@ class CodeFilterTest(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 sd.run("B5", "NOR", root=Path(tmp), code="ZZZZ", verbose=False)
             self.assertIn("ZZZZ", str(ctx.exception))
+
+
+class B1NorRunTest(unittest.TestCase):
+    """B1 NOR after its move out of NOR_NOV_tracking/: geom/ and animal/ with the clip between code and phase, R8O3
+    exported as R803. The formatted files carry the code as staging spells it."""
+
+    def test_clip_names_and_the_misspelt_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
+                              ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
+                d = root / "B1" / "NOR" / sub
+                d.mkdir(parents=True)
+                for i, stem in enumerate(("A1L9_GX010405_NOV", "R803_GX010395_NOV")):
+                    name = f"NOR_B1_geom_predict.{i:03d}_{stem}" if sub == "geom" else stem
+                    pd.DataFrame({k: [v + i for v in vs] for k, vs in cols.items()}).to_csv(
+                        d / f"{name}.analysis_locs.csv", index=False)
+            report = sd.run("B1", "NOR", root=root, verbose=False)
+            self.assertEqual(sorted(zip(report.code, report.phase)), [("A1L9", "NOV"), ("R8O3", "NOV")])
+            fmt = root / "B1" / "NOR" / "formatted"
+            self.assertEqual(sorted(p.name for p in fmt.glob("*.csv")),
+                             ["A1L9_NOV.merged_locs_formatted.csv", "R8O3_NOV.merged_locs_formatted.csv"])
+            report = sd.run("B1", "NOR", root=root, code="R8O3", overwrite=True, verbose=False)
+            self.assertEqual(list(report.out), ["R8O3_NOV.merged_locs_formatted.csv"])
 
 
 class SocpRunTest(unittest.TestCase):
@@ -125,6 +216,26 @@ class SocpRunTest(unittest.TestCase):
                               "formatted/S2/G6K2_S2.merged_locs_formatted.csv",
                               "merged_debug/G6K2_S1.merged.csv", "merged_debug/G6K2_S2.merged.csv"])
             self.assertFalse((test_dir / "merged").exists())
+
+    def test_misspelt_and_numbered_exports_take_the_staged_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for sub, cols in (("geom", {"tl_x": [1.0, 2.0], "tl_y": [3.0, 4.0]}),
+                              ("animal", {"nose_x": [5.0, 6.0], "nose_y": [7.0, 8.0]})):
+                d = root / "B2" / "SocP" / sub
+                d.mkdir(parents=True)
+                for i, stem in enumerate(("SocP-{sub}-charge5.004_E9_SIS_B2_O6O6_S1",
+                                          "E9_B2_SocP-{sub}_retrack_G6K2.000_E9_SIS_B2_G6K2_S1_1")):
+                    pd.DataFrame({k: [v + i for v in vs] for k, vs in cols.items()}).to_csv(
+                        d / f"{stem.format(sub=sub)}.analysis_locs.csv", index=False)
+            report = sd.run("B2", "SocP", root=root, verbose=False)
+            self.assertEqual(sorted(zip(report.code, report.phase)), [("G6K2", "S1"), ("Q6Q6", "S1")])
+            fmt = root / "B2" / "SocP" / "formatted" / "S1"
+            self.assertEqual(sorted(p.name for p in fmt.glob("*.csv")),
+                             ["G6K2_S1.merged_locs_formatted.csv", "Q6Q6_S1.merged_locs_formatted.csv"])
+            for code in ("Q6Q6", "G6K2"):
+                report = sd.run("B2", "SocP", root=root, code=code, overwrite=True, verbose=False)
+                self.assertEqual(list(report.out), [f"{code}_S1.merged_locs_formatted.csv"])
 
 
 class FormatMergedTest(unittest.TestCase):

@@ -2,9 +2,9 @@
 #
 #   TRACKING_ROOT  <EXP>/Analysis/Behavior/SLEAP: the SLEAP tracking, one folder per test,
 #                  <batch>/<assay>/ with projects/, predictions/, models/, geom/, animal/,
-#                  merged/, formatted/ (SocP: formatted/<HAB|S1|S2>/) and old/; B1/NOR has
-#                  NOR_NOV_tracking/ instead of geom/ and animal/. Its qc/ and old/ folders are
-#                  not batches.
+#                  merged/ (<CODE>[_<PHASE>].merged_locs.csv), formatted/
+#                  (<CODE>[_<PHASE>].merged_locs_formatted.csv; SocP in formatted/<HAB|S1|S2>/)
+#                  and old/. Its qc/ and old/ folders are not batches.
 #   RECORDS_ROOT   <EXP>/Raw Data/Behavior: the records of each test, <batch>/<assay>/
 #                  (novelLoc.txt for NOR, novelLocHAB/S1/S2.txt for SocP, run sheets, BORIS/, TSE/).
 #

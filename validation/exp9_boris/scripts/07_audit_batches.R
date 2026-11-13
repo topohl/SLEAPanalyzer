@@ -11,10 +11,11 @@
 # every way they break is silent:
 #
 #   1. ANIMAL CODE POSITION. DLCA_*.R takes the code from the first four
-#      characters (str_extract(name, "^[A-Za-z0-9]{4}")). That holds for B1,
-#      B5 and B6 but not for B2/B3/B4, whose EPM files begin "E9_B2_...",
-#      "E9_SIS_B3_..." -- the regex returns NA and the animal silently loses
-#      its metadata.
+#      characters (str_extract(name, "^[A-Za-z0-9]{4}")). Formatted files are
+#      named <CODE>[_<PHASE>].merged_locs_formatted.csv in every batch since
+#      2026-11; before, the EPM files of B2/B3/B4 began "E9_B2_...",
+#      "E9_SIS_B3_..." -- the regex returned NA and the animal silently lost
+#      its metadata. The audit checks that it still holds.
 #
 #   2. PHASE MIXING. B1's NOR formatted/ folder holds NOV trials only. B2-B6
 #      hold HAB and NOV together, so pointing the NOR config at the folder
