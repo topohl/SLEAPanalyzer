@@ -67,7 +67,7 @@ landmark_repair_margin_cm: 3
 landmark_repair_margin_fraction: 0.6
 landmark_repair_min_share: 0.5
 landmark_repair_min_landmarks: 4
-landmark_repair_max_anchor_error_cm: 2
+landmark_repair_max_anchor_error_cm: 2.5
 landmark_repair_outside_cm: 15
 # A rebuilt nose keeps the head pose of the moment: its position relative to the
 # anchors is carried in from the nearest observed frames and fades to the median

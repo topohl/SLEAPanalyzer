@@ -97,10 +97,8 @@ lid lifted for the next phase, the mouse off the maze, hands in the arena).
 and the time it is a share of, covers the rest only; `leftOutS` reports the
 time removed. The recording-wide references (repair anchor models, median head
 length and body size) are then computed without those frames too, which can
-move a recording across a fixed limit: in Exp9 SocP, M2L3 phase 1's best nose
-model has a 95th-percentile error of 1.995 cm over the whole clip and 2.034 cm
-without its last 24.6 s, so its nose is no longer rebuilt (8.5 s), and its
-stranger contact falls by 6.8 s, of which 0.5 s lay in the window. Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
+move a recording across a fixed limit (the reason the nose-pair limit below is
+2.5 cm). Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
 window seen in a 29.97 frames/s video is converted from its frame numbers. A
 window inside a recording joins the frames either side of it: distance gains
 the one step between them.
@@ -143,7 +141,11 @@ an assay applies it with `landmark_repair: true` (so far SocP).
    missing in a frame is rebuilt from two rigid neighbours present in that
    frame (fitted on the recording's own trusted frames). The pair with the
    smallest error is used first; pairs whose 95th-percentile error on trusted
-   frames exceeds `landmark_repair_max_anchor_error_cm` are never used. The
+   frames exceeds `landmark_repair_max_anchor_error_cm` are never used (Exp9:
+   2.5 cm, about a head length and a half; the best nose pair stays under
+   2.2 cm in all 348 recordings, so the limit only rejects a failed fit. It
+   was 2 cm until 2026-11-13, when M2L3 phase 1 sat on that edge: 1.995 cm
+   over its whole clip, 2.034 cm without its left-out end). The
    body centre is placed at its typical position relative to the pair. The
    nose keeps the pose of the moment: its position relative to the pair is
    the median of the 5 nearest frames on either side where nose and pair were
