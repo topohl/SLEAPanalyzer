@@ -181,6 +181,7 @@ test_that("after a leave-out, decisions and episode tables stay on the clip's cl
   expect_equal(c(moved$start_s, moved$end_s, moved$duration_s), c(1, 2.5, 1.5))
   expect_identical(episodes_on_clip(ep, 1:120, 30), ep)  # no leave-out: unchanged
   expect_identical(episodes_on_clip(ep[0, ], cut$clip_row, 30), ep[0, ])
+  expect_error(episodes_on_clip(transform(ep, end_frame = 118L), cut$clip_row, 30), "not aligned")
 })
 
 # 120 frames near the right cup; frames 31-90 are a gap fill of the body (a

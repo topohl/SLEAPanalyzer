@@ -240,7 +240,8 @@ read_qc_decisions <- function(path) {
 #' (i - 1) / fps seconds. A window that starts after the last frame no longer
 #' fits the recording and stops the run.
 #'
-#' @return list(tracking, left_out_s)
+#' @return list(tracking, left_out_s, clip_row): clip_row gives each kept row
+#'   its 1-based row in the clip (see episodes_on_clip(), apply_qc_decisions())
 apply_leave_out <- function(tracking, decisions, file) {
   rows <- decisions[decisions$file == file & decisions$decision == "leave_out", , drop = FALSE]
   frames <- get_tracking_frames(tracking)
@@ -265,10 +266,12 @@ apply_leave_out <- function(tracking, decisions, file) {
 #' apply_leave_out() that is the cut recording. `clip_row` (from
 #' apply_leave_out()) gives each kept row its 1-based row in the clip, so that
 #' start_frame/end_frame point at the video and start_s/end_s at the clip's
-#' time; duration_s still counts kept frames. Without a leave-out the table is
-#' returned as it is.
+#' time; duration_s still counts kept frames. When the rows are the clip's own
+#' (no leave-out, or one at the end only) the table is returned as it is.
 episodes_on_clip <- function(episodes, clip_row, fps) {
-  if (is.null(episodes) || nrow(episodes) == 0 || clip_row[length(clip_row)] == length(clip_row)) return(episodes)
+  if (is.null(episodes) || nrow(episodes) == 0) return(episodes)
+  if (max(episodes$end_frame) > length(clip_row)) stop("episode rows are not aligned with clip_row")
+  if (clip_row[length(clip_row)] == length(clip_row)) return(episodes)
   episodes$start_frame <- clip_row[episodes$start_frame]
   episodes$end_frame <- clip_row[episodes$end_frame]
   if ("start_s" %in% names(episodes)) episodes$start_s <- (episodes$start_frame - 1L) / fps
