@@ -90,13 +90,20 @@ every check on every staged Exp9 recording and writes
 episodes, with an `index.html`; a reviewed verdict goes into the assay's
 `qc_decisions_file`, which the next run applies.
 
-Left-out windows (SocP, EPM). A `qc_decisions_file` row with decision
+Left-out windows (SocP, EPM, NOR). A `qc_decisions_file` row with decision
 `leave_out` and target `all` names a stretch that is not part of the test (a
-lid lifted for the next phase, the mouse off the maze, hands in the arena).
+lid lifted for the next phase, the mouse off the maze, hands in the arena,
+frames of another clip at the start of a clip).
 `apply_leave_out()` removes its frames right after reading, so every measure,
-and the time it is a share of, covers the rest only; `leftOutS` reports the
-time removed. Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
-window seen in a 29.97 frames/s video is converted from its frame numbers. A
+and the time it is a share of, covers the rest only, and latencies count from
+the first kept frame; `leftOutS` reports the time removed. The recording-wide
+references (repair anchor models, median body size, NOR object
+positions) are then computed without those frames too, which can
+move a recording across a fixed limit (the reason the nose-pair limit below is
+2.5 cm). Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
+window seen in a 29.97 frames/s video is converted from its frame numbers.
+Decision windows and the episode tables (on-cup, hidden, repair) stay on the
+clip's own clock after a leave-out, so they still point at the video. A
 window inside a recording joins the frames either side of it: distance gains
 the one step between them.
 

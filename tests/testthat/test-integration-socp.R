@@ -205,6 +205,51 @@ test_that("the SocP batch script leaves out reviewed windows and counts hidden t
   expect_equal(manifest$extra$qc_decisions[[1]]$md5, unname(tools::md5sum(decisions)))
 })
 
+test_that("after a leave-out at the start, the SocP script keeps decisions and episode tables on the clip's clock", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  root <- temp_run_dir("socp_clip_clock")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  read_out <- function(fixture, name) utils::read.csv(file.path(fixture$output, name), stringsAsFactors = FALSE)
+  header <- "file,target,start_s,end_s,decision,reason,reviewer"
+  start_out <- "B001_socp,all,0,0.07,leave_out,the first three frames,test"
+
+  # On-cup: the episode of a run without leave-out is the reference.
+  ref <- make_socp_fixture(file.path(root, "cup_ref"), climb_frames = 60)
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", ref$config), "SocP script")
+  ref_ep <- read_out(ref, "on_cup_episodes.csv")
+  expect_equal(nrow(ref_ep), 1L)
+  # A reviewed window that starts 0.45 s into the episode (clip time) still clears it; counted on the cut rows,
+  # the episode would start 0.55 s before the window, beyond the 0.5 s an edge may move, and the run would stop.
+  decisions <- file.path(root, "cup_decisions.csv")
+  writeLines(c(header, start_out, sprintf("B001_socp,socl,%.4f,%.4f,not_on_object,reviewed,test",
+                                          ref_ep$start_s + 0.45, ref_ep$start_s + ref_ep$duration_s)), decisions)
+  cut <- make_socp_fixture(file.path(root, "cup_cut"), climb_frames = 60,
+                           extra_lines = paste0("qc_decisions_file: ", decisions))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", cut$config), "SocP script, start leave-out")
+  cut_ep <- read_out(cut, "on_cup_episodes.csv")
+  expect_equal(cut_ep[, c("start_frame", "end_frame", "start_s")], ref_ep[, c("start_frame", "end_frame", "start_s")])
+  result <- read_out(cut, "combined_output.csv")
+  expect_equal(result$leftOutS, 0.1, tolerance = 1e-6)
+  expect_equal(result$onCupLeft, 0)
+
+  # Hidden: the same stretch with and without the first three frames.
+  hidden_lines <- c("hidden_contact: true", "hidden_min_s: 0.2", "hidden_max_distance_cm: 10",
+                    "hidden_nose_off_body_cm: 10", "hidden_min_nose_lost_share: 0.5")
+  ref <- make_socp_fixture(file.path(root, "hidden_ref"), hidden_frames = 60, extra_lines = hidden_lines)
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", ref$config), "SocP script, hidden")
+  decisions <- file.path(root, "hidden_decisions.csv")
+  writeLines(c(header, start_out), decisions)
+  cut <- make_socp_fixture(file.path(root, "hidden_cut"), hidden_frames = 60,
+                           extra_lines = c(paste0("qc_decisions_file: ", decisions), hidden_lines))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", cut$config), "SocP script, hidden, start leave-out")
+  cols <- c("target", "start_frame", "end_frame", "start_s", "end_s", "duration_s", "decision")
+  expect_equal(read_out(cut, "hidden_episodes.csv")[, cols], read_out(ref, "hidden_episodes.csv")[, cols])
+})
+
 test_that("the SocP batch script repairs a misplaced nose when configured", {
   testthat::skip_if_not_installed("yaml")
   testthat::skip_if_not_installed("sp")

@@ -44,6 +44,11 @@ animalIDCode <- if (is.null(config$animal_id_code_file)) {
 }
 
 batches <- if (is.null(config$batches)) "" else config$batches
+if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
+  stop("qc_decisions_file not found: ", config$qc_decisions_file)
+}
+qcDecisions <- read_qc_decisions(config$qc_decisions_file)
+if (any(qcDecisions$decision != "leave_out")) stop("NOR takes only leave_out decisions")
 
 for (batch in batches) {
   inputDir <- if (nzchar(batch)) file.path(config$input_dir, batch) else config$input_dir
@@ -67,6 +72,10 @@ for (batch in batches) {
   for (inputFile in fileList) {
     inputFileName <- tools::file_path_sans_ext(basename(inputFile))
     tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
+    # Reviewed stretches that are not part of the test (e.g. frames of another
+    # clip at the start) are removed before anything is scored.
+    cut <- apply_leave_out(tracking, qcDecisions, inputFileName)
+    tracking <- cut$tracking
 
     for (point in c("nose", "bodycentre")) {
       if (!has_landmarks(tracking, point)) stop(inputFileName, " is missing tracked point: ", point)
@@ -179,6 +188,7 @@ for (batch in batches) {
         objectsApartFraction = objectsApart,
         qcPass = qcDecision$pass,
         qcReasons = paste(qcDecision$reasons, collapse = "; "),
+        leftOutS = cut$left_out_s,
         stringsAsFactors = FALSE
       ),
       qc_summary_row(qcReport)[, c(
@@ -220,7 +230,8 @@ for (batch in batches) {
       inputs = fileList,
       packages = required_packages,
       repo_dir = repo_dir,
-      extra = list(assay = "NOR", batch = batch, files = length(fileList))
+      extra = list(assay = "NOR", batch = batch, files = length(fileList),
+                   qc_decisions = input_file_records(config$qc_decisions_file))
     )
     assert_reproducible_run(manifest)
     write_run_manifest(manifest, file.path(outputDir, "run_manifest.yaml"))

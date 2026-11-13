@@ -193,7 +193,7 @@ try {
     }
 
     $configDir = Join-Path $repoRoot 'validation\exp9_boris\config'
-    foreach ($name in 'epm_all.yaml','nor_all.yaml','nor_hab_all.yaml','socp_all.yaml','socp_hab_all.yaml','qc_decisions_socp.csv','qc_decisions_epm.csv','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
+    foreach ($name in 'epm_all.yaml','nor_all.yaml','nor_hab_all.yaml','socp_all.yaml','socp_hab_all.yaml','qc_decisions_socp.csv','qc_decisions_epm.csv','qc_decisions_nor.csv','oft_all.yaml','epm_b1.yaml','nor_b1.yaml') {
         Copy-RecordedFile `
             -Source (Join-Path $configDir $name) `
             -Destination (Join-Path $releaseRoot "provenance\configs\$name")
@@ -224,7 +224,12 @@ try {
         '02_SLEAPanalzyer\core\geometry.R',
         '02_SLEAPanalzyer\core\interpolation.R',
         '02_SLEAPanalzyer\core\io.R',
-        '02_SLEAPanalzyer\core\validation.R'
+        '02_SLEAPanalzyer\core\validation.R',
+        '02_SLEAPanalzyer\core\assay_config.R',
+        '02_SLEAPanalzyer\core\landmark_repair.R',
+        '02_SLEAPanalzyer\core\plausibility.R',
+        '02_SLEAPanalzyer\core\tracking_data.R',
+        '02_SLEAPanalzyer\DLCA_SocP v.1.1.0.R'
     )
     foreach ($relative in $analysisCode) {
         Copy-RecordedFile `

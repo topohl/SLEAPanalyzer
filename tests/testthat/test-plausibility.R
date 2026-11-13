@@ -152,10 +152,36 @@ test_that("leave-out windows are read, need target 'all' and remove their frames
   expect_equal(length(cut$tracking$frames), 89L)
   expect_equal(cut$tracking$frames, tracking$frames[-(31:61)])
   expect_equal(nrow(cut$tracking$data$nose), 89L)
+  expect_equal(cut$clip_row, setdiff(1:120, 31:61))       # each kept row's row in the clip
   expect_identical(apply_leave_out(tracking, decisions, "other")$tracking, tracking)
+  expect_equal(apply_leave_out(tracking, decisions, "other")$clip_row, 1:120)
   # on-object decisions are not leave-outs
   expect_identical(apply_leave_out(tracking, transform(decisions, decision = "on_object"), "synthetic")$tracking, tracking)
   expect_error(apply_leave_out(tracking, transform(decisions, start_s = 5, end_s = 6), "synthetic"), "after the recording ends")
+})
+
+test_that("after a leave-out, decisions and episode tables stay on the clip's clock", {
+  tracking <- climb_fixture()
+  mask <- detect_right(tracking)$on_object               # clip frames 31-75
+  lo <- data.frame(file = "synthetic", target = "all", start_s = 0, end_s = 0.07,
+                   decision = "leave_out", reason = "", reviewer = "", stringsAsFactors = FALSE)
+  cut <- apply_leave_out(tracking, lo, "synthetic")      # the first three frames go
+  expect_equal(cut$clip_row, 4:120)
+  kept <- mask[cut$clip_row]
+  on <- transform(lo, target = "socr", start_s = 3, end_s = 3.2, decision = "on_object")
+  forced <- apply_qc_decisions(kept, on, "synthetic", "socr", 30, clip_row = cut$clip_row)
+  expect_equal(cut$clip_row[forced], c(31:75, 91:97))   # the same clip frames as without the leave-out
+  # counted on the cut rows, the window would land three frames late
+  expect_equal(cut$clip_row[apply_qc_decisions(kept, on, "synthetic", "socr", 30)], c(31:75, 94:100))
+  expect_error(apply_qc_decisions(kept, on, "synthetic", "socr", 30, clip_row = 1:120), "not aligned")
+
+  ep <- data.frame(start_frame = 28L, end_frame = 72L, start_s = 27 / 30, end_s = 72 / 30, duration_s = 45 / 30)
+  moved <- episodes_on_clip(ep, cut$clip_row, 30)
+  expect_equal(c(moved$start_frame, moved$end_frame), c(31L, 75L))
+  expect_equal(c(moved$start_s, moved$end_s, moved$duration_s), c(1, 2.5, 1.5))
+  expect_identical(episodes_on_clip(ep, 1:120, 30), ep)  # no leave-out: unchanged
+  expect_identical(episodes_on_clip(ep[0, ], cut$clip_row, 30), ep[0, ])
+  expect_error(episodes_on_clip(transform(ep, end_frame = 118L), cut$clip_row, 30), "not aligned")
 })
 
 # 120 frames near the right cup; frames 31-90 are a gap fill of the body (a

@@ -240,12 +240,13 @@ read_qc_decisions <- function(path) {
 #' (i - 1) / fps seconds. A window that starts after the last frame no longer
 #' fits the recording and stops the run.
 #'
-#' @return list(tracking, left_out_s)
+#' @return list(tracking, left_out_s, clip_row): clip_row gives each kept row
+#'   its 1-based row in the clip (see episodes_on_clip(), apply_qc_decisions())
 apply_leave_out <- function(tracking, decisions, file) {
   rows <- decisions[decisions$file == file & decisions$decision == "leave_out", , drop = FALSE]
-  if (nrow(rows) == 0) return(list(tracking = tracking, left_out_s = 0))
-  fps <- get_tracking_fps(tracking)
   frames <- get_tracking_frames(tracking)
+  if (nrow(rows) == 0) return(list(tracking = tracking, left_out_s = 0, clip_row = seq_along(frames)))
+  fps <- get_tracking_fps(tracking)
   time_s <- (seq_along(frames) - 1L) / fps
   drop <- rep(FALSE, length(frames))
   for (i in seq_len(nrow(rows))) {
@@ -255,7 +256,27 @@ apply_leave_out <- function(tracking, decisions, file) {
     }
     drop <- drop | (time_s >= rows$start_s[i] & time_s <= rows$end_s[i])
   }
-  list(tracking = CutTrackingData(tracking, remove.frames = frames[drop]), left_out_s = sum(drop) / fps)
+  list(tracking = CutTrackingData(tracking, remove.frames = frames[drop]), left_out_s = sum(drop) / fps,
+       clip_row = which(!drop))
+}
+
+#' An episode table moved back onto the clip's own clock.
+#'
+#' The checks number the rows of the tracking they are given; after
+#' apply_leave_out() that is the cut recording. `clip_row` (from
+#' apply_leave_out()) gives each kept row its 1-based row in the clip, so that
+#' start_frame/end_frame point at the video and start_s/end_s at the clip's
+#' time; duration_s still counts kept frames. When the rows are the clip's own
+#' (no leave-out, or one at the end only) the table is returned as it is.
+episodes_on_clip <- function(episodes, clip_row, fps) {
+  if (is.null(episodes) || nrow(episodes) == 0) return(episodes)
+  if (max(episodes$end_frame) > length(clip_row)) stop("episode rows are not aligned with clip_row")
+  if (clip_row[length(clip_row)] == length(clip_row)) return(episodes)
+  episodes$start_frame <- clip_row[episodes$start_frame]
+  episodes$end_frame <- clip_row[episodes$end_frame]
+  if ("start_s" %in% names(episodes)) episodes$start_s <- (episodes$start_frame - 1L) / fps
+  if ("end_s" %in% names(episodes)) episodes$end_s <- episodes$end_frame / fps
+  episodes
 }
 
 # ---------------------------------------------------------------------------
@@ -352,11 +373,15 @@ detect_hidden_at_objects <- function(tracking, objects, min_s, max_distance, nos
 #' it: a review judges an episode, whose edges can move by a few frames when
 #' the tracking changes (e.g. after the landmark repair). An episode reaching
 #' more than `max_edge_shift_s` beyond the window is no longer the one
-#' reviewed, and stops the run.
-apply_qc_decisions <- function(on_object, decisions, file, target, fps, max_edge_shift_s = 0.5) {
+#' reviewed, and stops the run. Decision times are clip times: after a
+#' leave-out, pass `clip_row` (from apply_leave_out()) so that a window still
+#' lands on the frames it was reviewed on.
+apply_qc_decisions <- function(on_object, decisions, file, target, fps, max_edge_shift_s = 0.5, clip_row = NULL) {
   rows <- decisions[decisions$file == file & decisions$target == target, , drop = FALSE]
   if (nrow(rows) == 0) return(on_object)
-  time_s <- (seq_along(on_object) - 1L) / fps
+  if (is.null(clip_row)) clip_row <- seq_along(on_object)
+  if (length(clip_row) != length(on_object)) stop("clip_row is not aligned with on_object")
+  time_s <- (clip_row - 1L) / fps
   runs <- rle(on_object); ends <- cumsum(runs$lengths); starts <- ends - runs$lengths + 1L
   for (i in seq_len(nrow(rows))) {
     span <- time_s >= rows$start_s[i] & time_s <= rows$end_s[i]

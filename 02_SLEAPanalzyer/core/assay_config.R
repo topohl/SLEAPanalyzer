@@ -123,7 +123,9 @@ assay_schema <- function(assay) {
       report_rearing = config_field("logical", required = FALSE),
       rearing_spine_distance_cm = config_field("number", positive = TRUE, required = FALSE),
       static_objects = config_field("logical", required = FALSE),
-      static_objects_min_separation_cm = config_field("number", positive = TRUE, required = FALSE)
+      static_objects_min_separation_cm = config_field("number", positive = TRUE, required = FALSE),
+      # Reviewed leave-out windows (decision "leave_out", apply_leave_out()).
+      qc_decisions_file = config_field("path", required = FALSE)
     ),
     SocP = list(
       phases = config_field("string_vector"),

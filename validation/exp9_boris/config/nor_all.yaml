@@ -55,6 +55,9 @@ contact_angle_deg: [70, 290]
 proximity_range_cm: [4, 8]
 proximity_angle_deg: [90, 270]
 
+# Reviewed stretches left out of the recording (decision leave_out).
+qc_decisions_file: qc_decisions_nor.csv
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

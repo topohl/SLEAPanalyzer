@@ -93,6 +93,20 @@ def read_rows(csv_path: Path) -> dict[str, dict[str, str]]:
         return {r["Code"]: r for r in csv.DictReader(fh)}
 
 
+def absolute_qc_file(text: str, config_dir: Path) -> str:
+    """The config copy runs from a temporary folder: a relative qc_decisions_file is made absolute against the config's folder."""
+    def fix(m: re.Match) -> str:
+        raw = m.group(2).strip()
+        if raw[:1] in ("'", '"'):
+            value = raw[1:raw.find(raw[0], 1)] if raw.find(raw[0], 1) > 0 else raw[1:]
+        else:
+            value = re.split(r"\s+#", raw, maxsplit=1)[0].strip()
+        if value.lower() in ("", "~", "null") or value.startswith("~") or Path(value).is_absolute():
+            return m.group(0)                               # no file, or one R finds without the config's folder
+        return m.group(1) + (config_dir / value).resolve().as_posix()
+    return re.sub(r"^(qc_decisions_file:[ \t]*)(.*)$", fix, text, flags=re.M)
+
+
 def changed_cells(before: dict[str, dict[str, str]], after: dict[str, dict[str, str]]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for code in sorted(set(before) | set(after)):
@@ -102,7 +116,9 @@ def changed_cells(before: dict[str, dict[str, str]], after: dict[str, dict[str, 
             continue
         cols = []
         for c in a:
-            x, y = b.get(c, ""), a[c]
+            if c not in b:
+                continue                                   # a column a newer scoring adds is not a change
+            x, y = b[c], a[c]
             try:
                 same = abs(float(x) - float(y)) <= 1e-9
             except ValueError:
@@ -200,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  backed up {out_dir} -> {before_dir}")
         before = read_rows(before_dir / "combined_output.csv") if (before_dir / "combined_output.csv").exists() else {}
         cfg = work / "nor_batch.yaml"
-        cfg.write_text(re.sub(r"^batches:.*$", f"batches: [{args.batch}]", args.config.read_text(encoding="utf-8"), flags=re.M), encoding="utf-8")
+        text = re.sub(r"^batches:.*$", f"batches: [{args.batch}]", args.config.read_text(encoding="utf-8"), flags=re.M)
+        cfg.write_text(absolute_qc_file(text, args.config.parent), encoding="utf-8")
         env = dict(os.environ, SLEAP_ANALYZER_CONFIG=str(cfg))
         print(f"  running   {NOR_SCRIPT.name} for {args.batch} ...")
         res = subprocess.run([str(args.rscript), str(NOR_SCRIPT)], cwd=REPO, env=env, capture_output=True, text=True)
