@@ -36,6 +36,12 @@
 #   NOR_HAB  STAGE/NOR_HAB/<batch>/<CODE>_HAB.csv  (same NOR_meta side file)
 #   SocP     STAGE/SocP/<batch>/<HAB|S1|S2>/<CODE>_<phase>.csv + novelLoc<phase>.txt
 #   OFT      STAGE/OFT/<batch>/<CODE>.csv
+#
+# Environment:
+#   EXP9_STAGING     staging root (default C:/Users/topohl/Documents/exp9_sleap_staging)
+#   EXP9_AUDIT_DIR   where staging_report.csv goes (default the project's results/)
+#   EXP9_STAGE_PLAN  a csv path: list what would be staged (staged file, source file, size) and stop,
+#                    copying nothing. Used to show that a change of the source layout stages the same files.
 # ============================================================================
 
 suppressMessages({
@@ -46,12 +52,31 @@ suppressMessages({
 RAW   <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Raw Data/Behavior"
 PLAN  <- "s:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Planning"
 PROJ  <- "C:/Users/topohl/iCloudDrive/Dokumente/Analysis/Behavior/correlate_sleap_boris"
-STAGE <- "C:/Users/topohl/Documents/exp9_sleap_staging"
-RES   <- file.path(PROJ, "results")
+STAGE <- Sys.getenv("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
+RES   <- Sys.getenv("EXP9_AUDIT_DIR", file.path(PROJ, "results"))
+PLAN_CSV <- Sys.getenv("EXP9_STAGE_PLAN", "")
+PLAN_ONLY <- nzchar(PLAN_CSV)
 BATCHES <- paste0("B", 1:6)
 
-dir.create(STAGE, showWarnings = FALSE, recursive = TRUE)
-dir.create(RES, showWarnings = FALSE, recursive = TRUE)
+# Where the tracking of one test is (formatted/ lives there) and where its records are (novelLoc sheets).
+tracking_dir <- function(b, assay) file.path(RAW, b, assay, "SLEAP")
+records_dir  <- function(b, assay) file.path(RAW, b, assay)
+
+if (!PLAN_ONLY) {
+  dir.create(STAGE, showWarnings = FALSE, recursive = TRUE)
+  dir.create(RES, showWarnings = FALSE, recursive = TRUE)
+}
+plan <- list()
+plan_row <- function(assay, batch, phase, src, dst)
+  plan[[length(plan) + 1]] <<- data.frame(assay = assay, batch = batch, phase = phase,
+                                          staged = sub(paste0("^", STAGE, "/"), "", dst), source = src,
+                                          bytes = file.size(src), stringsAsFactors = FALSE)
+stage_copy <- function(src, dst, assay, batch, phase) {
+  if (!file.exists(src)) stop("missing side file: ", src)
+  if (PLAN_ONLY) { plan_row(assay, batch, phase, src, dst); return(invisible(TRUE)) }
+  dir.create(dirname(dst), showWarnings = FALSE, recursive = TRUE)
+  file.copy(src, dst, overwrite = TRUE)
+}
 
 id_code <- read.delim(file.path(PLAN, "animalIDCode.txt"), stringsAsFactors = FALSE) %>%
   mutate(across(everything(), trimws))
@@ -102,11 +127,10 @@ note <- function(...) log[[length(log) + 1]] <<- data.frame(..., stringsAsFactor
 
 stage_set <- function(assay, batch, src_dir, dst_dir, pattern = "[.]csv$",
                       exclude = NULL, suffix = "", add_neck = FALSE) {
-  if (!dir.exists(src_dir)) { note(assay = assay, batch = batch, phase = suffix,
-                                   staged = 0L, skipped = 0L, issue = "source missing"); return(invisible()) }
+  if (!dir.exists(src_dir)) stop("source folder missing: ", src_dir)
   f <- list.files(src_dir, pattern = pattern, full.names = TRUE)
   if (!is.null(exclude)) f <- f[!grepl(exclude, basename(f), ignore.case = TRUE)]
-  dir.create(dst_dir, showWarnings = FALSE, recursive = TRUE)
+  if (!PLAN_ONLY) dir.create(dst_dir, showWarnings = FALSE, recursive = TRUE)
   staged <- 0L; skipped <- character()
   seen <- character()
   for (p in f) {
@@ -116,6 +140,7 @@ stage_set <- function(assay, batch, src_dir, dst_dir, pattern = "[.]csv$",
     if (cd %in% seen) { skipped <- c(skipped, paste0(basename(p), " [dup ", cd, "]")); next }
     seen <- c(seen, cd)
     dst <- file.path(dst_dir, paste0(cd, suffix, ".csv"))
+    if (PLAN_ONLY) { plan_row(assay, batch, suffix, p, dst); staged <- staged + 1L; next }
     ok <- if (add_neck) copy_with_neck(p, dst) else
       if (file.copy(p, dst, overwrite = TRUE)) "copied" else "copy failed"
     if (grepl("^copied", ok)) staged <- staged + 1L else skipped <- c(skipped, paste0(basename(p), " [", ok, "]"))
@@ -132,7 +157,7 @@ for (b in BATCHES) {
   cat("---", b, "---\n")
 
   # EPM: one file per animal, plus the neck alias.
-  stage_set("EPM", b, file.path(RAW, b, "EPM/SLEAP/formatted"),
+  stage_set("EPM", b, file.path(tracking_dir(b, "EPM"), "formatted"),
             file.path(STAGE, "EPM", b), add_neck = TRUE)
 
   # NOR: novel-object trials only, selected by EXCLUDING habituation rather
@@ -140,32 +165,37 @@ for (b in BATCHES) {
   # name their novel trial "_NOR" instead of "_NOV"; each has exactly one _HAB
   # and one other file, so the non-HAB file is the novel trial in every batch.
   # Requiring "_NOV" silently dropped those five.
-  stage_set("NOR", b, file.path(RAW, b, "NOR/SLEAP/formatted"),
+  stage_set("NOR", b, file.path(tracking_dir(b, "NOR"), "formatted"),
             file.path(STAGE, "NOR", b),
             exclude = "_HAB|combined_output", suffix = "_NOV")
-  dir.create(file.path(STAGE, "NOR_meta", b), showWarnings = FALSE, recursive = TRUE)
-  file.copy(file.path(RAW, b, "NOR/novelLoc.txt"),
-            file.path(STAGE, "NOR_meta", b, "novelLoc.txt"), overwrite = TRUE)
+  stage_copy(file.path(records_dir(b, "NOR"), "novelLoc.txt"),
+             file.path(STAGE, "NOR_meta", b, "novelLoc.txt"), "NOR_meta", b, "")
 
   # NOR habituation: the _HAB trial of the same folder (two copies of the
   # familiar object). Batch 1 has none.
   if (b != "B1")
-    stage_set("NOR", b, file.path(RAW, b, "NOR/SLEAP/formatted"),
+    stage_set("NOR", b, file.path(tracking_dir(b, "NOR"), "formatted"),
               file.path(STAGE, "NOR_HAB", b), pattern = "_HAB[^/]*[.]csv$", suffix = "_HAB")
 
   # SocP: phase subfolders only, never the flat duplicates in B3/B5.
   for (ph in c("HAB", "S1", "S2")) {
-    stage_set("SocP", b, file.path(RAW, b, "SocP/SLEAP/formatted", ph),
+    stage_set("SocP", b, file.path(tracking_dir(b, "SocP"), "formatted", ph),
               file.path(STAGE, "SocP", b, ph), suffix = paste0("_", ph))
     side <- if (ph == "HAB") "S1" else ph   # see note 5 above
-    file.copy(file.path(RAW, b, "SocP", paste0("novelLoc", side, ".txt")),
-              file.path(STAGE, "SocP", b, ph, paste0("novelLoc", ph, ".txt")),
-              overwrite = TRUE)
+    stage_copy(file.path(records_dir(b, "SocP"), paste0("novelLoc", side, ".txt")),
+               file.path(STAGE, "SocP", b, ph, paste0("novelLoc", ph, ".txt")), "SocP_side", b, ph)
   }
 
   # OFT: one file per animal.
-  stage_set("OFT", b, file.path(RAW, b, "OFT/SLEAP/formatted"),
+  stage_set("OFT", b, file.path(tracking_dir(b, "OFT"), "formatted"),
             file.path(STAGE, "OFT", b))
+}
+
+if (PLAN_ONLY) {
+  pl <- bind_rows(plan)
+  write.csv(pl, PLAN_CSV, row.names = FALSE)
+  cat(sprintf("\nplan only: %d files would be staged; nothing copied. Wrote %s\n", nrow(pl), PLAN_CSV))
+  quit(save = "no", status = 0)
 }
 
 report <- bind_rows(log)
