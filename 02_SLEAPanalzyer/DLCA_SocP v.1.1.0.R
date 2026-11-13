@@ -133,7 +133,9 @@ for (batch in batches) {
           min_nose_lost_share = config$hidden_min_nose_lost_share
         )
         hidden <- found$masks
-        if (nrow(found$episodes) > 0) hiddenList[[length(hiddenList) + 1L]] <- cbind(tag, found$episodes)
+        if (nrow(found$episodes) > 0) {
+          hiddenList[[length(hiddenList) + 1L]] <- cbind(tag, episodes_on_clip(found$episodes, cut$clip_row, config$fps))
+        }
       }
       repairRow <- data.frame(landmarksFlaggedS = 0, skeletonCollapseS = 0, noseReconstructedS = 0, noseRefusedS = 0,
                               bodycentreReconstructedS = 0, noseAnchorErrorP95 = NA_real_)
@@ -162,7 +164,9 @@ for (batch in batches) {
           noseAnchorErrorP95 = if (is.null(rp$models$nose)) NA_real_ else rp$models$nose$error_p95[1]
         )
         repairList[[length(repairList) + 1L]] <- cbind(tag, s)
-        if (!is.null(rp$episodes) && nrow(rp$episodes) > 0) repairEpisodeList[[length(repairEpisodeList) + 1L]] <- cbind(tag, rp$episodes)
+        if (!is.null(rp$episodes) && nrow(rp$episodes) > 0) {
+          repairEpisodeList[[length(repairEpisodeList) + 1L]] <- cbind(tag, episodes_on_clip(rp$episodes, cut$clip_row, config$fps))
+        }
         for (target in names(rp$models)) {
           m <- head(rp$models[[target]], 3)
           repairModelList[[length(repairModelList) + 1L]] <- cbind(tag, rank = seq_len(nrow(m)), m)
@@ -229,12 +233,12 @@ for (batch in batches) {
             size = size
           )
           found$on_object <- apply_qc_decisions(
-            found$on_object, qcDecisions, inputFileName, cup, config$fps
+            found$on_object, qcDecisions, inputFileName, cup, config$fps, clip_row = cut$clip_row
           )
           found
         })
         onCup <- list(left = cups$left$on_object, right = cups$right$on_object)
-        episodes <- rbind(cups$left$episodes, cups$right$episodes)
+        episodes <- episodes_on_clip(rbind(cups$left$episodes, cups$right$episodes), cut$clip_row, config$fps)
         if (nrow(episodes) > 0) {
           episodeList[[length(episodeList) + 1L]] <- cbind(
             data.frame(file = inputFileName, Code = code, batch = batch, phase = socpPhase,
