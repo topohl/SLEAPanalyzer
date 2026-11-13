@@ -1,0 +1,2 @@
+file,target,start_s,end_s,decision,reason,reviewer
+N4W8,all,106.9,122.07,leave_out,"the mouse leaves the maze over the side of the open arm and is put back by hand; the tracking bridges it with a straight line on the arm; clip frames 3207-3662 (107.0-122.2 s at the video's 29.97 frames/s; light check video:clip, leave_out_list.csv)",decided by Tobias Pohl 2026-11-12

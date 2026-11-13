@@ -72,12 +72,13 @@ Session QC (`qc.R`) says whether a recording is usable. `plausibility.R` finds
 the stretches inside a usable recording that the scoring rules do not expect.
 Every check returns per-frame flags and an episode table; none changes a score
 unless an assay applies it through its configuration (so far only SocP:
-`on_cup_exclusion`, and `landmark_repair` below).
+`on_cup_exclusion`, `hidden_contact`, and `landmark_repair` below).
 
 | Check | Flags |
 |---|---|
 | `apparent_body_size()` | Landmark separations relative to the recording's median; a raised animal is imaged larger |
 | `detect_on_object()` | The animal on top of a static object (see SocP) |
+| `detect_hidden_at_objects()` | The whole animal lost beside a static object (see SocP) |
 | `jump_episodes()` | A landmark faster than a plausible speed |
 | `skeleton_episodes()` | Nose-tailbase length far from its median |
 | `outside_arena_episodes()` | A landmark outside the arena corners |
@@ -88,6 +89,16 @@ every check on every staged Exp9 recording and writes
 `tools/qc_review.py` renders a still strip and a short clip of any selection of
 episodes, with an `index.html`; a reviewed verdict goes into the assay's
 `qc_decisions_file`, which the next run applies.
+
+Left-out windows (SocP, EPM). A `qc_decisions_file` row with decision
+`leave_out` and target `all` names a stretch that is not part of the test (a
+lid lifted for the next phase, the mouse off the maze, hands in the arena).
+`apply_leave_out()` removes its frames right after reading, so every measure,
+and the time it is a share of, covers the rest only; `leftOutS` reports the
+time removed. Frame i lies at (i - 1) / fps seconds, the scoring's clock, so a
+window seen in a 29.97 frames/s video is converted from its frame numbers. A
+window inside a recording joins the frames either side of it: distance gains
+the one step between them.
 
 NOR objects (report only). In batch 1 the manual scoring codes 28 climbing
 bouts; SLEAP contact inside them is 11.4 of 538.8 s, because most full climbs
@@ -426,6 +437,34 @@ frames judged on top of the cup and none of 85 floor frames. Against the raw
 manual scoring of 10 batch 1 animals (20 sessions), none of the on-cup time was
 scored as interaction or rearing, and where the scorer coded climbing (50.0 s,
 one session) the rule finds 41.2 s.
+
+### Time hidden under a cup box is contact
+
+In batch 4 a mouse can creep under the box over a cup, between the cup and the
+corner, and disappear: the pose model loses every landmark, the export fills
+the gap with a straight line, and the distance rule scores some of that time
+as contact, some as proximity and the rest as neither. Time hidden there counts
+as contact with that cup (decided after review, 2026-11-12). With
+`hidden_contact: true`, `detect_hidden_at_objects()` (core `plausibility.R`)
+runs on the tracking as read, after calibration and before the landmark
+repair, while filled rows are still exact straight lines. A stretch is hidden
+when, for at least `hidden_min_s`, the body centre is a gap fill (its second
+difference stays under 0.001 px), in at least `hidden_min_nose_lost_share` of
+its frames the nose is lost (missing, filled the same way, or more than
+`hidden_nose_off_body_cm` from the body centre: the pose model may put it at
+the image corner), and the body centre stays within `hidden_max_distance_cm` of
+one cup point. Those frames are contact with that cup, never with the other,
+never proximity or on the cup, and always valid time; `hidden*` reports them.
+Every body-fill stretch of at least `hidden_min_s` and its decision (`hidden`,
+`nose_seen`, `away`) is written to `hidden_episodes.csv`. While the nose is
+still seen, the distance rule scores the stretch as before.
+
+Exp9 values (0.2 s as the on-cup minimum, 10 cm as the on-cup and proximity
+limit, nose 10 cm off the body, half of the frames). Over the staged
+recordings the rule finds 148 s in 96 stretches in 43 recordings: 130 s in
+batch 4, 116 s of it in the four recordings reviewed in the 2026-11 light
+checks (B7C9 habituation and phase 2, C1U2 phases 1 and 2), each reviewed
+stretch included; elsewhere no stretch is longer than 1.2 s.
 
 ---
 

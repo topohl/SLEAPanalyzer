@@ -1,7 +1,7 @@
 # End-to-end run of the SocP batch script against synthetic data.
 
 make_socp_fixture <- function(root, n = 300, fps = 30, contact_frames = 90,
-                              climb_frames = 0) {
+                              climb_frames = 0, hidden_frames = 0, extra_lines = character()) {
   # 440 x 240 px arena for a 44 x 24 cm apparatus, so 10 px per cm.
   points <- list(
     tl = cbind(x = rep(0, n), y = rep(240, n)),
@@ -38,6 +38,29 @@ make_socp_fixture <- function(root, n = 300, fps = 30, contact_frames = 90,
     )
   }
 
+  if (hidden_frames > 0) {
+    # Tracked frames move a little, as real tracking does. The mouse comes to
+    # the right cup (body 6 cm from the cup point, nose in contact) for 10
+    # frames, is lost for hidden_frames (the export fills the body by a straight
+    # line and the pose model puts the nose at the image corner), and is seen
+    # again for 10 frames.
+    wobble <- 0.5 * sin(seq_len(n) * 1.3)
+    points$nose[, "x"] <- points$nose[, "x"] + wobble
+    points$bodycentre[, "x"] <- points$bodycentre[, "x"] + wobble
+    a <- 141; b <- a + 10 + hidden_frames + 9
+    visit <- a:b
+    points$bodycentre[visit, "x"] <- 330 + wobble[visit]
+    points$nose[visit, "x"] <- 360 + wobble[visit]
+    fill <- (a + 10):(a + 9 + hidden_frames)
+    first <- min(fill) - 1; last <- max(fill) + 1
+    for (j in c("x", "y")) {
+      points$bodycentre[fill, j] <- points$bodycentre[first, j] +
+        (points$bodycentre[last, j] - points$bodycentre[first, j]) * (fill - first) / (last - first)
+    }
+    points$nose[fill, "x"] <- 10 + wobble[fill]
+    points$nose[fill, "y"] <- 10
+  }
+
   write_tracking_fixture(
     file.path(root, "formatted", "HAB", "B001_socp.csv"), points, n
   )
@@ -71,7 +94,8 @@ make_socp_fixture <- function(root, n = 300, fps = 30, contact_frames = 90,
     "min_bout_s: 0.0",
     "max_gap_s: 0.0",
     "write_manifest: true",
-    on_cup_lines
+    on_cup_lines,
+    extra_lines
   ), config_path)
 
   list(root = root, config = config_path,
@@ -137,6 +161,48 @@ test_that("the SocP batch script removes time on top of a cup when configured", 
   expect_equal(episodes$Code, "B001")
   manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
   expect_true(manifest$config$on_cup_exclusion)
+})
+
+test_that("the SocP batch script leaves out reviewed windows and counts hidden time as contact", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  root <- temp_run_dir("socp_hidden")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  decisions <- file.path(root, "decisions.csv")
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "B001_socp,all,9,10,leave_out,the last second,test"), decisions)
+  hidden_lines <- c("hidden_contact: true", "hidden_min_s: 0.2", "hidden_max_distance_cm: 10",
+                    "hidden_nose_off_body_cm: 10", "hidden_min_nose_lost_share: 0.5")
+
+  # Without the rule: 10 + 10 frames of contact with the right cup.
+  plain <- make_socp_fixture(file.path(root, "plain"), hidden_frames = 60)
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", plain$config), "SocP script")
+  before <- utils::read.csv(file.path(plain$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  expect_equal(before$contactRight, 20 / 30, tolerance = 1e-6)
+  expect_equal(before$totalTime, 10)
+  expect_equal(before$leftOutS, 0)
+
+  fixture <- make_socp_fixture(file.path(root, "rule"), hidden_frames = 60,
+                               extra_lines = c(paste0("qc_decisions_file: ", decisions), hidden_lines))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config), "SocP script with the rules")
+  result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  # the 60 hidden frames are contact with the right cup; the left cup is unchanged
+  expect_equal(result$contactRight, 80 / 30, tolerance = 1e-6)
+  expect_equal(result$hiddenRight, 2, tolerance = 1e-6)
+  expect_equal(result$hiddenFamiliar, result$hiddenRight)     # "R": the right cup is familiar
+  expect_equal(result$contactLeft, before$contactLeft)
+  # the last second is gone from every measure
+  expect_equal(result$totalTime, 9, tolerance = 1e-6)
+  expect_equal(result$leftOutS, 1, tolerance = 1e-6)
+
+  episodes <- utils::read.csv(file.path(fixture$output, "hidden_episodes.csv"), stringsAsFactors = FALSE)
+  expect_equal(episodes$decision, "hidden")
+  expect_equal(episodes$target, "socr")
+  manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
+  expect_equal(manifest$extra$qc_decisions[[1]]$md5, unname(tools::md5sum(decisions)))
 })
 
 test_that("the SocP batch script repairs a misplaced nose when configured", {

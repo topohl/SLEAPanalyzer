@@ -279,6 +279,11 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
 #'   value per frame, TRUE while the animal is on top of that cup (see
 #'   detect_on_object()). Those frames are neither contact nor proximity for
 #'   that cup; they stay valid observation time.
+#' @param hidden optional list with logical vectors `left` and `right`, TRUE
+#'   while the animal is hidden under the box over that cup (see
+#'   detect_hidden_at_objects()). Those frames are contact with that cup,
+#'   never with the other one, never proximity or on the cup, and always
+#'   valid observation time.
 compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_distance = 6,
                                  body_exclusion_distance = 1,
@@ -289,7 +294,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
                                  valid = NULL,
                                  min_bout_s = 0,
                                  max_gap_s = 0,
-                                 on_cup = NULL) {
+                                 on_cup = NULL,
+                                 hidden = NULL) {
   required <- c("nose", "bodycentre", "socl", "socr")
   validate_tracking_data(tracking, required_landmarks = required)
   validate_assay_timing(tracking, fps)
@@ -326,15 +332,23 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   if (!is.list(on_cup) || !all(c("left", "right") %in% names(on_cup))) {
     stop("on_cup must be a list with logical vectors 'left' and 'right'")
   }
-  on_left <- normalize_validity_mask(on_cup$left, n)
-  on_right <- normalize_validity_mask(on_cup$right, n)
+  if (is.null(hidden)) hidden <- list(left = rep(FALSE, n), right = rep(FALSE, n))
+  if (!is.list(hidden) || !all(c("left", "right") %in% names(hidden))) {
+    stop("hidden must be a list with logical vectors 'left' and 'right'")
+  }
+  hidden_left <- normalize_validity_mask(hidden$left, n)
+  hidden_right <- normalize_validity_mask(hidden$right, n)
+  hidden_any <- hidden_left | hidden_right
+  on_left <- normalize_validity_mask(on_cup$left, n) & !hidden_any
+  on_right <- normalize_validity_mask(on_cup$right, n) & !hidden_any
   # Counted before the mask is applied, so the summary says what was removed.
   removed_left <- sum(contact_left & on_left & valid, na.rm = TRUE) / fps
   removed_right <- sum(contact_right & on_right & valid, na.rm = TRUE) / fps
-  contact_left <- contact_left & !on_left
-  contact_right <- contact_right & !on_right
-  proximity_left <- proximity_left & !on_left
-  proximity_right <- proximity_right & !on_right
+  contact_left <- (contact_left & !on_left & !hidden_right) | hidden_left
+  contact_right <- (contact_right & !on_right & !hidden_left) | hidden_right
+  proximity_left <- proximity_left & !on_left & !hidden_any
+  proximity_right <- proximity_right & !on_right & !hidden_any
+  valid <- valid | hidden_any
 
   segment <- function(event) {
     segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)
@@ -356,6 +370,9 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   on_cup_left_s <- sum(on_left & valid) / fps
   on_cup_right_s <- sum(on_right & valid) / fps
   on_cup_mapped <- mapped(on_cup_left_s, on_cup_right_s)
+  hidden_left_s <- sum(hidden_left) / fps
+  hidden_right_s <- sum(hidden_right) / fps
+  hidden_mapped <- mapped(hidden_left_s, hidden_right_s)
 
   list(
     summary = data.frame(
@@ -386,6 +403,10 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       onCupFamiliar = unname(on_cup_mapped["familiar"]),
       contactRemovedLeft = removed_left,
       contactRemovedRight = removed_right,
+      hiddenLeft = hidden_left_s,
+      hiddenRight = hidden_right_s,
+      hiddenNovel = unname(hidden_mapped["novel"]),
+      hiddenFamiliar = unname(hidden_mapped["familiar"]),
       stringsAsFactors = FALSE
     ),
     events = data.frame(
@@ -395,6 +416,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       proximity_right = proximity_right,
       on_cup_left = on_left,
       on_cup_right = on_right,
+      hidden_left = hidden_left,
+      hidden_right = hidden_right,
       valid = valid
     ),
     segmentation = list(left = left, right = right)

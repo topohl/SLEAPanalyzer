@@ -41,6 +41,11 @@ require_orientation: false
 # in docs/assay_definitions.md before setting them.
 on_cup_exclusion: false
 
+# Time an animal is hidden under a box over a cup counts as contact only if
+# this is on; see "Time hidden under a cup box is contact" in
+# docs/assay_definitions.md for its four thresholds.
+hidden_contact: false
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

@@ -209,8 +209,9 @@ detect_on_object <- function(tracking, object, corners, footprint_radius,
 #' One row per reviewed stretch: `file` (the recording name without
 #' extension), `target` (the object landmark), `start_s`, `end_s` and
 #' `decision`: "on_object" forces the stretch to count as on the object,
-#' "not_on_object" forces it not to. `reason` and `reviewer` are kept for the
-#' record. An absent file means no decisions.
+#' "not_on_object" forces it not to, and "leave_out" (target "all") removes
+#' the stretch from the recording (apply_leave_out()). `reason` and `reviewer`
+#' are kept for the record. An absent file means no decisions.
 read_qc_decisions <- function(path) {
   columns <- c("file", "target", "start_s", "end_s", "decision", "reason", "reviewer")
   if (is.null(path) || !file.exists(path)) {
@@ -219,12 +220,128 @@ read_qc_decisions <- function(path) {
   decisions <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
   missing <- setdiff(columns, names(decisions))
   if (length(missing) > 0) stop("QC decisions file lacks column(s): ", paste(missing, collapse = ", "))
-  bad <- setdiff(unique(decisions$decision), c("on_object", "not_on_object"))
+  bad <- setdiff(unique(decisions$decision), c("on_object", "not_on_object", "leave_out"))
   if (length(bad) > 0) stop("Unknown QC decision(s): ", paste(bad, collapse = ", "))
   if (any(!is.finite(decisions$start_s) | !is.finite(decisions$end_s) | decisions$end_s < decisions$start_s)) {
     stop("QC decisions need finite start_s <= end_s")
   }
+  if (any((decisions$decision == "leave_out") != (decisions$target == "all"))) {
+    stop("QC decisions: leave_out needs target 'all', and only leave_out may use it")
+  }
   decisions[, columns]
+}
+
+#' Remove reviewed leave-out windows from a recording.
+#'
+#' A leave-out window is a stretch that is not part of the test, such as a lid
+#' lifted for the next phase or a mouse off the maze. Its frames are removed
+#' before anything is scored, so every measure, and the time it is a share of,
+#' covers the rest of the recording only. Frame i (1-based) lies at
+#' (i - 1) / fps seconds. A window that starts after the last frame no longer
+#' fits the recording and stops the run.
+#'
+#' @return list(tracking, left_out_s)
+apply_leave_out <- function(tracking, decisions, file) {
+  rows <- decisions[decisions$file == file & decisions$decision == "leave_out", , drop = FALSE]
+  if (nrow(rows) == 0) return(list(tracking = tracking, left_out_s = 0))
+  fps <- get_tracking_fps(tracking)
+  frames <- get_tracking_frames(tracking)
+  time_s <- (seq_along(frames) - 1L) / fps
+  drop <- rep(FALSE, length(frames))
+  for (i in seq_len(nrow(rows))) {
+    if (rows$start_s[i] > time_s[length(time_s)]) {
+      stop(sprintf("leave-out %s %.2f-%.2f s starts after the recording ends (%.2f s)",
+                   file, rows$start_s[i], rows$end_s[i], time_s[length(time_s)]))
+    }
+    drop <- drop | (time_s >= rows$start_s[i] & time_s <= rows$end_s[i])
+  }
+  list(tracking = CutTrackingData(tracking, remove.frames = frames[drop]), left_out_s = sum(drop) / fps)
+}
+
+# ---------------------------------------------------------------------------
+# Hidden next to an object
+# ---------------------------------------------------------------------------
+
+#' Rows that are a gap fill: the point steps exactly as in the rows either side.
+#'
+#' The tracking export fills a gap by a straight line at constant speed, so
+#' the second difference of a filled row is zero; tracked motion never keeps
+#' it below `tol` for long.
+straight_line_rows <- function(x, y, tol) {
+  n <- length(x)
+  out <- rep(FALSE, n)
+  if (n < 3) return(out)
+  i <- 2:(n - 1)
+  d2 <- sqrt((x[i + 1] - 2 * x[i] + x[i - 1])^2 + (y[i + 1] - 2 * y[i] + y[i - 1])^2)
+  out[i] <- d2 < tol
+  out[is.na(out)] <- FALSE
+  out
+}
+
+#' Stretches in which the mouse is hidden beside an object.
+#'
+#' A stretch counts when, for at least `min_s`, the body centre is a gap fill,
+#' at least `min_nose_lost_share` of its frames have no nose on the mouse
+#' (missing, filled the same way, or more than `nose_off_body` from the body
+#' centre), and the body centre stays within `max_distance` of the object
+#' point throughout. In the Exp9 social-preference arena the mouse is then
+#' under the box over that cup. Run on the tracking as read (after
+#' calibration, before any repair), whose filled rows are still exact
+#' straight lines. Distances are in tracking units; a filled row's second
+#' difference is under `straight_tol_px` pixels.
+#'
+#' @param objects named object landmarks, e.g. c(left = "socl", right = "socr")
+#' @return list(masks = one logical vector per object name, episodes = every
+#'   body-fill stretch of at least `min_s`, with its decision: "hidden",
+#'   "nose_seen" or "away")
+detect_hidden_at_objects <- function(tracking, objects, min_s, max_distance, nose_off_body,
+                                     min_nose_lost_share = 0.5, straight_tol_px = 0.001) {
+  validate_tracking_data(tracking, required_landmarks = c("bodycentre", "nose", unname(objects)))
+  validate_scalar_number(min_s, "min_s", positive = TRUE)
+  validate_scalar_number(max_distance, "max_distance", positive = TRUE)
+  validate_scalar_number(nose_off_body, "nose_off_body", positive = TRUE)
+  if (is.null(names(objects)) || any(!nzchar(names(objects)))) stop("objects must be named")
+  scale <- if (identical(get_tracking_unit(tracking), "pixel")) 1 else tracking$px.to.cm
+  if (is.null(scale) || !is.finite(scale)) stop("detect_hidden_at_objects needs pixel or calibrated coordinates")
+  fps <- get_tracking_fps(tracking)
+  n <- length(get_tracking_frames(tracking))
+  body <- get_point_coordinates(tracking, "bodycentre")
+  nose <- get_point_coordinates(tracking, "nose")
+  tol <- straight_tol_px * scale
+  filled <- straight_line_rows(body$x, body$y, tol)
+  nose_lost <- !is.finite(nose$x) | !is.finite(nose$y) | straight_line_rows(nose$x, nose$y, tol) |
+    euclidean_distance(nose$x, nose$y, body$x, body$y) > nose_off_body
+  nose_lost[is.na(nose_lost)] <- TRUE
+  centre <- lapply(objects, function(o) {
+    xy <- get_point_coordinates(tracking, o)
+    c(x = stats::median(xy$x, na.rm = TRUE), y = stats::median(xy$y, na.rm = TRUE))
+  })
+  to_point <- function(rows, p) {
+    euclidean_distance(body$x[rows], body$y[rows], rep(p[["x"]], length(rows)), rep(p[["y"]], length(rows)))
+  }
+  masks <- lapply(objects, function(o) rep(FALSE, n))
+  runs <- rle(filled); ends <- cumsum(runs$lengths); starts <- ends - runs$lengths + 1L
+  episodes <- list()
+  for (k in which(runs$values & runs$lengths >= min_s * fps)) {
+    rows <- starts[k]:ends[k]
+    far <- vapply(centre, function(p) max(to_point(rows, p)), 0)
+    near <- names(which.min(far))
+    lost <- mean(nose_lost[rows])
+    decision <- if (far[[near]] > max_distance) "away" else if (lost < min_nose_lost_share) "nose_seen" else "hidden"
+    if (decision == "hidden") masks[[near]][rows] <- TRUE
+    near_xy <- centre[[near]]
+    episodes[[length(episodes) + 1L]] <- data.frame(
+      target = unname(objects[[near]]), start_frame = starts[k], end_frame = ends[k],
+      start_s = (starts[k] - 1) / fps, end_s = ends[k] / fps, duration_s = length(rows) / fps,
+      body_min_distance = min(to_point(rows, near_xy)),
+      body_max_distance = far[[near]], nose_lost_share = lost, decision = decision,
+      stringsAsFactors = FALSE)
+  }
+  episodes <- if (length(episodes)) do.call(rbind, episodes) else data.frame(
+    target = character(), start_frame = integer(), end_frame = integer(), start_s = numeric(),
+    end_s = numeric(), duration_s = numeric(), body_min_distance = numeric(), body_max_distance = numeric(),
+    nose_lost_share = numeric(), decision = character(), stringsAsFactors = FALSE)
+  list(masks = masks, episodes = episodes)
 }
 
 #' Apply reviewed decisions to an on-object mask.

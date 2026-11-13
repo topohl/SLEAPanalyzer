@@ -44,6 +44,9 @@ nosedip_integration_period_frames: 20
 
 nose_dips: true
 
+# Reviewed stretches left out of the recording (decision leave_out).
+qc_decisions_file: qc_decisions_epm.csv
+
 min_bout_s: 0.0
 max_gap_s: 0.0
 

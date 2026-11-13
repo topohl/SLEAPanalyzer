@@ -97,6 +97,8 @@ assay_schema <- function(assay) {
       calibration_distance_cm = config_field(
         "number", positive = TRUE, required = FALSE
       ),
+      # Reviewed leave-out windows (decision "leave_out", apply_leave_out()).
+      qc_decisions_file = config_field("path", required = FALSE),
 
       # Nose-dip smoothing, separate from integration_period_frames because
       # the two calibrate against different things: one sets the
@@ -142,7 +144,16 @@ assay_schema <- function(assay) {
       on_cup_merge_gap_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
       on_cup_min_episode_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
       on_cup_size_window_s = config_field("number", positive = TRUE, required = FALSE),
-      qc_decisions_file = config_field("path", required = FALSE)
+      qc_decisions_file = config_field("path", required = FALSE),
+
+      # Time hidden under the box over a cup is contact with that cup
+      # (detect_hidden_at_objects(), plausibility.R). Off unless set; when on,
+      # every hidden_* threshold must be stated.
+      hidden_contact = config_field("logical", required = FALSE),
+      hidden_min_s = config_field("number", positive = TRUE, required = FALSE),
+      hidden_max_distance_cm = config_field("number", positive = TRUE, required = FALSE),
+      hidden_nose_off_body_cm = config_field("number", positive = TRUE, required = FALSE),
+      hidden_min_nose_lost_share = config_field("number", positive = TRUE, required = FALSE)
     ),
     stop("Unknown assay: ", assay)
   )
