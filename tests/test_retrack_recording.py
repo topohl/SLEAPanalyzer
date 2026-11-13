@@ -1280,11 +1280,33 @@ class NorTest(Stubs):
         self.assertEqual(len(self.scorer.calls), 1)
         self.assertIn("batches: [B5]", self.scorer.calls[0])
         self.assertIn(f"input_dir: {(c.stage / 'NOR').as_posix()}", self.scorer.calls[0])
+        self.assertIn("qc_decisions_file: " + (rr.CONFIG_DIR / "qc_decisions_nor.csv").resolve().as_posix(), self.scorer.calls[0])
         self.assertIn("H1E2: validFraction", out)
         state = tree_state(self.tmp)
         code, out = run_tool(args + ["--apply"])
         self.assertEqual((code, tree_state(self.tmp)), (0, state), out)
         self.assertIn("everything is already up to date", out)
+
+    def test_nor_lists_the_leave_out_rows_of_the_recording(self) -> None:
+        c = self.build()
+        dec = self.tmp / "qc_decisions_nor.csv"
+        dec.write_text("file,target,start_s,end_s,decision,reason,reviewer\n"
+                       "H1E2_NOV,all,0,0.04,leave_out,two frames of another clip,test\n", encoding="utf-8")
+        cfg = self.tmp / "nor_test.yaml"
+        text = (rr.CONFIG_DIR / "nor_all.yaml").read_text(encoding="utf-8")
+        cfg.write_text(re.sub(r"(?m)^qc_decisions_file:.*$", f"qc_decisions_file: {dec.as_posix()}", text), encoding="utf-8")
+        code, out = run_tool(self.nor(c, "B5", "H1E2", "NOV", "--config", str(cfg)))
+        self.assertEqual(code, 0, out)
+        self.assertIn("has 1 row(s) for H1E2_NOV; their times refer to the old clip", out)
+        self.assertIn("all 0-0.04 s -> leave_out", out)
+        code, out = run_tool(self.nor(c, "B5", "F8O9", "NOV", "--config", str(cfg)))
+        self.assertNotIn("row(s) for F8O9_NOV", out)
+
+    def test_a_column_new_in_the_later_output_is_not_a_change(self) -> None:
+        before = {"A1L9": {"distance": "1.0"}}
+        after = {"A1L9": {"distance": "1.0", "leftOutS": "0"}}
+        self.assertEqual(rr.changed_cells(before, after), {})
+        self.assertEqual(rr.changed_cells(before, {"A1L9": {"distance": "2.0", "leftOutS": "0"}}), {"A1L9": ["distance"]})
 
     def test_nor_refuses_the_options_of_the_other_assays(self) -> None:
         c = self.build()

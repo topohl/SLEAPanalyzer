@@ -160,6 +160,10 @@ def config_value(config: Path, key: str) -> str:
     return text_value(config.read_text(encoding="utf-8"), key, config.name)
 
 
+def config_value_optional(config: Path, key: str) -> str | None:
+    return text_value(config.read_text(encoding="utf-8"), key, config.name, required=False)
+
+
 def text_value(text: str, key: str, label: str = "config", required: bool = True) -> str | None:
     m = re.search(rf"^{key}:\s*(.+?)\s*$", text, re.M)
     if not m:
@@ -236,6 +240,8 @@ def read_rows(csv_path: Path) -> dict[str, dict[str, str]]:
 
 
 def changed_cells(before: dict, after: dict, ignore: tuple[str, ...] = ()) -> dict:
+    """Columns whose value changed, per code. A column the earlier output did not have (one a newer scoring
+    adds, such as leftOutS) is new, not changed."""
     out: dict = {}
     for code in sorted(set(before) | set(after)):
         b, a = before.get(code), after.get(code)
@@ -244,7 +250,7 @@ def changed_cells(before: dict, after: dict, ignore: tuple[str, ...] = ()) -> di
             continue
         cols = []
         for c in a:
-            if c in ignore:
+            if c in ignore or c not in b:
                 continue
             x, y = b.get(c, ""), a[c]
             try:
@@ -276,6 +282,18 @@ def retarget(text: str, moves: list[tuple[str, str]]) -> str:
     return text
 
 
+def absolute_paths(text: str, config_dir: Path) -> str:
+    """Make the relative paths of a config text absolute: the R loader resolves them against the config's own
+    folder, and the scoring reads a copy written elsewhere."""
+    def absolute(m: re.Match) -> str:
+        val = m.group(2).strip().strip("'\"")
+        if val in ("", "~") or Path(val).is_absolute():
+            return m.group(0)
+        return f"{m.group(1)}: {(config_dir / val).resolve().as_posix()}"
+    return re.sub(r"^(qc_decisions_file|zone_file|animal_id_code_file|metadata_dir):\s*(.+?)\s*$", absolute, text,
+                  flags=re.M)
+
+
 # --------------------------------------------------------------------------- #
 # NOR
 # --------------------------------------------------------------------------- #
@@ -286,6 +304,21 @@ def nor_rivals(folder: Path, keep: str, phase: str, code: str, codes: list[str])
         return []
     return [p for p in sorted(folder.glob("*.csv")) if p.name != keep and nor_trial(p.name) == phase
             and resolve_code(p.stem, codes, code) == code]
+
+
+def print_decision_rows(qc_file: Path | None, key: str, indent: str = "    ") -> None:
+    """The scoring's reviewed-decision rows for one recording (file == key): their times refer to the clip the
+    decision was made on, so a re-cut or re-tracked clip needs them checked again."""
+    if qc_file is None or not qc_file.exists():
+        return
+    with open(qc_file, newline="", encoding="utf-8-sig") as fh:
+        hits = [(i, r) for i, r in enumerate(csv.DictReader(fh), start=2) if (r.get("file") or "").strip() == key]
+    if hits:
+        print(f"{indent}{qc_file.name} ({qc_file}) has {len(hits)} row(s) for {key}; their times refer to the "
+              "old clip: check them on the new one, then keep, change or drop them (the scoring applies them):")
+        for i, r in hits:
+            print(f"{indent}  line {i}: {r.get('target')} {r.get('start_s')}-{r.get('end_s')} s -> {r.get('decision')}: "
+                  f"{(r.get('reason') or '')[:90]}")
 
 
 def run_nor(args: argparse.Namespace) -> int:
@@ -364,6 +397,9 @@ def run_nor(args: argparse.Namespace) -> int:
         staged = stage_dir / f"{args.code}_{args.phase}.csv"
         changed |= install(fmt_new, staged, stage_dir.parent / arch, args.apply, log)
         print("\n".join(log))
+        qc_value = config_value_optional(config, "qc_decisions_file")
+        print_decision_rows((config.parent / qc_value).resolve() if qc_value and qc_value != "~" else None,
+                            f"{args.code}_{args.phase}", indent="  ")
         if not changed:
             print("everything is already up to date")
             if args.apply and not args.rerun_analysis:
@@ -382,8 +418,8 @@ def run_nor(args: argparse.Namespace) -> int:
             print(f"  backed up {out_dir} -> {before_dir}")
         before = read_rows(before_dir / "combined_output.csv") if (before_dir / "combined_output.csv").exists() else {}
         cfg = work / "nor_batch.yaml"
-        cfg.write_text(retarget(re.sub(r"^batches:.*$", f"batches: [{args.batch}]", config.read_text(encoding="utf-8"), flags=re.M), moves),
-                       encoding="utf-8")
+        text = re.sub(r"^batches:.*$", f"batches: [{args.batch}]", config.read_text(encoding="utf-8"), flags=re.M)
+        cfg.write_text(absolute_paths(retarget(text, moves), config.parent), encoding="utf-8")   # the copy is in work/
         print(f"  running   {NOR_SCRIPT.name} for {args.batch} ...")
         res = SCORER(args.rscript, NOR_SCRIPT, cfg, REPO)
         if res.returncode != 0:
@@ -1169,14 +1205,7 @@ def scoring_setup(lay: Layout, spec: Spec, args: argparse.Namespace, config: Pat
     moves = [(stage_default.as_posix(), lay.stage_root.as_posix())]
     if output_default is not None and args.output_root:
         moves.append((output_default.as_posix(), args.output_root.as_posix()))
-    text = retarget(text, moves)
-
-    def absolute(m: re.Match) -> str:                     # relative paths resolve against the config's own folder
-        val = m.group(2).strip().strip("'\"")
-        if val in ("", "~") or Path(val).is_absolute():
-            return m.group(0)
-        return f"{m.group(1)}: {(config.parent / val).resolve().as_posix()}"
-    text = re.sub(r"^(qc_decisions_file|zone_file|animal_id_code_file|metadata_dir):\s*(.+?)\s*$", absolute, text, flags=re.M)
+    text = absolute_paths(retarget(text, moves), config.parent)
     manifest = out_dirs[0] / "run_manifest.yaml"
     return dict(repo=repo, script=repo / "02_SLEAPanalzyer" / spec.script, text=text, out_dirs=out_dirs,
                 global_dir=global_dir, backup_root=backup_root, tag=tag, manifest=manifest, marker=out_dirs[0] / MARKER)
@@ -1344,16 +1373,8 @@ def print_followups(lay: Layout, spec: Spec, args: argparse.Namespace, new_md5: 
         print("    related rows, whose flag may no longer be raised after the re-track (review them too):")
         for i, r in related:
             print(f"      line {i}: {r.get('assay')} {r.get('phase')} {r.get('batch')} {r.get('Code')}: {r.get('flags')} -> {r.get('outcome')}")
-    if qc_file is not None and qc_file.exists() and lay.phase:
-        with open(qc_file, newline="", encoding="utf-8-sig") as fh:
-            hits = [(i, r) for i, r in enumerate(csv.DictReader(fh), start=2)
-                    if (r.get("file") or "").strip() == f"{lay.code}_{lay.phase}"]
-        if hits:
-            print(f"    {qc_file.name} ({qc_file}) has {len(hits)} row(s) for {lay.code}_{lay.phase}; their times refer to the "
-                  "old clip: check them on the new one, then keep, change or drop them (the scoring applies them):")
-            for i, r in hits:
-                print(f"      line {i}: {r.get('target')} {r.get('start_s')}-{r.get('end_s')} s -> {r.get('decision')}: "
-                      f"{(r.get('reason') or '')[:90]}")
+    if lay.phase:
+        print_decision_rows(qc_file, f"{lay.code}_{lay.phase}")
     qc = args.qc_root
     for name in ("retrack_list.csv", "leave_out_list.csv"):
         p = qc / name

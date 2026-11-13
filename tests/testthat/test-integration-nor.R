@@ -4,7 +4,8 @@
 # loading, tracking import, bounded interpolation, calibration, QC, the shared
 # event engine, output writing and the run manifest.
 
-make_nor_fixture <- function(root, n = 300, fps = 30, contact_frames = 60) {
+make_nor_fixture <- function(root, n = 300, fps = 30, contact_frames = 60, foreign_frames = 0,
+                             extra_lines = character()) {
   formatted <- file.path(root, "formatted")
   dir.create(formatted, recursive = TRUE, showWarnings = FALSE)
 
@@ -18,6 +19,10 @@ make_nor_fixture <- function(root, n = 300, fps = 30, contact_frames = 60) {
   # parks in the middle of the arena, far from both objects.
   nose_x <- c(rep(150, contact_frames), rep(250, n - contact_frames))
   nose_y <- c(rep(215, contact_frames), rep(100, n - contact_frames))
+  # The first foreign_frames frames show the mouse elsewhere, far from both
+  # objects, as in clips that open with frames of another clip.
+  nose_x[seq_len(foreign_frames)] <- 400
+  nose_y[seq_len(foreign_frames)] <- 400
   # bodycentre behind the nose so the animal faces the object.
   body_x <- nose_x
   body_y <- nose_y - 60
@@ -81,7 +86,8 @@ make_nor_fixture <- function(root, n = 300, fps = 30, contact_frames = 60) {
     "min_bout_s: 0.0",
     "max_gap_s: 0.0",
     "report_rearing: false",
-    "write_manifest: true"
+    "write_manifest: true",
+    extra_lines
   ), config_path)
 
   list(root = root, config = config_path, output = file.path(root, "output"))
@@ -174,6 +180,47 @@ test_that("the run writes a QC table and a provenance manifest", {
   # The input file is identified by hash so a rerun is verifiable.
   expect_length(manifest$inputs, 1L)
   expect_equal(nchar(manifest$inputs[[1]]$md5), 32L)
+})
+
+test_that("the NOR batch script leaves out reviewed frames", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  root <- temp_run_dir("nor_leave_out")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  decisions <- file.path(root, "decisions.csv")
+  # frames 1-2 (0 and 0.033 s at 30 fps): the two frames of another clip
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "A001_nor,all,0,0.04,leave_out,frames of another clip,test"), decisions)
+
+  plain <- make_nor_fixture(file.path(root, "plain"), foreign_frames = 2)
+  expect_script_succeeded(run_assay_script("DLCA_NOR v1.2.1.R", plain$config), "NOR script")
+  before <- utils::read.csv(file.path(plain$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  expect_equal(before$leftOutS, 0)
+
+  fixture <- make_nor_fixture(file.path(root, "cut"), foreign_frames = 2,
+                              extra_lines = paste0("qc_decisions_file: ", decisions))
+  expect_script_succeeded(run_assay_script("DLCA_NOR v1.2.1.R", fixture$config), "NOR script with a leave-out")
+  result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  # exactly the two frames go, and the false step out of them
+  expect_equal(result$leftOutS, 2 / 30, tolerance = 1e-6)
+  expect_equal(result$totalTime, 298 / 30, tolerance = 1e-6)
+  expect_equal(before$distance - result$distance, sqrt(250^2 + 185^2) / 10, tolerance = 1e-6)
+  # contact is unchanged; latency counts from the first kept frame
+  expect_equal(result$contactLeft, 58 / 30, tolerance = 1e-6)
+  expect_equal(result$contactLeft, before$contactLeft)
+  expect_equal(before$latency, 2 / 30, tolerance = 1e-6)
+  expect_equal(result$latency, 0)
+  manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
+  expect_equal(manifest$extra$qc_decisions[[1]]$md5, unname(tools::md5sum(decisions)))
+
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "A001_nor,objL,0,0.04,on_object,not an object-recognition decision,test"), decisions)
+  output <- run_assay_script("DLCA_NOR v1.2.1.R", fixture$config)
+  expect_false(is.null(attr(output, "status")))
+  expect_true(any(grepl("only leave_out", output)))
 })
 
 test_that("an invalid configuration stops the run instead of guessing", {
