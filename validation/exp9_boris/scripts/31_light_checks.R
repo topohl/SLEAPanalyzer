@@ -20,6 +20,10 @@
 #              batch whose body-centre tracks coincide (median distance under
 #              0.15 cm) at some offset within 60 s, e.g. a phase cut from the
 #              wrong part of a video
+#   first rows recordings that open with the same body-centre pixels share
+#              opening frames; every member but the one that moves on smoothly
+#              (next step under 1 cm) opens with frames of another clip
+#              (foreign_first_frames; results/light_checks_first_rows.csv)
 #   landmarks  a landmark the test uses that is never, or rarely, tracked
 #   filled     body-centre rows on a straight-line fill. The staged files
 #              bridge every gap of the tracking linearly and give each row
@@ -279,6 +283,38 @@ fwrite(duplicates, file.path(OUT, "light_checks_duplicates.csv"))
 dup_members <- unique(unlist(strsplit(duplicates$pair, " = ")))
 chk[, duplicate := paste(assay, phase, batch, Code) %in% dup_members]
 
+# ---- opening frames of another clip ------------------------------------------------------------------------------------
+# Recordings whose first body-centre rows are the same pixels (as staged) share opening frames: a clip cut with frames of
+# another clip at its start. Within each group the rows shared by all are found; the member that moves on smoothly from
+# them (next step under 1 cm) is their source, every other member opens with borrowed frames and is flagged.
+first_rows <- function(f, n = 5) {
+  lines <- readLines(f, n = n + 3, warn = FALSE)
+  parts <- strsplit(lines[2], ",", fixed = TRUE)[[1]]; i <- match("bodycentre", parts)
+  if (is.na(i) || length(lines) < 4) return(NULL)
+  t(vapply(lines[-(1:3)], function(l) strsplit(l, ",", fixed = TRUE)[[1]][i + 0:1], character(2), USE.NAMES = FALSE))
+}
+heads <- lapply(recordings$file, first_rows)
+open_key <- vapply(heads, function(h) if (is.null(h)) NA_character_ else paste(h[1, ], collapse = " "), "")
+borrowed <- list()
+for (g in split(seq_len(nrow(recordings)), open_key)) {
+  if (length(g) < 2) next
+  same <- vapply(seq_len(nrow(heads[[g[1]]])), function(k) all(vapply(heads[g], function(h) identical(h[k, ], heads[[g[1]]][k, ]), TRUE)), TRUE)
+  k <- if (all(same)) length(same) else which(!same)[1] - 1L           # rows shared by every member
+  if (k >= length(same)) next                                          # identical openings throughout: the duplicate check's case
+  cm <- chk$cm_per_px[match(recordings[g, paste(assay, phase, batch, Code)], chk[, paste(assay, phase, batch, Code)])]
+  step <- vapply(seq_along(g), function(j) { h <- heads[[g[j]]]; a <- as.numeric(h[k, ]); b <- as.numeric(h[k + 1, ])
+    sqrt(sum((b - a)^2)) * cm[j] }, 0)
+  source <- if (min(step, na.rm = TRUE) < 1) which.min(step) else 0L
+  borrowed[[length(borrowed) + 1]] <- data.table(
+    group = recordings[g[1], paste(assay, phase, batch, Code)], recording = recordings[g, paste(assay, phase, batch, Code)],
+    shared_rows = k, next_step_cm = round(step, 2), role = ifelse(seq_along(g) == source, "source", "borrowed"))
+}
+borrowed <- rbindlist(borrowed)
+if (!nrow(borrowed)) borrowed <- data.table(group = character(), recording = character(), shared_rows = integer(),
+                                            next_step_cm = numeric(), role = character())
+fwrite(borrowed, file.path(OUT, "light_checks_first_rows.csv"))
+chk[, foreign_first_frames := paste(assay, phase, batch, Code) %in% borrowed[role == "borrowed", recording]]
+
 # ---- the release: animal metadata, readouts, plus maze zone budget, open field dropped time ----------------------------
 animals <- fread(file.path(RELEASE, "data", "exp9_sleap_all_animals.tsv"))
 chk <- merge(chk, animals[, .(Code, Sex)], by = "Code", all.x = TRUE)
@@ -359,6 +395,7 @@ chk[, flags := apply(cbind(
   flag(abs(duration_s - expected_s) > LIMIT$length_s, "length"),
   flag(last_bin_share < LIMIT$last_bin, "partial_last_bin"),
   flag(duplicate, "duplicate"),
+  flag(foreign_first_frames, "foreign_first_frames"),
   flag(used_observed_min < LIMIT$used_observed, "landmark_missing"),
   flag(body_longest_fill_s > LIMIT$fill_s | body_filled_share > LIMIT$fill_share, "filled_gap"),
   flag(abs(aspect_ratio / expected_aspect - 1) > LIMIT$aspect, "arena_shape"),
@@ -451,7 +488,8 @@ flagged <- function(x, name) sum(grepl(name, own(x), fixed = TRUE))
 rng <- function(x, d = 2) if (all(is.na(x))) NA_character_ else paste(round(range(x, na.rm = TRUE), d), collapse = "-")
 summ <- chk[, .(recordings = .N, flagged = sum(nzchar(trimws(sub("; $", "", own(flags))))),
   length = flagged(flags, "length"), duration_range_s = rng(duration_s, 1), partial_last_bin = flagged(flags, "partial_last_bin"),
-  duplicate = flagged(flags, "duplicate"), landmark_missing = flagged(flags, "landmark_missing"),
+  duplicate = flagged(flags, "duplicate"), foreign_first_frames = flagged(flags, "foreign_first_frames"),
+  landmark_missing = flagged(flags, "landmark_missing"),
   used_observed_min_pct = round(100 * min(used_observed_min, na.rm = TRUE), 2),
   aspect_dev_max_pct = if (all(is.na(aspect_ratio))) NA_real_ else round(100 * max(abs(aspect_ratio / expected_aspect - 1), na.rm = TRUE), 2),
   arm_width_range_cm = rng(arm_width_cm), corner_drift_max_cm = round(max(corner_drift_cm, na.rm = TRUE), 2),
@@ -474,6 +512,7 @@ summ <- merge(summ, chk[, .(to_review = sum(nzchar(to_review))), by = .(assay, p
 fwrite(summ, file.path(OUT, "light_checks_summary.csv"))
 print(as.data.frame(summ))
 cat("\nsame trial twice:\n"); print(as.data.frame(duplicates))
+cat("\nopening frames shared between recordings:\n"); print(as.data.frame(borrowed))
 cat("\nflagged recordings:\n"); print(as.data.frame(chk[flags != "", .(assay, phase, batch, Code, flags)]))
 if (nrow(problems)) cat(sprintf("\ndecisions file problems (%s, row 1 is the header):", DECISIONS),
                         problems[, sprintf("  row %-7s %-18s %s", row, recording, problem)], sep = "\n")
