@@ -38,7 +38,8 @@ VDIR <- c(B1 = "B1/20221117_SocP/cropped", B2 = "B2/20230218_SocP/cropped", B3 =
 ALIAS <- c("B4 B7C9 S2" = "B7C2", "B2 Q6Q6 HAB" = "O6O6", "B2 Q6Q6 S1" = "O6O6", "B2 Q6Q6 S2" = "O6O6")   # video names with a typo
 video_path <- function(batch, code, phase) {
   v <- ALIAS[paste(batch, code, phase)]; if (!is.na(v)) code <- unname(v)
-  pat <- if (batch == "B1") sprintf("^%s_GX.*_%s[.]mp4$", code, phase) else sprintf("^E9_SIS_%s_%s_%s[.]mp4$", batch, code, phase)
+  # a re-crop carries a number (_1); the clip it replaced is in cropped/old, which is not searched
+  pat <- if (batch == "B1") sprintf("^%s_GX.*_%s(_[0-9]+)?[.]mp4$", code, phase) else sprintf("^E9_SIS_%s_%s_%s(_[0-9]+)?[.]mp4$", batch, code, phase)
   hit <- list.files(file.path(VROOT, VDIR[[batch]]), pat, full.names = TRUE)
   if (length(hit) != 1) stop(batch, " ", code, " ", phase, ": ", length(hit), " videos")
   hit }

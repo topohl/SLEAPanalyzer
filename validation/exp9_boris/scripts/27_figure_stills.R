@@ -28,7 +28,8 @@ config <- load_assay_config(file.path(PROJ, "config", "socp_all.yaml"), "SocP")
 VROOT <- "//mdc-berlin.net/fs/RD_Hoernberg/Tobi/E9_SIS"
 VDIR <- c(B1 = "B1/20221117_SocP/cropped", B4 = "B4/SocP/cropped")
 video_path <- function(batch, code, phase) {
-  pat <- if (batch == "B1") sprintf("^%s_GX.*_%s[.]mp4$", code, phase) else sprintf("^E9_SIS_%s_%s_%s[.]mp4$", batch, code, phase)
+  # a re-crop carries a number (_1); the clip it replaced is in cropped/old, which is not searched
+  pat <- if (batch == "B1") sprintf("^%s_GX.*_%s(_[0-9]+)?[.]mp4$", code, phase) else sprintf("^E9_SIS_%s_%s_%s(_[0-9]+)?[.]mp4$", batch, code, phase)
   hit <- list.files(file.path(VROOT, VDIR[[batch]]), pat, full.names = TRUE); stopifnot(length(hit) == 1); hit }
 
 # The analysis steps of DLCA_SocP up to the nose it scores: raw, repaired and interpolated, restored.
