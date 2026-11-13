@@ -77,6 +77,11 @@ if (calibration$method == "distance") {
 }
 
 batches <- if (is.null(config$batches)) "" else config$batches
+if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
+  stop("qc_decisions_file not found: ", config$qc_decisions_file)
+}
+qcDecisions <- read_qc_decisions(config$qc_decisions_file)
+if (any(qcDecisions$decision != "leave_out")) stop("EPM takes only leave_out decisions")
 
 for (batch in batches) {
   inputFolder <- if (nzchar(batch)) file.path(config$input_dir, batch) else config$input_dir
@@ -87,9 +92,15 @@ for (batch in batches) {
 
   files <- list.files(inputFolder, pattern = "\\.csv$", full.names = TRUE)
   qcList <- list()
+  leftOut <- stats::setNames(numeric(length(files)), basename(files))
 
   pipeline <- function(path) {
     tracking <- read_tracking_csv(file = path, fps = config$fps)
+    # Reviewed stretches that are not part of the test (e.g. the mouse off the
+    # maze) are removed before anything is scored.
+    cut <- apply_leave_out(tracking, qcDecisions, tools::file_path_sans_ext(basename(path)))
+    tracking <- cut$tracking
+    leftOut[[basename(path)]] <<- cut$left_out_s
     required_points <- unique(c(
       calibration$points, zone_points,
       "headcentre", "bodycentre", "neck"
@@ -137,7 +148,8 @@ for (batch in batches) {
   trackingAll <- lapply(files, pipeline)
   names(trackingAll) <- basename(files)
 
-  for (tracking in trackingAll) {
+  for (k in seq_along(trackingAll)) {
+    tracking <- trackingAll[[k]]
     qcReport <- tracking_qc_report(
       tracking,
       landmarks = c("headcentre", "bodycentre", "neck"),
@@ -163,6 +175,7 @@ for (batch in batches) {
       data.frame(
         qcPass = qcDecision$pass,
         qcReasons = paste(qcDecision$reasons, collapse = "; "),
+        leftOutS = leftOut[[k]],
         stringsAsFactors = FALSE
       )
     )
@@ -192,7 +205,8 @@ for (batch in batches) {
       inputs = files,
       packages = required_packages,
       repo_dir = repo_dir,
-      extra = list(assay = "EPM", batch = batch, files = length(files))
+      extra = list(assay = "EPM", batch = batch, files = length(files),
+                   qc_decisions = input_file_records(config$qc_decisions_file))
     )
     assert_reproducible_run(manifest)
     write_run_manifest(manifest, file.path(outputFolder, "run_manifest.yaml"))

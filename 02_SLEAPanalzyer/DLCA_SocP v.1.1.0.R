@@ -64,6 +64,11 @@ if (isTRUE(config$landmark_repair)) {
   # a rebuilt coordinate keeps the likelihood of the point it replaced, which a cutoff would then judge
   if (!is.null(config$likelihood_cutoff)) stop("landmark_repair and likelihood_cutoff cannot be combined")
 }
+hidden_fields <- c("hidden_min_s", "hidden_max_distance_cm", "hidden_nose_off_body_cm", "hidden_min_nose_lost_share")
+if (isTRUE(config$hidden_contact)) {
+  unset <- hidden_fields[vapply(hidden_fields, function(f) is.null(config[[f]]), logical(1))]
+  if (length(unset) > 0) stop("hidden_contact is on but unset: ", paste(unset, collapse = ", "))
+}
 head_fields <- c("head_length_restore_below")
 if (isTRUE(config$head_length_restore)) {
   unset <- head_fields[vapply(head_fields, function(f) is.null(config[[f]]), logical(1))]
@@ -95,6 +100,7 @@ for (batch in batches) {
     dfList <- list()
     qcList <- list()
     episodeList <- list()
+    hiddenList <- list()
     repairList <- list()
     repairEpisodeList <- list()
     repairModelList <- list()
@@ -103,6 +109,9 @@ for (batch in batches) {
       inputFileName <- tools::file_path_sans_ext(basename(inputFile))
       tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
       code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
+      # Reviewed stretches that are not part of the test are removed first.
+      cut <- apply_leave_out(tracking, qcDecisions, inputFileName)
+      tracking <- cut$tracking
 
       # Calibrated first, so that the repair thresholds are in cm; interpolation
       # is linear, so its result does not depend on the order.
@@ -111,6 +120,21 @@ for (batch in batches) {
         in.metric = config$arena_width_cm * config$arena_height_cm,
         points = config$arena_corner_names
       )
+      tag <- data.frame(file = inputFileName, Code = code, batch = batch, phase = socpPhase, stringsAsFactors = FALSE)
+
+      # Before the repair, while the filled rows are still exact straight lines.
+      hidden <- NULL
+      if (isTRUE(config$hidden_contact)) {
+        found <- detect_hidden_at_objects(
+          tracking, c(left = "socl", right = "socr"),
+          min_s = config$hidden_min_s,
+          max_distance = config$hidden_max_distance_cm,
+          nose_off_body = config$hidden_nose_off_body_cm,
+          min_nose_lost_share = config$hidden_min_nose_lost_share
+        )
+        hidden <- found$masks
+        if (nrow(found$episodes) > 0) hiddenList[[length(hiddenList) + 1L]] <- cbind(tag, found$episodes)
+      }
       repairRow <- data.frame(landmarksFlaggedS = 0, skeletonCollapseS = 0, noseReconstructedS = 0, noseRefusedS = 0,
                               bodycentreReconstructedS = 0, noseAnchorErrorP95 = NA_real_)
       if (isTRUE(config$landmark_repair)) {
@@ -137,7 +161,6 @@ for (batch in batches) {
           bodycentreReconstructedS = s$reconstructed_s[s$landmark == "bodycentre"],
           noseAnchorErrorP95 = if (is.null(rp$models$nose)) NA_real_ else rp$models$nose$error_p95[1]
         )
-        tag <- data.frame(file = inputFileName, Code = code, batch = batch, phase = socpPhase, stringsAsFactors = FALSE)
         repairList[[length(repairList) + 1L]] <- cbind(tag, s)
         if (!is.null(rp$episodes) && nrow(rp$episodes) > 0) repairEpisodeList[[length(repairEpisodeList) + 1L]] <- cbind(tag, rp$episodes)
         for (target in names(rp$models)) {
@@ -240,7 +263,8 @@ for (batch in batches) {
         require_orientation = isTRUE(config$require_orientation),
         min_bout_s = config$min_bout_s,
         max_gap_s = config$max_gap_s,
-        on_cup = onCup
+        on_cup = onCup,
+        hidden = hidden
       )
 
       df <- cbind(
@@ -260,6 +284,7 @@ for (batch in batches) {
           speedRaw = tracking$Report$bodycentre.raw.speed,
           qcPass = qcDecision$pass,
           qcReasons = paste(qcDecision$reasons, collapse = "; "),
+          leftOutS = cut$left_out_s,
           stringsAsFactors = FALSE
         ),
         qc_summary_row(qcReport)[, c(
@@ -306,6 +331,11 @@ for (batch in batches) {
       } else do.call(rbind, episodeList)
       utils::write.csv(episodes, file.path(outputDir, "on_cup_episodes.csv"), row.names = FALSE)
     }
+    if (isTRUE(config$hidden_contact)) {
+      # Every body-fill stretch of at least hidden_min_s, counted or not.
+      hiddenEpisodes <- if (length(hiddenList)) do.call(rbind, hiddenList) else data.frame()
+      utils::write.csv(hiddenEpisodes, file.path(outputDir, "hidden_episodes.csv"), row.names = FALSE)
+    }
     if (isTRUE(config$landmark_repair)) {
       # Per recording and landmark, every episode, and the three best anchor models per rebuilt landmark.
       bind_or_empty <- function(x) if (length(x)) do.call(rbind, x) else data.frame()
@@ -321,7 +351,8 @@ for (batch in batches) {
         packages = required_packages,
         repo_dir = repo_dir,
         extra = list(assay = "SocP", batch = batch, phase = socpPhase,
-                     files = length(fileList))
+                     files = length(fileList),
+                     qc_decisions = input_file_records(config$qc_decisions_file))
       )
       assert_reproducible_run(manifest)
       write_run_manifest(manifest, file.path(outputDir, "run_manifest.yaml"))

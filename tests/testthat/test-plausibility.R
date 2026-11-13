@@ -134,3 +134,97 @@ test_that("the report-only checks find jumps, distorted skeletons and points out
   expect_equal(skeleton$start_frame, 10L)
   expect_equal(skeleton$end_frame, 20L)
 })
+
+test_that("leave-out windows are read, need target 'all' and remove their frames", {
+  decisions <- data.frame(file = "synthetic", target = "all", start_s = 1, end_s = 2,
+                          decision = "leave_out", reason = "", reviewer = "", stringsAsFactors = FALSE)
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(decisions, path, row.names = FALSE)
+  expect_equal(read_qc_decisions(path)$decision, "leave_out")
+  utils::write.csv(transform(decisions, target = "socl"), path, row.names = FALSE)
+  expect_error(read_qc_decisions(path), "target 'all'")
+  utils::write.csv(transform(decisions, decision = "on_object"), path, row.names = FALSE)
+  expect_error(read_qc_decisions(path), "target 'all'")
+
+  tracking <- climb_fixture()                            # 120 frames: frame i at (i - 1) / 30 s
+  cut <- apply_leave_out(tracking, decisions, "synthetic")
+  expect_equal(cut$left_out_s, 31 / 30)                  # frames 31 to 61, 1.00 to 2.00 s
+  expect_equal(length(cut$tracking$frames), 89L)
+  expect_equal(cut$tracking$frames, tracking$frames[-(31:61)])
+  expect_equal(nrow(cut$tracking$data$nose), 89L)
+  expect_identical(apply_leave_out(tracking, decisions, "other")$tracking, tracking)
+  # on-object decisions are not leave-outs
+  expect_identical(apply_leave_out(tracking, transform(decisions, decision = "on_object"), "synthetic")$tracking, tracking)
+  expect_error(apply_leave_out(tracking, transform(decisions, start_s = 5, end_s = 6), "synthetic"), "after the recording ends")
+})
+
+# 120 frames near the right cup; frames 31-90 are a gap fill of the body (a
+# straight line at constant speed between the observed frames 30 and 91).
+hidden_fixture <- function(nose_in_fill = c("filled", "seen"), body_at = c(35, 6)) {
+  n <- 120
+  wobble <- 0.3 * sin(seq_len(n) * 1.3)
+  body <- cbind(x = body_at[1] + wobble, y = body_at[2] + wobble / 2)
+  nose <- cbind(x = body[, "x"] - 3, y = body[, "y"] + 1)
+  fill <- 31:90
+  line <- function(m) {
+    for (j in 1:2) m[fill, j] <- m[30, j] + (m[91, j] - m[30, j]) * (fill - 30) / 61
+    m
+  }
+  body <- line(body)
+  if (match.arg(nose_in_fill) == "filled") nose <- line(nose)
+  tracking <- on_cup_tracking(body, nose, rep(1, n))
+  tracking$px.to.cm <- 0.05
+  tracking
+}
+
+detect_hidden <- function(tracking, ...) {
+  detect_hidden_at_objects(tracking, c(left = "socl", right = "socr"), min_s = 0.2, max_distance = 10,
+                           nose_off_body = 10, ...)
+}
+
+test_that("a mouse lost beside a cup is hidden there; a seen nose or a far body is not", {
+  found <- detect_hidden(hidden_fixture())
+  expect_equal(which(found$masks$right), 31:90)
+  expect_false(any(found$masks$left))
+  expect_equal(found$episodes$decision, "hidden")
+  expect_equal(found$episodes$target, "socr")
+  expect_equal(found$episodes$start_frame, 31L)
+  expect_equal(found$episodes$duration_s, 2)
+
+  seen <- detect_hidden(hidden_fixture("seen"))
+  expect_false(any(seen$masks$right))
+  expect_equal(seen$episodes$decision, "nose_seen")
+
+  away <- detect_hidden(hidden_fixture(body_at = c(22, 12)))
+  expect_false(any(unlist(away$masks)))
+  expect_equal(away$episodes$decision, "away")
+
+  # a nose thrown far from the body is lost too
+  thrown <- hidden_fixture("seen")
+  thrown$data$nose$x[31:90] <- 1; thrown$data$nose$y[31:90] <- 23
+  expect_equal(which(detect_hidden(thrown)$masks$right), 31:90)
+
+  # a fill shorter than min_s is not reported
+  expect_equal(nrow(detect_hidden_at_objects(hidden_fixture(), c(left = "socl", right = "socr"), min_s = 2.5,
+                                             max_distance = 10, nose_off_body = 10)$episodes), 0L)
+})
+
+test_that("SocP counts hidden time as contact with that cup only, and as valid time", {
+  tracking <- hidden_fixture()
+  hidden <- detect_hidden(tracking)$masks
+  # the nose is missing while hidden: without the rule those frames are invalid
+  tracking$data$nose$x[31:90] <- NA; tracking$data$nose$y[31:90] <- NA
+  before <- compute_socp_metrics(tracking, "L", fps = 30)
+  after <- compute_socp_metrics(tracking, "L", fps = 30, hidden = hidden,
+                                on_cup = list(left = rep(FALSE, 120), right = seq_len(120) %in% 41:50))
+  expect_equal(after$summary$contactRight, before$summary$contactRight + 60 / 30)
+  expect_equal(after$summary$hiddenRight, 2)
+  expect_equal(after$summary$hiddenNovel, 2)             # "L": the right cup is novel
+  expect_equal(after$summary$hiddenLeft, 0)
+  expect_equal(after$summary$onCupRight, 0)              # hidden is never on the cup
+  expect_equal(after$summary$validTime, 4)
+  expect_equal(before$summary$validTime, 2)
+  expect_false(any(after$events$proximity_right[31:90]))
+  expect_false(any(after$events$contact_left[31:90]))
+  expect_error(compute_socp_metrics(tracking, "L", fps = 30, hidden = list(right = hidden$right)), "hidden")
+})

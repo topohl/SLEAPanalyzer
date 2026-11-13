@@ -52,6 +52,13 @@ on_cup_min_episode_s: 0.2
 on_cup_size_window_s: 0.5
 qc_decisions_file: qc_decisions_socp.csv
 
+# Time hidden under the box over a cup is contact; same rule and values as socp_all.yaml.
+hidden_contact: true
+hidden_min_s: 0.2
+hidden_max_distance_cm: 10
+hidden_nose_off_body_cm: 10
+hidden_min_nose_lost_share: 0.5
+
 # Landmark repair: same settings as socp_all.yaml.
 landmark_repair: true
 landmark_repair_landmarks: [nose, leftEar, rightEar, spine1, leftArm, rightArm, bodycentre, leftFlank, rightFlank, spine2, tailbase]

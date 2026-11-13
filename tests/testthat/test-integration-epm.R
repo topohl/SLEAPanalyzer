@@ -18,7 +18,7 @@ epm_landmarks <- function(n) {
   )
 }
 
-make_epm_fixture <- function(root, fps = 10) {
+make_epm_fixture <- function(root, fps = 10, extra_lines = character()) {
   # 40 frames: 10 in the left closed arm, 10 in the centre, 10 in the top open
   # arm, 10 back in the centre.
   segments <- list(
@@ -65,7 +65,8 @@ make_epm_fixture <- function(root, fps = 10) {
     "nose_dips: false",
     "min_bout_s: 0.0",
     "max_gap_s: 0.0",
-    "write_manifest: true"
+    "write_manifest: true",
+    extra_lines
   ), config_path)
 
   list(root = root, config = config_path, output = file.path(root, "output"))
@@ -110,6 +111,38 @@ test_that("the EPM batch script runs end to end and assigns arms correctly", {
   expect_true(file.exists(file.path(fixture$output, "tracking_qc.csv")))
   manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
   expect_equal(manifest$extra$assay, "EPM")
+})
+
+test_that("the EPM batch script leaves out a reviewed window", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("cowplot")
+
+  root <- temp_run_dir("epm_leave_out")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  decisions <- file.path(root, "decisions.csv")
+  # frames 21-30 (2.0-2.9 s at 10 fps): the visit to the open arm
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "E001_epm,all,2,2.9,leave_out,off the maze,test"), decisions)
+  fixture <- make_epm_fixture(root, extra_lines = paste0("qc_decisions_file: ", decisions))
+  expect_script_succeeded(run_assay_script("DLCA_EPM v1.0.0.R", fixture$config), "EPM script with a leave-out")
+
+  report <- utils::read.csv(file.path(fixture$output, "Report.csv"), stringsAsFactors = FALSE)
+  expect_equal(report$bodycentre.open.total.time, 0)
+  expect_equal(report$bodycentre.open.entries, 0)
+  expect_equal(report$bodycentre.center.total.time, 2)
+  expect_equal(report$bodycentre.total.time, 3)
+  # 180 px from the closed arm to the centre; the excursion is gone
+  expect_equal(report$bodycentre.raw.distance, 18, tolerance = 1e-6)
+  qc <- utils::read.csv(file.path(fixture$output, "tracking_qc.csv"), stringsAsFactors = FALSE)
+  expect_equal(qc$leftOutS, 1)
+
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "E001_epm,socl,2,2.9,on_object,not a plus maze decision,test"), decisions)
+  output <- run_assay_script("DLCA_EPM v1.0.0.R", fixture$config)
+  expect_false(is.null(attr(output, "status")))
+  expect_true(any(grepl("only leave_out", output)))
 })
 
 test_that("the shipped EPM zone definitions are simple, non-degenerate polygons", {
