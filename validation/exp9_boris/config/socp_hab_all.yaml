@@ -51,6 +51,8 @@ on_cup_merge_gap_s: 0.5
 on_cup_min_episode_s: 0.2
 on_cup_size_window_s: 0.5
 qc_decisions_file: qc_decisions_socp.csv
+# Reviewed hands in the arena; same table and rule as socp_all.yaml.
+hand_events_file: hand_events_socp.csv
 
 # Time hidden under the box over a cup is contact; same rule and values as socp_all.yaml.
 hidden_contact: true

@@ -205,6 +205,51 @@ test_that("the SocP batch script leaves out reviewed windows and counts hidden t
   expect_equal(manifest$extra$qc_decisions[[1]]$md5, unname(tools::md5sum(decisions)))
 })
 
+test_that("the SocP batch script leaves out reviewed hands and clears a reviewed not-hidden stretch", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  root <- temp_run_dir("socp_hands")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  # A hand in view at the start until clip frame 2, and a hand that ends the phase at clip frame 270.
+  hands <- file.path(root, "hands.csv")
+  writeLines(c("file,kind,first_frame,last_frame,evidence,reviewer",
+               "B001_socp,start,0,2,hand closing a cup,test",
+               "B001_socp,end,270,,lid lifted,test"), hands)
+  # The fixture's hidden stretch at the right cup is clip frames 151-210 (5.0 to 7.0 s), reviewed as not hidden.
+  decisions <- file.path(root, "decisions.csv")
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "B001_socp,socr,5,7,not_hidden,mouse in view,test"), decisions)
+  hidden_lines <- c("hidden_contact: true", "hidden_min_s: 0.2", "hidden_max_distance_cm: 10",
+                    "hidden_nose_off_body_cm: 10", "hidden_min_nose_lost_share: 0.5")
+  fixture <- make_socp_fixture(file.path(root, "rule"), hidden_frames = 60,
+                               extra_lines = c(paste0("qc_decisions_file: ", decisions),
+                                               paste0("hand_events_file: ", hands), hidden_lines))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config), "SocP script with hands")
+  result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  # 3 frames at the start and 30 at the end are gone; contact with the left cup was frames 1-90
+  expect_equal(result$leftOutS, 33 / 30, tolerance = 1e-6)
+  expect_equal(result$totalTime, 267 / 30, tolerance = 1e-6)
+  expect_equal(result$contactLeft, 87 / 30, tolerance = 1e-6)
+  # the reviewed stretch is not contact: the right cup keeps its 20 seen frames
+  expect_equal(result$hiddenRight, 0)
+  expect_equal(result$contactRight, 20 / 30, tolerance = 1e-6)
+  episodes <- utils::read.csv(file.path(fixture$output, "hidden_episodes.csv"), stringsAsFactors = FALSE)
+  expect_equal(episodes$decision, "not_hidden")
+  expect_equal(c(episodes$start_frame, episodes$start_s), c(151, 5))   # still on the clip's clock
+  manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
+  expect_equal(manifest$extra$hand_events[[1]]$md5, unname(tools::md5sum(hands)))
+
+  # a configured hand events file must exist
+  writeLines(sub("^hand_events_file: .*$", paste0("hand_events_file: ", file.path(root, "absent.csv")),
+                 readLines(fixture$config)), fixture$config)
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config)
+  expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
+  expect_true(any(grepl("hand_events_file not found", output)))
+})
+
 test_that("after a leave-out at the start, the SocP script keeps decisions and episode tables on the clip's clock", {
   testthat::skip_if_not_installed("yaml")
   testthat::skip_if_not_installed("sp")

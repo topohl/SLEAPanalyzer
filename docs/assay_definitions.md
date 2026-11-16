@@ -93,7 +93,8 @@ episodes, with an `index.html`; a reviewed verdict goes into the assay's
 Left-out windows (SocP, EPM, NOR). A `qc_decisions_file` row with decision
 `leave_out` and target `all` names a stretch that is not part of the test (a
 lid lifted for the next phase, the mouse off the maze, hands in the arena,
-frames of another clip at the start of a clip).
+frames of another clip at the start of a clip); SocP hands come from
+`hand_events_file` (see "Hands in the arena").
 `apply_leave_out()` removes its frames right after reading, so every measure,
 and the time it is a share of, covers the rest only, and latencies count from
 the first kept frame; `leftOutS` reports the time removed. The recording-wide
@@ -415,6 +416,19 @@ definition** and needs its own validation.
 
 The novel/familiar mapping follows the same inherited convention as NOR.
 
+### Hands in the arena
+
+A hand in the arena is left out by one rule (decided 2026-11-16), not by
+windows picked per recording. `hand_events_file` lists each reviewed hand
+(`file, kind, first_frame, last_frame, evidence, reviewer`; 0-based frames of
+the clip video), and `hand_event_windows()` (core `plausibility.R`) turns it
+into a leave-out window: a hand that ends the phase (`end`: a lid lifted, the
+take-out) ends it at its first frame; a hand that set up the phase (`start`)
+starts it once the hand has gone, so frame 0 to its last frame goes; a hand
+during the test (`interior`) goes from its first to its last frame. Frame k
+is at k / fps on the scoring's clock, as for every left-out window, and
+`leftOutS` includes the hands.
+
 ### Time on top of a cup is not contact
 
 A mouse sitting on a cup's lid has its nose within the contact distance of the
@@ -469,7 +483,10 @@ one cup point. Those frames are contact with that cup, never with the other,
 never proximity or on the cup, and always valid time; `hidden*` reports them.
 Every body-fill stretch of at least `hidden_min_s` and its decision (`hidden`,
 `nose_seen`, `away`) is written to `hidden_episodes.csv`. While the nose is
-still seen, the distance rule scores the stretch as before.
+still seen, the distance rule scores the stretch as before. A reviewed
+`not_hidden` decision (`qc_decisions_file`, target the cup) clears the
+stretch it was reviewed on, with the 0.5 s edge rule of `not_on_object`, and
+the table marks it `not_hidden`.
 
 Exp9 values (0.2 s as the on-cup minimum, 10 cm as the on-cup and proximity
 limit, nose 10 cm off the body, half of the frames). Over the staged

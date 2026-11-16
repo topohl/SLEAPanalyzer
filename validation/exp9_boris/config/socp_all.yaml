@@ -55,6 +55,10 @@ on_cup_size_window_s: 0.5
 # Reviewed episodes the rule gets wrong (one row each, with the reason), and
 # reviewed stretches left out of the recording (decision leave_out).
 qc_decisions_file: qc_decisions_socp.csv
+# Reviewed hands in the arena; one rule turns each into a leave-out window (a
+# hand ending the phase ends it at its first frame; decided by Tobias Pohl
+# 2026-11-16). See "Hands in the arena" in docs/assay_definitions.md.
+hand_events_file: hand_events_socp.csv
 
 # Time hidden under the box over a cup is contact with that cup (decided by
 # Tobias Pohl 2026-11-12). Hidden: for at least 0.2 s (the on-cup minimum) the
