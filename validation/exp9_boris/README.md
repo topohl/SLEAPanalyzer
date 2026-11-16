@@ -191,6 +191,12 @@ Over all recordings `frames` and `objects` take about 25 min, `sync` about 1.5 h
 about 10.5 h (the first full run, 2026-11-07, took 12 h for both); runs are incremental, so a
 later run checks only recordings whose tracking, video, settings or check version changed.
 
+**`34` — hidden review.** Every stretch the hidden-contact rule counts in a SocP output tree,
+and every one a review cleared (`not_hidden`), as lists for `tools/qc_review.py`, with the
+staged tracking file and clip of each from the `32` manifest (renders nothing).
+`Rscript 34_hidden_review.R <socp_output_root> <work_dir>`; the script prints the
+`qc_review.py` command. See "Time hidden under a cup box is contact" in `docs/assay_definitions.md`.
+
 **Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks, `23` when its
 summary is older than the tracking, and `31`, draws a review sheet
 (`tools/video_qc/review.py`) for each recording with flags to review, copies the results to
