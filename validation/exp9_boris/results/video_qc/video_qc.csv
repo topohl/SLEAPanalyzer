@@ -668,7 +668,7 @@ EPM EPM B6 L7F8,EPM,EPM,B6,L7F8,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt
 EPM EPM B6 M1K4,EPM,EPM,B6,M1K4,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
 EPM EPM B6 N9F6,EPM,EPM,B6,N9F6,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
 EPM EPM B6 R6D7,EPM,EPM,B6,R6D7,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
-EPM EPM B6 R8I2,EPM,EPM,B6,R8I2,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,frames:length;clip:cut_short
+EPM EPM B6 R8I2,EPM,EPM,B6,R8I2,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
 EPM EPM B6 R9K0,EPM,EPM,B6,R9K0,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
 EPM EPM B6 U6H9,EPM,EPM,B6,U6H9,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
 EPM EPM B6 U9P0,EPM,EPM,B6,U9P0,300,60,tl bl,tl tr ctr rt rb cbr br bl cbl lb lt ctl,,,bodycentre,B6,frames;objects;sync;clip,
