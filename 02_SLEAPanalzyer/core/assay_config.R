@@ -148,6 +148,9 @@ assay_schema <- function(assay) {
       on_cup_min_episode_s = config_field("number", positive = TRUE, allow_zero = TRUE, required = FALSE),
       on_cup_size_window_s = config_field("number", positive = TRUE, required = FALSE),
       qc_decisions_file = config_field("path", required = FALSE),
+      # Reviewed hands in the arena; each becomes a leave-out window by one
+      # rule (hand_event_windows(), plausibility.R).
+      hand_events_file = config_field("path", required = FALSE),
 
       # Time hidden under the box over a cup is contact with that cup
       # (detect_hidden_at_objects(), plausibility.R). Off unless set; when on,
@@ -180,7 +183,7 @@ load_assay_config <- function(path, assay) {
     schema = assay_schema(assay),
     path_fields = c(
       "input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file",
-      "qc_decisions_file"
+      "qc_decisions_file", "hand_events_file"
     )
   )
 }

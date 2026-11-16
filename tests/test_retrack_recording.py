@@ -866,6 +866,7 @@ class SocpTest(Stubs):
         self.assertTrue((tdir / "geom" / "SocP-geom-charge4.000_E9_SIS_B2_G6K2_S1.analysis.h5").exists())   # S1 untouched
         self.assertIn("phases: [S2]", self.scorer.calls[0])
         self.assertIn("qc_decisions_file: " + (rr.CONFIG_DIR / "qc_decisions_socp.csv").resolve().as_posix(), self.scorer.calls[0])
+        self.assertIn("hand_events_file: " + (rr.CONFIG_DIR / "hand_events_socp.csv").resolve().as_posix(), self.scorer.calls[0])
         self.assertIn("animals whose rows changed: ['G6K2']", out)
         state = tree_state(self.tmp)
         code, out = run_tool(self.args(c, "--apply", "--baseline"))

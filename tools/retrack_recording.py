@@ -290,7 +290,7 @@ def absolute_paths(text: str, config_dir: Path) -> str:
         if val in ("", "~") or Path(val).is_absolute():
             return m.group(0)
         return f"{m.group(1)}: {(config_dir / val).resolve().as_posix()}"
-    return re.sub(r"^(qc_decisions_file|zone_file|animal_id_code_file|metadata_dir):\s*(.+?)\s*$", absolute, text,
+    return re.sub(r"^(qc_decisions_file|hand_events_file|zone_file|animal_id_code_file|metadata_dir):\s*(.+?)\s*$", absolute, text,
                   flags=re.M)
 
 

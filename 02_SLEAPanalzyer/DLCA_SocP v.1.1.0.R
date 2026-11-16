@@ -77,7 +77,12 @@ if (isTRUE(config$head_length_restore)) {
 if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
   stop("qc_decisions_file not found: ", config$qc_decisions_file)
 }
-qcDecisions <- read_qc_decisions(config$qc_decisions_file)
+if (!is.null(config$hand_events_file) && !file.exists(config$hand_events_file)) {
+  stop("hand_events_file not found: ", config$hand_events_file)
+}
+# Each reviewed hand becomes a leave-out window by one rule (hand_event_windows()).
+qcDecisions <- rbind(read_qc_decisions(config$qc_decisions_file),
+                     hand_event_windows(read_hand_events(config$hand_events_file), config$fps))
 
 for (batch in batches) {
   for (socpPhase in config$phases) {
@@ -109,7 +114,7 @@ for (batch in batches) {
       inputFileName <- tools::file_path_sans_ext(basename(inputFile))
       tracking <- read_tracking_csv(file = inputFile, fps = config$fps)
       code <- stringr::str_extract(inputFileName, "^[A-Za-z0-9]{4}")
-      # Reviewed stretches that are not part of the test are removed first.
+      # Reviewed stretches that are not part of the test (hands included) are removed first.
       cut <- apply_leave_out(tracking, qcDecisions, inputFileName)
       tracking <- cut$tracking
 
@@ -132,6 +137,9 @@ for (batch in batches) {
           nose_off_body = config$hidden_nose_off_body_cm,
           min_nose_lost_share = config$hidden_min_nose_lost_share
         )
+        # Reviewed stretches that are not hidden (decision not_hidden) are cleared and marked.
+        found <- apply_not_hidden(found, qcDecisions, inputFileName, c(left = "socl", right = "socr"),
+                                  config$fps, clip_row = cut$clip_row)
         hidden <- found$masks
         if (nrow(found$episodes) > 0) {
           hiddenList[[length(hiddenList) + 1L]] <- cbind(tag, episodes_on_clip(found$episodes, cut$clip_row, config$fps))
@@ -336,7 +344,7 @@ for (batch in batches) {
       utils::write.csv(episodes, file.path(outputDir, "on_cup_episodes.csv"), row.names = FALSE)
     }
     if (isTRUE(config$hidden_contact)) {
-      # Every body-fill stretch of at least hidden_min_s, counted or not.
+      # Every body-fill stretch of at least hidden_min_s, counted or not (decision not_hidden: cleared by review).
       hiddenEpisodes <- if (length(hiddenList)) do.call(rbind, hiddenList) else data.frame()
       utils::write.csv(hiddenEpisodes, file.path(outputDir, "hidden_episodes.csv"), row.names = FALSE)
     }
@@ -356,7 +364,8 @@ for (batch in batches) {
         repo_dir = repo_dir,
         extra = list(assay = "SocP", batch = batch, phase = socpPhase,
                      files = length(fileList),
-                     qc_decisions = input_file_records(config$qc_decisions_file))
+                     qc_decisions = input_file_records(config$qc_decisions_file),
+                     hand_events = input_file_records(config$hand_events_file))
       )
       assert_reproducible_run(manifest)
       write_run_manifest(manifest, file.path(outputDir, "run_manifest.yaml"))

@@ -184,6 +184,53 @@ test_that("after a leave-out, decisions and episode tables stay on the clip's cl
   expect_error(episodes_on_clip(transform(ep, end_frame = 118L), cut$clip_row, 30), "not aligned")
 })
 
+hand_events <- function() {
+  data.frame(file = "synthetic", kind = c("start", "interior", "end"), first_frame = c(0, 40, 100),
+             last_frame = c(2, 49, NA), evidence = "", reviewer = "", stringsAsFactors = FALSE)
+}
+
+test_that("hand events become leave-out windows by one rule", {
+  windows <- hand_event_windows(hand_events(), fps = 30)
+  # clip frame k is at k / fps: a start hand goes from frame 0, an end hand to the end of the recording
+  expect_equal(windows$start_s, c(0, 40 / 30, 100 / 30))
+  expect_equal(windows$end_s, c(2 / 30, 49 / 30, Inf))
+  expect_equal(unique(windows$decision), "leave_out")
+  expect_equal(unique(windows$target), "all")
+  expect_match(windows$reason[3], "clip frames 100 to the end")
+  # a start hand seen only from frame 1 still starts the phase once it has gone
+  expect_equal(hand_event_windows(transform(hand_events()[1, ], first_frame = 1), 30)$start_s, 0)
+
+  tracking <- climb_fixture()                            # 120 frames
+  cut <- apply_leave_out(tracking, rbind(read_qc_decisions(NULL), windows), "synthetic")
+  expect_equal(cut$clip_row, setdiff(1:120, c(1:3, 41:50, 101:120)))   # clip frame k is row k + 1
+  expect_equal(cut$left_out_s, 33 / 30)
+  expect_equal(cut$tracking$joins, 38L)                  # the interior hand leaves a join, the others none
+  late <- hand_event_windows(transform(hand_events()[3, ], first_frame = 150), 30)
+  expect_error(apply_leave_out(tracking, late, "synthetic"), "after the recording ends")
+
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(hand_events(), path, row.names = FALSE, na = "")
+  expect_equal(hand_event_windows(read_hand_events(path), 30), windows)
+  expect_equal(nrow(read_hand_events(file.path(tempdir(), "absent.csv"))), 0L)
+  expect_equal(nrow(hand_event_windows(read_hand_events(NULL), 30)), 0L)
+})
+
+test_that("hand events are checked", {
+  ev <- hand_events()[2, ]
+  expect_error(hand_event_windows(transform(ev, kind = "middle"), 30), "Unknown hand event kind")
+  expect_error(hand_event_windows(transform(ev, first_frame = 50), 30), "first_frame <= last_frame")
+  expect_error(hand_event_windows(transform(ev, last_frame = NA), 30), "first_frame <= last_frame")
+  expect_error(hand_event_windows(transform(ev, kind = "end"), 30), "no last_frame")
+  expect_error(hand_event_windows(transform(ev, first_frame = 40.5), 30), "whole frame number")
+  expect_error(hand_event_windows(transform(ev, first_frame = -1), 30), "whole frame number")
+  expect_error(hand_event_windows(transform(ev, file = ""), 30), "a file in every row")
+  expect_error(hand_event_windows(ev[, names(ev) != "reviewer"], 30), "lack column")
+  expect_error(hand_event_windows(ev, 0), "fps")
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(transform(ev, kind = "end"), path, row.names = FALSE, na = "")
+  expect_error(read_hand_events(path), "no last_frame")
+})
+
 test_that("a window inside a recording leaves a join that is no movement", {
   # 60 frames: still at 10 cm (1-25), walking 10 cm (26-35, left out), still at 20 cm (36-60)
   body <- rbind(xy(10, 12, 25), cbind(x = seq(11, 20, length.out = 10), y = rep(12, 10)), xy(20, 12, 25))
@@ -292,4 +339,42 @@ test_that("SocP counts hidden time as contact with that cup only, and as valid t
   expect_false(any(after$events$proximity_right[31:90]))
   expect_false(any(after$events$contact_left[31:90]))
   expect_error(compute_socp_metrics(tracking, "L", fps = 30, hidden = list(right = hidden$right)), "hidden")
+})
+
+test_that("a reviewed not_hidden decision clears a hidden stretch and marks it", {
+  cups <- c(left = "socl", right = "socr")
+  tracking <- hidden_fixture()
+  found <- detect_hidden(tracking)                       # clip frames 31-90 at the right cup, 1.00 to 3.00 s
+  decision <- data.frame(file = "synthetic", target = "socr", start_s = 1, end_s = 3, decision = "not_hidden",
+                         reason = "", reviewer = "", stringsAsFactors = FALSE)
+  cleared <- apply_not_hidden(found, decision, "synthetic", cups, 30)
+  expect_false(any(unlist(cleared$masks)))
+  expect_equal(cleared$episodes$decision, "not_hidden")
+  expect_identical(apply_not_hidden(found, decision, "other", cups, 30), found)
+  # a stretch reaching well beyond the window is not the one reviewed
+  expect_error(apply_not_hidden(found, transform(decision, end_s = 1.5), "synthetic", cups, 30), "review it again")
+  # a window that meets no hidden stretch warns and clears nothing
+  expect_warning(kept <- apply_not_hidden(found, transform(decision, target = "socl"), "synthetic", cups, 30),
+                 "meets no hidden stretch")
+  expect_equal(which(kept$masks$right), 31:90)
+  expect_equal(kept$episodes$decision, "hidden")
+  expect_error(apply_not_hidden(found, transform(decision, target = "objL"), "synthetic", cups, 30), "unknown target")
+
+  # on the clip's clock after a leave-out at the start
+  lo <- transform(decision, target = "all", start_s = 0, end_s = 0.07, decision = "leave_out")
+  cut <- apply_leave_out(tracking, lo, "synthetic")
+  on_cut <- apply_not_hidden(detect_hidden(cut$tracking), rbind(lo, decision), "synthetic", cups, 30, clip_row = cut$clip_row)
+  expect_false(any(on_cut$masks$right))
+  expect_equal(on_cut$episodes$decision, "not_hidden")
+
+  # not_hidden leaves the on-cup mask alone, and the on-cup decisions leave the hidden one alone
+  expect_identical(apply_qc_decisions(found$masks$right, decision, "synthetic", "socr", 30), found$masks$right)
+  not_on <- transform(decision, decision = "not_on_object")
+  expect_identical(apply_not_hidden(found, not_on, "synthetic", cups, 30), found)
+
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(decision, path, row.names = FALSE)
+  expect_equal(read_qc_decisions(path)$decision, "not_hidden")
+  utils::write.csv(transform(decision, target = "all"), path, row.names = FALSE)
+  expect_error(read_qc_decisions(path), "target 'all'")
 })

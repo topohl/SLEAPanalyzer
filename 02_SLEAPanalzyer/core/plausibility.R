@@ -209,18 +209,18 @@ detect_on_object <- function(tracking, object, corners, footprint_radius,
 #' One row per reviewed stretch: `file` (the recording name without
 #' extension), `target` (the object landmark), `start_s`, `end_s` and
 #' `decision`: "on_object" forces the stretch to count as on the object,
-#' "not_on_object" forces it not to, and "leave_out" (target "all") removes
-#' the stretch from the recording (apply_leave_out()). `reason` and `reviewer`
-#' are kept for the record. An absent file means no decisions.
+#' "not_on_object" forces it not to, "not_hidden" clears a stretch the
+#' hidden rule found at that object (apply_not_hidden()), and "leave_out"
+#' (target "all") removes the stretch from the recording (apply_leave_out()).
+#' `reason` and `reviewer` are kept for the record. An absent file means no
+#' decisions.
 read_qc_decisions <- function(path) {
   columns <- c("file", "target", "start_s", "end_s", "decision", "reason", "reviewer")
-  if (is.null(path) || !file.exists(path)) {
-    return(stats::setNames(data.frame(matrix(nrow = 0, ncol = length(columns))), columns))
-  }
+  if (is.null(path) || !file.exists(path)) return(empty_qc_decisions())
   decisions <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
   missing <- setdiff(columns, names(decisions))
   if (length(missing) > 0) stop("QC decisions file lacks column(s): ", paste(missing, collapse = ", "))
-  bad <- setdiff(unique(decisions$decision), c("on_object", "not_on_object", "leave_out"))
+  bad <- setdiff(unique(decisions$decision), c("on_object", "not_on_object", "not_hidden", "leave_out"))
   if (length(bad) > 0) stop("Unknown QC decision(s): ", paste(bad, collapse = ", "))
   if (any(!is.finite(decisions$start_s) | !is.finite(decisions$end_s) | decisions$end_s < decisions$start_s)) {
     stop("QC decisions need finite start_s <= end_s")
@@ -229,6 +229,90 @@ read_qc_decisions <- function(path) {
     stop("QC decisions: leave_out needs target 'all', and only leave_out may use it")
   }
   decisions[, columns]
+}
+
+empty_qc_decisions <- function() {
+  data.frame(file = character(), target = character(), start_s = numeric(), end_s = numeric(),
+             decision = character(), reason = character(), reviewer = character(), stringsAsFactors = FALSE)
+}
+
+#' Read reviewed hand events.
+#'
+#' One row per hand seen in a recording: `file` (the recording name without
+#' extension), `kind`, `first_frame` and `last_frame` (0-based frames of the
+#' clip video), `evidence` and `reviewer`. Kind "end": a hand comes in to end
+#' the phase (a lid lifted, the take-out) at `first_frame`, and `last_frame`
+#' is empty. Kind "start": the hand that set up the phase is in view from
+#' `first_frame` until `last_frame`. Kind "interior": a hand in view from
+#' `first_frame` to `last_frame` during the test. hand_event_windows() turns
+#' them into leave-out windows. An absent file means no events.
+read_hand_events <- function(path) {
+  if (is.null(path) || !file.exists(path)) {
+    return(data.frame(file = character(), kind = character(), first_frame = numeric(), last_frame = numeric(),
+                      evidence = character(), reviewer = character(), stringsAsFactors = FALSE))
+  }
+  events <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE, colClasses = "character")
+  for (column in intersect(c("first_frame", "last_frame"), names(events))) {
+    events[[column]][!is.na(events[[column]]) & !nzchar(trimws(events[[column]]))] <- NA
+  }
+  check_hand_events(events)
+  events$first_frame <- as.numeric(events$first_frame)
+  events$last_frame <- as.numeric(events$last_frame)
+  events
+}
+
+check_hand_events <- function(events) {
+  columns <- c("file", "kind", "first_frame", "last_frame", "evidence", "reviewer")
+  missing <- setdiff(columns, names(events))
+  if (length(missing) > 0) stop("Hand events lack column(s): ", paste(missing, collapse = ", "))
+  if (nrow(events) == 0) return(invisible(TRUE))
+  if (any(is.na(events$file) | !nzchar(events$file))) stop("Hand events need a file in every row")
+  bad <- setdiff(unique(events$kind), c("start", "end", "interior"))
+  if (length(bad) > 0) stop("Unknown hand event kind(s): ", paste(bad, collapse = ", "))
+  for (column in c("first_frame", "last_frame")) {
+    x <- suppressWarnings(as.numeric(events[[column]]))
+    if (any(!is.na(events[[column]]) & (is.na(x) | x < 0 | x != round(x)))) {
+      stop("Hand events: ", column, " must be a whole frame number from 0")
+    }
+  }
+  first <- as.numeric(events$first_frame); last <- as.numeric(events$last_frame)
+  end <- events$kind == "end"
+  if (any(end & (is.na(first) | !is.na(last)))) {
+    stop("Hand events: kind end needs first_frame and no last_frame (the phase ends there)")
+  }
+  if (any(!end & (is.na(first) | is.na(last) | first > last))) {
+    stop("Hand events: kinds start and interior need first_frame <= last_frame")
+  }
+  invisible(TRUE)
+}
+
+#' Leave-out windows for reviewed hand events.
+#'
+#' One rule for every hand: an "end" hand ends the phase at its first frame
+#' (the window runs to the end of the recording), a "start" hand starts it
+#' once the hand has gone (the window runs from frame 0 to its last frame),
+#' and an "interior" hand is left out from its first to its last frame. Clip
+#' frame k is row k + 1 of the tracking, at k / fps seconds on the scoring's
+#' clock (`fps` from the configuration), as in apply_leave_out().
+#'
+#' @return rows in the layout of read_qc_decisions(), decision "leave_out" and
+#'   target "all", ready to join the reviewed decisions; an end window has
+#'   end_s Inf
+hand_event_windows <- function(events, fps) {
+  validate_fps(fps)
+  check_hand_events(events)
+  if (nrow(events) == 0) return(empty_qc_decisions())
+  first <- as.numeric(events$first_frame); last <- as.numeric(events$last_frame)
+  start_frame <- ifelse(events$kind == "start", 0, first)
+  frames <- ifelse(events$kind == "end", sprintf("%d to the end", first), sprintf("%d-%d", start_frame, last))
+  data.frame(
+    file = events$file, target = "all",
+    start_s = start_frame / fps,
+    end_s = ifelse(events$kind == "end", Inf, last / fps),
+    decision = "leave_out",
+    reason = sprintf("hand (%s): %s; clip frames %s", events$kind, events$evidence, frames),
+    reviewer = events$reviewer, stringsAsFactors = FALSE
+  )
 }
 
 #' Remove reviewed leave-out windows from a recording.
@@ -366,6 +450,46 @@ detect_hidden_at_objects <- function(tracking, objects, min_s, max_distance, nos
   list(masks = masks, episodes = episodes)
 }
 
+#' Apply reviewed not_hidden decisions to detect_hidden_at_objects() output.
+#'
+#' A "not_hidden" decision (target the object landmark, start_s/end_s in clip
+#' time) clears the hidden stretch it was reviewed on, as "not_on_object"
+#' clears an on-object episode (apply_qc_decisions(), including its 0.5 s
+#' edge rule), before hidden time counts as contact. A cleared stretch keeps
+#' its row in `episodes` with decision "not_hidden", so the review shows it.
+#' A decision that meets no hidden stretch warns: the tracking has changed
+#' since the review.
+#'
+#' @param found the result of detect_hidden_at_objects() on the same rows
+#' @param objects the named object landmarks given to detect_hidden_at_objects()
+#' @param clip_row from apply_leave_out(); NULL when nothing was left out
+apply_not_hidden <- function(found, decisions, file, objects, fps, clip_row = NULL) {
+  rows <- decisions[decisions$file == file & decisions$decision == "not_hidden", , drop = FALSE]
+  if (nrow(rows) == 0) return(found)
+  if (is.null(clip_row)) clip_row <- seq_along(found$masks[[1]])
+  if (length(clip_row) != length(found$masks[[1]])) stop("clip_row is not aligned with the hidden masks")
+  time_s <- (clip_row - 1L) / fps
+  for (i in seq_len(nrow(rows))) {
+    name <- names(objects)[match(rows$target[i], objects)]
+    if (is.na(name)) stop("QC decision not_hidden ", file, ": unknown target ", rows$target[i])
+    if (!any(found$masks[[name]] & time_s >= rows$start_s[i] & time_s <= rows$end_s[i])) {
+      warning(sprintf("QC decision %s %s %.2f-%.2f s not_hidden meets no hidden stretch; review it again",
+                      file, rows$target[i], rows$start_s[i], rows$end_s[i]))
+    }
+  }
+  for (name in names(objects)) {
+    found$masks[[name]] <- apply_qc_decisions(found$masks[[name]], decisions, file, objects[[name]], fps,
+                                              clip_row = clip_row, kinds = "not_hidden")
+  }
+  ep <- found$episodes
+  cleared <- vapply(seq_len(nrow(ep)), function(k) {
+    mask <- found$masks[[names(objects)[match(ep$target[k], objects)]]]
+    ep$decision[k] == "hidden" && !any(mask[ep$start_frame[k]:ep$end_frame[k]])
+  }, logical(1))
+  found$episodes$decision[cleared] <- "not_hidden"
+  found
+}
+
 #' Apply reviewed decisions to an on-object mask.
 #'
 #' Frame i (1-based) lies at (i - 1) / fps seconds, the convention of every
@@ -377,8 +501,11 @@ detect_hidden_at_objects <- function(tracking, objects, min_s, max_distance, nos
 #' reviewed, and stops the run. Decision times are clip times: after a
 #' leave-out, pass `clip_row` (from apply_leave_out()) so that a window still
 #' lands on the frames it was reviewed on.
-apply_qc_decisions <- function(on_object, decisions, file, target, fps, max_edge_shift_s = 0.5, clip_row = NULL) {
-  rows <- decisions[decisions$file == file & decisions$target == target, , drop = FALSE]
+#'
+#' @param kinds the decisions applied; any other than "on_object" clears
+apply_qc_decisions <- function(on_object, decisions, file, target, fps, max_edge_shift_s = 0.5, clip_row = NULL,
+                               kinds = c("on_object", "not_on_object")) {
+  rows <- decisions[decisions$file == file & decisions$target == target & decisions$decision %in% kinds, , drop = FALSE]
   if (nrow(rows) == 0) return(on_object)
   if (is.null(clip_row)) clip_row <- seq_along(on_object)
   if (length(clip_row) != length(on_object)) stop("clip_row is not aligned with on_object")
