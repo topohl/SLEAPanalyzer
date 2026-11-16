@@ -112,6 +112,16 @@ python tools/retrack_recording.py --batch B5 --assay NOR --code H1E2 --phase NOV
 
 It converts the geom and animal exports (`01_SLEAPcoords/sleap_h5.py`), formats and installs them, replaces the staged copy, moves everything it replaces into `_superseded_<date>/` (formatted files into `formatted/old/`), reruns that batch's analysis and reports which animals changed; all but the re-tracked one must be unchanged. `--static-landmark` holds a hand-labelled static object at its first labelled position instead of interpolating it. NOR only. Afterwards build a release (`tools/build_exp9_behavior_bundle.ps1`) and ingest it with the SISanalyzer scripts.
 
+### Rescoring a batch
+
+When the scoring code or a decision file changes, a rescoring round runs in this order:
+
+1. `Rscript tools/rescore_batch.R --assay NOR --batch B1 --tag <round>` prints the plan; `--write` backs up the batch's live output (with md5 sums), scores the batch from a clean, committed checkout (`--repo`, default this one) and checks that the run manifest names that commit. `--phase` picks the SocP phase or NOR habituation.
+2. It then compares the new output with the backup (`tools/compare_outputs.R`). With `--allow allow.csv` (columns file, key, column) a change outside the list is unexpected and the exit status is 1.
+3. `Rscript tools/compare_outputs.R --release <current release>` shows what a new release would change against the current one; then build the release (`tools/build_exp9_behavior_bundle.ps1`).
+
+The header of each tool lists its options and checks.
+
 ### Outputs
 
 | File | Contents |
@@ -257,7 +267,7 @@ Nothing in this layer interprets a p-value. See
 config/                Documented example configurations
 docs/                  Architecture and definitions
 tests/testthat/        Automated test suite
-tools/                 Parse check and static audit (run in CI), QC and re-tracking tools
+tools/                 Parse check and static audit (run in CI), QC, re-tracking and rescoring tools
 90_Testing/            Legacy exploratory scripts, not maintained
 99_deprecated/         Retained for provenance only
 ```
