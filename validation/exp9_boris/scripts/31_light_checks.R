@@ -96,7 +96,7 @@ RES <- file.path(PROJ, "results")
 # an environment variable set to "" counts as not set (PowerShell can leave a removed variable empty)
 env <- function(name, default = "") { v <- Sys.getenv(name); if (nzchar(v)) v else default }
 STAGE <- env("EXP9_STAGING", "C:/Users/topohl/Documents/exp9_sleap_staging")
-RELEASE <- env("EXP9_RELEASE", "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/SLEAPanalyzer_v2/releases/2026-11-05_exp9_all-batches_canonical-landmark-repair")
+RELEASE <- env("EXP9_RELEASE", "S:/Lab_Member/Tobi/Experiments/Exp9_Social-Stress/Analysis/Behavior/SLEAPanalyzer_v2/releases/2026-11-15_exp9_all-batches_canonical-light-checks")
 CORNERS <- c("tl", "tr", "br", "bl")
 FPS <- 30                 # the rate the scoring assumes for one tracking row
 FPS_VIDEO <- 30000 / 1001 # the rate the cameras recorded
