@@ -238,7 +238,8 @@ read_qc_decisions <- function(path) {
 #' before anything is scored, so every measure, and the time it is a share of,
 #' covers the rest of the recording only. Frame i (1-based) lies at
 #' (i - 1) / fps seconds. A window that starts after the last frame no longer
-#' fits the recording and stops the run.
+#' fits the recording and stops the run. A window inside the recording leaves
+#' a join (get_tracking_joins()): the step across it is not a movement.
 #'
 #' @return list(tracking, left_out_s, clip_row): clip_row gives each kept row
 #'   its 1-based row in the clip (see episodes_on_clip(), apply_qc_decisions())

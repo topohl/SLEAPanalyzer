@@ -104,8 +104,9 @@ move a recording across a fixed limit (the reason the nose-pair limit below is
 window seen in a 29.97 frames/s video is converted from its frame numbers.
 Decision windows and the episode tables (on-cup, hidden, repair) stay on the
 clip's own clock after a leave-out, so they still point at the video. A
-window inside a recording joins the frames either side of it: distance gains
-the one step between them.
+window inside a recording joins the frames either side of it, and the step
+across that join is no movement: it adds no distance, speed or implausible
+step, and no interpolation bridges it (`get_tracking_joins()`).
 
 NOR objects (report only). In batch 1 the manual scoring codes 28 climbing
 bouts; SLEAP contact inside them is 11.4 of 538.8 s, because most full climbs

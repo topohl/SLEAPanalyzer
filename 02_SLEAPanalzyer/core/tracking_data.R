@@ -69,6 +69,24 @@ get_tracking_unit <- function(tracking) {
   tracking$distance.units
 }
 
+#' Rows that follow rows cut from inside the recording (a join).
+#'
+#' CutTrackingData() records them. The row before a join is not the frame
+#' before it, so the step into a join is not a movement (CalculateMovement(),
+#' displacement_qc()) and no interpolation bridges it (interpolate_tracking()).
+#'
+#' @return integer rows, empty when the recording has no join
+get_tracking_joins <- function(tracking) {
+  validate_tracking_data(tracking)
+  joins <- tracking$joins
+  if (is.null(joins)) return(integer())
+  n <- length(tracking$frames)
+  if (!is.numeric(joins) || anyNA(joins) || any(joins < 2 | joins > n | joins != round(joins))) {
+    stop("TrackingData joins must be rows 2 to ", n)
+  }
+  as.integer(joins)
+}
+
 get_point_coordinates <- function(tracking, point, include_frame = FALSE,
                                   include_likelihood = FALSE) {
   validate_tracking_data(tracking, required_landmarks = point)

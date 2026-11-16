@@ -65,6 +65,8 @@ displacement_qc <- function(tracking, landmarks = names(tracking$data),
     dx <- c(NA_real_, diff(coordinates$x))
     dy <- c(NA_real_, diff(coordinates$y))
     speed <- sqrt(dx^2 + dy^2) * fps
+    # the step into a join (rows cut from inside the recording) is no displacement
+    speed[get_tracking_joins(tracking)] <- NA_real_
     measurable <- is.finite(speed)
     data.frame(
       landmark = point,
