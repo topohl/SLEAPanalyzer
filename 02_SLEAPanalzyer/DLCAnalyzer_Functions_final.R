@@ -198,7 +198,8 @@ IsTrackingData <- function(t){
 #' @param end if not null the last end frames will be removed
 #' @param keep.frames a numeric vector. if not null, frames that intersect with this vector will be kept
 #' @param remove.frames a numeric vector. if not null, frames that intersect with this vector will be removed
-#' @return An object of type TrackingData
+#' @return An object of type TrackingData; `joins` lists the rows that follow
+#'   rows removed from inside the recording (get_tracking_joins())
 #' @examples
 #' CutTrackingData(Data, start = 100, end = 100)
 #' CutTrackingData(Data, keep.frames = c(10,11,12,13))
@@ -208,6 +209,7 @@ CutTrackingData <- function(t, start = NULL, end = NULL, remove.frames = NULL, k
     stop("Object is not of type TrackingData")
   }
   n <- length(t$frames)
+  old.joins <- if (is.null(t$joins)) integer() else get_tracking_joins(t)
   validate_trim_count <- function(x, name) {
     if (is.null(x)) return(0L)
     if (length(x) != 1 || !is.numeric(x) || !is.finite(x) || x < 0 || x != floor(x)) {
@@ -261,6 +263,14 @@ CutTrackingData <- function(t, start = NULL, end = NULL, remove.frames = NULL, k
       t$median.data[point, "y"] <- stats::median(t$data[[point]]$y, na.rm = TRUE)
     }
   }
+
+  # A kept row whose predecessor was cut away follows a cut inside the
+  # recording (a join, see get_tracking_joins()). Joins of an earlier cut are
+  # carried along; a join that is now the first row is no longer one.
+  joins <- which(diff(keep.rows) > 1L) + 1L
+  if (length(old.joins) > 0) joins <- union(joins, which(keep.rows %in% old.joins))
+  joins <- sort(joins[joins > 1L])
+  t$joins <- if (length(joins) > 0) as.integer(joins) else NULL
   return(t)
 }
 
@@ -754,9 +764,14 @@ CalculateMovement <- function(t, movement_cutoff, integration_period){
   if(!IsTrackingData(t)){
     stop("Object is not of type TrackingData")
   }
+  # The step into a join (rows cut from inside the recording) is not a
+  # movement: it adds no distance and no speed.
+  joins <- if (is.null(t$joins)) integer() else get_tracking_joins(t)
   for(i in 1:length(t$data)){
     t$data[[i]]$delta_x <- integratevector(t$data[[i]]$x)
     t$data[[i]]$delta_y <- integratevector(t$data[[i]]$y)
+    t$data[[i]]$delta_x[joins] <- NA_real_
+    t$data[[i]]$delta_y[joins] <- NA_real_
     t$data[[i]]$speed <- sqrt(t$data[[i]]$delta_x ^2 + t$data[[i]]$delta_y^2)
     t$data[[i]]$acceleration <- integratevector(t$data[[i]]$speed)
     t$data[[i]]$is.moving <- as.logical(avgbool(t$data[[i]]$speed > (movement_cutoff / t$fps), integration_period))

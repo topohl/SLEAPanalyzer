@@ -18,9 +18,9 @@ epm_landmarks <- function(n) {
   )
 }
 
-make_epm_fixture <- function(root, fps = 10, extra_lines = character()) {
+make_epm_fixture <- function(root, fps = 10, extra_lines = character(), body = NULL) {
   # 40 frames: 10 in the left closed arm, 10 in the centre, 10 in the top open
-  # arm, 10 back in the centre.
+  # arm, 10 back in the centre. `body` (columns x, y) replaces this path.
   segments <- list(
     c(x = 120, y = 300),  # closed left
     c(x = 300, y = 300),  # centre
@@ -29,6 +29,7 @@ make_epm_fixture <- function(root, fps = 10, extra_lines = character()) {
   )
   body_x <- unlist(lapply(segments, function(s) rep(s[["x"]], 10)))
   body_y <- unlist(lapply(segments, function(s) rep(s[["y"]], 10)))
+  if (!is.null(body)) { body_x <- body[, "x"]; body_y <- body[, "y"] }
   n <- length(body_x)
 
   points <- epm_landmarks(n)
@@ -143,6 +144,39 @@ test_that("the EPM batch script leaves out a reviewed window", {
   output <- run_assay_script("DLCA_EPM v1.0.0.R", fixture$config)
   expect_false(is.null(attr(output, "status")))
   expect_true(any(grepl("only leave_out", output)))
+})
+
+test_that("the step across a window left out inside an EPM recording is no movement", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("cowplot")
+
+  # 2 s still in the centre, 1 s walking 10 cm up the top open arm (left out), 1 s still there
+  body <- rbind(cbind(x = rep(300, 20), y = rep(300, 20)), cbind(x = rep(300, 10), y = 300 + 10 * (1:10)),
+                cbind(x = rep(300, 10), y = rep(400, 10)))
+  root <- temp_run_dir("epm_join")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  decisions <- file.path(root, "decisions.csv")
+  writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
+               "E001_epm,all,2,2.9,leave_out,the walk,test"), decisions)
+  cut <- make_epm_fixture(file.path(root, "cut"), body = body, extra_lines = paste0("qc_decisions_file: ", decisions))
+  expect_script_succeeded(run_assay_script("DLCA_EPM v1.0.0.R", cut$config), "EPM script, interior leave-out")
+  # the kept frames as a recording of their own: there the 10 cm between frames 20 and 31 is a step
+  own <- make_epm_fixture(file.path(root, "own"), body = body[-(21:30), ])
+  expect_script_succeeded(run_assay_script("DLCA_EPM v1.0.0.R", own$config), "EPM script, kept frames only")
+
+  after <- utils::read.csv(file.path(cut$output, "Report.csv"), stringsAsFactors = FALSE)
+  before <- utils::read.csv(file.path(own$output, "Report.csv"), stringsAsFactors = FALSE)
+  expect_equal(before$bodycentre.raw.distance, 10, tolerance = 1e-6)
+  expect_equal(after$bodycentre.raw.distance, 0)
+  expect_equal(after$bodycentre.open.total.time, 1)
+  expect_equal(after$bodycentre.open.entries, 1)
+  # nothing but movement changes: times, zones and entries as in the recording of its own
+  movement <- grepl("distance|speed|moving|stationary", names(after))
+  expect_equal(after[, !movement], before[, !movement])
+  qc_after <- utils::read.csv(file.path(cut$output, "tracking_qc.csv"), stringsAsFactors = FALSE)
+  expect_equal(qc_after$leftOutS, 1)
 })
 
 test_that("the shipped EPM zone definitions are simple, non-degenerate polygons", {

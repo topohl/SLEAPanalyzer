@@ -20,8 +20,11 @@ FRAME_STATUS_LEVELS <- c("observed", "interpolated", "reconstructed", "invalid")
 #' @param x a numeric vector
 #' @param valid optional validity mask; combined with `is.finite(x)`
 #' @param max_gap_frames longest interior gap that may be interpolated
+#' @param joins rows that follow rows cut from inside the recording
+#'   (get_tracking_joins()); a gap whose bridge would cross one stays missing,
+#'   as the rows either side of a join are not consecutive frames
 #' @return a list with the filled `values` and a per-frame `status` vector
-bounded_linear_interpolation <- function(x, valid = NULL, max_gap_frames = 0L) {
+bounded_linear_interpolation <- function(x, valid = NULL, max_gap_frames = 0L, joins = integer()) {
   validate_numeric_vector(x, "x")
   n <- length(x)
   valid <- normalize_validity_mask(valid, n) & is.finite(x)
@@ -50,6 +53,7 @@ bounded_linear_interpolation <- function(x, valid = NULL, max_gap_frames = 0L) {
     if (runs$lengths[i] > max_gap_frames) next
     left <- gap_start - 1L
     right <- gap_end + 1L
+    if (any(joins > left & joins <= right)) next
     span <- right - left
     values[gap_start:gap_end] <- x[left] +
       (x[right] - x[left]) * (seq.int(gap_start, gap_end) - left) / span
@@ -79,6 +83,7 @@ interpolate_tracking <- function(tracking, landmarks = names(tracking$data),
     validate_scalar_number(likelihood_cutoff, "likelihood_cutoff")
   }
   max_gap_frames <- seconds_to_frames(max_gap_s, fps, round_fn = floor)
+  joins <- get_tracking_joins(tracking)
 
   for (point in landmarks) {
     values <- tracking$data[[point]]
@@ -88,8 +93,8 @@ interpolate_tracking <- function(tracking, landmarks = names(tracking$data),
       confidence[is.na(confidence)] <- -Inf
       valid <- valid & confidence >= likelihood_cutoff
     }
-    filled_x <- bounded_linear_interpolation(values$x, valid, max_gap_frames)
-    filled_y <- bounded_linear_interpolation(values$y, valid, max_gap_frames)
+    filled_x <- bounded_linear_interpolation(values$x, valid, max_gap_frames, joins)
+    filled_y <- bounded_linear_interpolation(values$y, valid, max_gap_frames, joins)
     tracking$data[[point]]$x <- filled_x$values
     tracking$data[[point]]$y <- filled_y$values
     # x and y are driven by the same validity mask, so their status agrees.

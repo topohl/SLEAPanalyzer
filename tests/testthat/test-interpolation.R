@@ -51,6 +51,20 @@ test_that("interpolation is exactly linear across a multi-frame gap", {
   expect_equal(out$values, c(10, 12, 14, 16, 18, 20))
 })
 
+test_that("no gap is bridged across a join", {
+  # a join is a row that follows rows cut from inside the recording
+  expect_equal(bounded_linear_interpolation(c(0, NA, 10), max_gap_frames = 1L, joins = 2L)$values, c(0, NA, 10))
+  expect_equal(bounded_linear_interpolation(c(0, NA, 10), max_gap_frames = 1L, joins = 3L)$values, c(0, NA, 10))
+  expect_equal(bounded_linear_interpolation(c(0, NA, 10, 10), max_gap_frames = 1L, joins = 4L)$values, c(0, 5, 10, 10))
+  tracking <- make_tracking(frames = c(0:2, 10:12), fps = 10,
+                            points = list(nose = cbind(x = c(0, 1, NA, NA, 11, 12), y = c(0, 1, 2, 3, 11, 12))))
+  tracking$joins <- 4L
+  out <- interpolate_tracking(tracking, max_gap_s = 0.2)
+  expect_true(all(is.na(out$data$nose$x[3:4])))
+  tracking$joins <- NULL
+  expect_false(anyNA(interpolate_tracking(tracking, max_gap_s = 0.2)$data$nose$x))
+})
+
 test_that("interpolate_tracking uses seconds and records status", {
   n <- 10
   points <- list(

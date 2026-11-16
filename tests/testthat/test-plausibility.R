@@ -184,6 +184,45 @@ test_that("after a leave-out, decisions and episode tables stay on the clip's cl
   expect_error(episodes_on_clip(transform(ep, end_frame = 118L), cut$clip_row, 30), "not aligned")
 })
 
+test_that("a window inside a recording leaves a join that is no movement", {
+  # 60 frames: still at 10 cm (1-25), walking 10 cm (26-35, left out), still at 20 cm (36-60)
+  body <- rbind(xy(10, 12, 25), cbind(x = seq(11, 20, length.out = 10), y = rep(12, 10)), xy(20, 12, 25))
+  nose <- cbind(x = body[, "x"] + 3, y = body[, "y"])
+  tracking <- on_cup_tracking(body, nose, rep(1, 60))
+  lo <- data.frame(file = "synthetic", target = "all", start_s = 25 / 30, end_s = 34 / 30,
+                   decision = "leave_out", reason = "", reviewer = "", stringsAsFactors = FALSE)
+  cut <- apply_leave_out(tracking, lo, "synthetic")
+  expect_equal(cut$clip_row, c(1:25, 36:60))
+  expect_equal(get_tracking_joins(cut$tracking), 26L)    # the first kept row after the window
+  # the same rows as a recording of their own, where the 10 cm between rows 25 and 26 is a step
+  own <- on_cup_tracking(body[cut$clip_row, ], nose[cut$clip_row, ], rep(1, 50))
+  expect_equal(get_tracking_joins(own), integer())
+
+  moved <- CalculateMovement(cut$tracking, movement_cutoff = 5, integration_period = 0)
+  reference <- CalculateMovement(own, movement_cutoff = 5, integration_period = 0)
+  expect_true(is.na(moved$data$bodycentre$speed[26]))
+  after <- PointLocomotionReport(moved, "bodycentre"); before <- PointLocomotionReport(reference, "bodycentre")
+  expect_equal(before$bodycentre.raw.distance, 10)
+  expect_equal(after$bodycentre.raw.distance, 0)
+  expect_equal(after$bodycentre.time.moving, 0)
+  same <- c("bodycentre.total.time", "bodycentre.valid.time", "bodycentre.valid.fraction")
+  expect_equal(after[same], before[same])
+  columns <- function(t) unname(as.matrix(t$data$bodycentre[-26, c("x", "y", "speed")]))
+  expect_equal(columns(moved), columns(reference))       # every other row and step as before
+  # nor is it an implausible step
+  expect_equal(displacement_qc(own, "bodycentre", max_speed = 100)$implausible_intervals, 1L)
+  expect_equal(displacement_qc(cut$tracking, "bodycentre", max_speed = 100)$implausible_intervals, 0L)
+
+  # no interpolation bridges the join: a frame missing on either side stays missing
+  gap <- tracking
+  gap$data$bodycentre[c(25, 36), c("x", "y")] <- NA
+  bridged <- interpolate_tracking(apply_leave_out(gap, lo, "synthetic")$tracking, "bodycentre", max_gap_s = 0.2)
+  expect_true(all(is.na(bridged$data$bodycentre$x[25:26])))
+  own_gap <- own
+  own_gap$data$bodycentre[25:26, c("x", "y")] <- NA
+  expect_false(anyNA(interpolate_tracking(own_gap, "bodycentre", max_gap_s = 0.2)$data$bodycentre$x))
+})
+
 # 120 frames near the right cup; frames 31-90 are a gap fill of the body (a
 # straight line at constant speed between the observed frames 30 and 91).
 hidden_fixture <- function(nose_in_fill = c("filled", "seen"), body_at = c(35, 6)) {

@@ -51,6 +51,25 @@ testthat::test_that("trimming removes exact counts and keeps every component ali
   testthat::expect_equal(binned$bins$to, 105)
 })
 
+testthat::test_that("a cut inside a recording records a join, and the step into it is no movement", {
+  tracking <- make_tracking(
+    frames = 0:9, fps = 10,
+    points = list(bodycentre = cbind(x = c(0, 0, 0, 5, 5, 10, 10, 10, 10, 10), y = rep(0, 10)))
+  )
+  testthat::expect_null(CutTrackingData(tracking, start = 2, end = 2)$joins)
+  cut <- CutTrackingData(tracking, remove.frames = 3:4)
+  testthat::expect_equal(cut$joins, 4L)                  # row 4 (frame 5) follows the removed frames
+  moved <- CalculateMovement(cut, movement_cutoff = 1, integration_period = 0)
+  testthat::expect_true(is.na(moved$data$bodycentre$speed[4]))
+  testthat::expect_equal(sum(moved$data$bodycentre$speed, na.rm = TRUE), 0)
+  # a later cut carries the join along; once it is the first row it is no join
+  testthat::expect_equal(CutTrackingData(cut, start = 1)$joins, 3L)
+  testthat::expect_equal(CutTrackingData(cut, remove.frames = 7)$joins, c(4L, 6L))
+  testthat::expect_null(CutTrackingData(cut, start = 3)$joins)
+  cut$joins <- 20L
+  testthat::expect_error(CalculateMovement(cut, 1, 0), "joins must be rows")
+})
+
 testthat::test_that("movement is zero when stationary and correct at constant velocity", {
   stationary <- make_tracking(
     frames = 0:30, fps = 10,
