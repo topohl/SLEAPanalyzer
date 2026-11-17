@@ -284,6 +284,9 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
 #'   detect_hidden_at_objects()). Those frames are contact with that cup,
 #'   never with the other one, never proximity or on the cup, and always
 #'   valid observation time.
+#' @param hidden_as "contact" (the default, as above) or "unobserved": hidden
+#'   frames are then neither contact nor proximity nor valid observation time
+#'   (a sensitivity); `hidden*` reports them either way.
 compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_distance = 6,
                                  body_exclusion_distance = 1,
@@ -295,7 +298,9 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
                                  min_bout_s = 0,
                                  max_gap_s = 0,
                                  on_cup = NULL,
-                                 hidden = NULL) {
+                                 hidden = NULL,
+                                 hidden_as = c("contact", "unobserved")) {
+  hidden_as <- match.arg(hidden_as)
   required <- c("nose", "bodycentre", "socl", "socr")
   validate_tracking_data(tracking, required_landmarks = required)
   validate_assay_timing(tracking, fps)
@@ -344,11 +349,17 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   # Counted before the mask is applied, so the summary says what was removed.
   removed_left <- sum(contact_left & on_left & valid, na.rm = TRUE) / fps
   removed_right <- sum(contact_right & on_right & valid, na.rm = TRUE) / fps
-  contact_left <- (contact_left & !on_left & !hidden_right) | hidden_left
-  contact_right <- (contact_right & !on_right & !hidden_left) | hidden_right
+  if (hidden_as == "contact") {
+    contact_left <- (contact_left & !on_left & !hidden_right) | hidden_left
+    contact_right <- (contact_right & !on_right & !hidden_left) | hidden_right
+    valid <- valid | hidden_any
+  } else {
+    contact_left <- contact_left & !on_left & !hidden_any
+    contact_right <- contact_right & !on_right & !hidden_any
+    valid <- valid & !hidden_any
+  }
   proximity_left <- proximity_left & !on_left & !hidden_any
   proximity_right <- proximity_right & !on_right & !hidden_any
-  valid <- valid | hidden_any
 
   segment <- function(event) {
     segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)

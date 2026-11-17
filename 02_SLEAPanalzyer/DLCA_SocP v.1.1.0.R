@@ -69,6 +69,8 @@ if (isTRUE(config$hidden_contact)) {
   unset <- hidden_fields[vapply(hidden_fields, function(f) is.null(config[[f]]), logical(1))]
   if (length(unset) > 0) stop("hidden_contact is on but unset: ", paste(unset, collapse = ", "))
 }
+if (!is.null(config$hidden_as) && !isTRUE(config$hidden_contact)) stop("hidden_as needs hidden_contact: true")
+hiddenAs <- if (is.null(config$hidden_as)) "contact" else config$hidden_as
 if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)) {
   stop("qc_decisions_file not found: ", config$qc_decisions_file)
 }
@@ -259,7 +261,8 @@ for (batch in batches) {
         min_bout_s = config$min_bout_s,
         max_gap_s = config$max_gap_s,
         on_cup = onCup,
-        hidden = hidden
+        hidden = hidden,
+        hidden_as = hiddenAs
       )
 
       df <- cbind(

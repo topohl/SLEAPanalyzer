@@ -203,6 +203,23 @@ test_that("the SocP batch script leaves out reviewed windows and counts hidden t
   expect_equal(episodes$target, "socr")
   manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
   expect_equal(manifest$extra$qc_decisions[[1]]$md5, unname(tools::md5sum(decisions)))
+
+  # hidden_as unobserved: the same stretch is neither contact nor valid time
+  unobserved <- make_socp_fixture(file.path(root, "unobserved"), hidden_frames = 60,
+                                  extra_lines = c(paste0("qc_decisions_file: ", decisions), hidden_lines,
+                                                  "hidden_as: unobserved"))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", unobserved$config), "SocP script, hidden as unobserved")
+  u <- utils::read.csv(file.path(unobserved$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  expect_equal(u$contactRight, 20 / 30, tolerance = 1e-6)
+  expect_equal(u$hiddenRight, 2, tolerance = 1e-6)
+  expect_equal(u$validTime, result$validTime - 2, tolerance = 1e-6)
+  expect_equal(u$contactLeft, result$contactLeft)
+  expect_equal(yaml::yaml.load_file(file.path(unobserved$output, "run_manifest.yaml"))$config$hidden_as, "unobserved")
+  # and it needs the hidden rule
+  bare <- make_socp_fixture(file.path(root, "bare"), extra_lines = "hidden_as: unobserved")
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", bare$config)
+  expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
+  expect_true(any(grepl("hidden_as needs hidden_contact", output)))
 })
 
 test_that("the SocP batch script leaves out reviewed hands and clears a reviewed not-hidden stretch", {

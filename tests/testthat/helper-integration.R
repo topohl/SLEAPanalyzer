@@ -41,6 +41,16 @@ run_assay_script <- function(script_name, config_path) {
   ))
 }
 
+#' Run an R script (a validation script) as a subprocess with arguments.
+run_r_script <- function(script, args = character()) {
+  rscript <- file.path(
+    R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript"
+  )
+  suppressWarnings(system2(
+    rscript, c("--vanilla", shQuote(script), shQuote(args)), stdout = TRUE, stderr = TRUE
+  ))
+}
+
 #' Fail with the captured output when a script exits non-zero.
 expect_script_succeeded <- function(output, label) {
   status <- attr(output, "status")
