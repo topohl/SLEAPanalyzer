@@ -28,17 +28,23 @@
 #      overwrites: a second run with the same date and tag takes <label>__2.
 #   3. It writes <label>.yaml there: the assay configuration with batches (and
 #      phases) set to this batch and every relative path made absolute against
-#      the configuration's own folder, as the loader resolves it. It checks that
-#      the copy reads as the original apart from those values.
+#      the configuration's own folder, as the loader resolves it. The path keys
+#      are the ones the checkout's loader resolves (rescore_path_keys()). It
+#      checks that the copy reads as the original apart from those values. The
+#      plan warns about a path that lies inside another git checkout.
 #   4. It runs the checkout's assay script with SLEAP_ANALYZER_CONFIG pointing at
 #      that copy (log <label>_run.log). OFT also rewrites its all-batches folder
 #      OFT_SLEAP_output_v1.2.0 with this batch alone, so that folder is backed up
 #      first and put back afterwards; the one-batch version is kept as
-#      <label>_all_batches_written/.
+#      <label>_all_batches_written/. Its all_batches_*.csv include the rescored
+#      batch only after a full OFT run.
 #   5. It checks that the batch's run_manifest.yaml was written by this run and
-#      names the checkout's HEAD, dirty_working_tree: no, and this batch and
-#      phase. OFT writes no manifest: its checkout state is the one checked in
+#      names the checkout's HEAD, dirty_working_tree: no, this batch and phase,
+#      the configuration copy and the decisions file the copy names (path and
+#      md5). OFT writes no manifest: its checkout state is the one checked in
 #      step 1, recorded in the log, and a failures.csv from this run fails it.
+#      The files of the output folder the run did not rewrite are listed, for
+#      information, here and in the log.
 #   6. It compares the new output with the backup (tools/compare_outputs.R, file
 #      paths as in a release: NOR/B1/combined_output.csv), with --allow as the
 #      allowlist, and writes every difference to <label>_compare.csv.
@@ -46,18 +52,22 @@
 # Exit status: 0 when every check passes and no difference is unexpected (plan
 # only: when nothing stops the run), 1 otherwise, 2 usage or input error.
 
+# The folder of this file: the source() call reading it, else the script Rscript runs.
+# (When a script run by Rscript sources this file, --file names that script.)
 rescore_tool_dir <- function() {
-  file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
-  if (length(file_arg) > 0) return(dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/")))
   for (i in rev(seq_len(sys.nframe()))) {
     f <- sys.frame(i)$ofile
     if (!is.null(f)) return(dirname(normalizePath(f, winslash = "/")))
   }
+  file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+  if (length(file_arg) > 0) return(dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/")))
   normalizePath("tools", winslash = "/", mustWork = FALSE)
 }
 
+RESCORE_TOOL_DIR <- rescore_tool_dir()
+
 if (!exists("compare_output_trees", mode = "function")) {
-  source(file.path(rescore_tool_dir(), "compare_outputs.R"))
+  source(file.path(RESCORE_TOOL_DIR, "compare_outputs.R"), local = environment())
 }
 
 # The assay scripts and their configurations by phase ("" where an assay has none).
@@ -71,11 +81,62 @@ rescore_assays <- function() {
   )
 }
 
-# The keys the loaders resolve against the configuration's folder: load_assay_config()
-# (core/assay_config.R) and, for OFT, the path_fields of apply_config_overlay() in DLCA_OFT.
-rescore_path_keys <- function(assay) {
-  if (assay == "OFT") return(c("behavior_root", "animal_id_code_file"))
-  c("input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file", "qc_decisions_file")
+#' The configuration keys a checkout's loader resolves against the configuration's folder.
+#'
+#' Read from the checkout's code, so a path field added there is picked up: for EPM,
+#' NOR and SocP the path_fields load_assay_config() (core/assay_config.R) hands to
+#' load_analysis_config(), for OFT the path_fields of the apply_config_overlay() call
+#' in its script.
+rescore_path_keys <- function(assay, repo) {
+  code <- file.path(repo, "02_SLEAPanalzyer")
+  if (assay == "OFT") {
+    script <- file.path(code, rescore_assays()$OFT$script)
+    if (!file.exists(script)) stop("the checkout has no ", file.path("02_SLEAPanalzyer", basename(script)))
+    found <- list()
+    walk <- function(e) {
+      if (!is.call(e)) return(invisible())
+      if (identical(e[[1]], as.name("apply_config_overlay")) && "path_fields" %in% names(e)) {
+        found[[length(found) + 1]] <<- eval(e[["path_fields"]], baseenv())
+      }
+      for (i in seq_along(e)) if (is.call(e[[i]])) walk(e[[i]])
+    }
+    for (e in parse(script, keep.source = FALSE)) walk(e)
+    keys <- unique(found)
+    if (length(keys) != 1) {
+      stop("cannot read the path fields of ", basename(script), ": ", length(keys),
+           " different apply_config_overlay(path_fields = ...) calls")
+    }
+    return(as.character(keys[[1]]))
+  }
+  files <- file.path(code, "core", c("config.R", "assay_config.R"))
+  if (!all(file.exists(files))) stop("the checkout has no ", paste(files[!file.exists(files)], collapse = ", "))
+  env <- new.env(parent = baseenv())
+  for (f in files) sys.source(f, envir = env)
+  # The loader's own path_fields, without reading any file.
+  env$load_analysis_config <- function(path, defaults = list(), schema = NULL, path_fields = character()) path_fields
+  keys <- tryCatch(env$load_assay_config("(none)", assay), error = function(e) {
+    stop("cannot read the path fields of ", files[2], ": ", conditionMessage(e), call. = FALSE)
+  })
+  if (!is.character(keys)) stop("cannot read the path fields of ", files[2])
+  keys
+}
+
+# TRUE where two paths name the same file or folder.
+same_path <- function(a, b) {
+  norm <- function(x) normalizePath(path.expand(x), winslash = "/", mustWork = FALSE)
+  if (.Platform$OS.type == "windows") tolower(norm(a)) == tolower(norm(b)) else norm(a) == norm(b)
+}
+
+# The top folder of the git checkout holding a path (or its nearest existing parent), else NULL.
+checkout_of <- function(path) {
+  d <- path.expand(path)
+  while (!dir.exists(d)) {
+    parent <- dirname(d)
+    if (identical(parent, d)) return(NULL)
+    d <- parent
+  }
+  top <- git_lines(d, "rev-parse", "--show-toplevel")
+  if (length(top) == 0 || !nzchar(top[1])) NULL else top[1]
 }
 
 # The loader's test for an absolute path (core/config.R).
@@ -228,7 +289,7 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
     config_name <- spec$configs[[phase]]
   }
 
-  if (is.null(repo)) repo <- dirname(rescore_tool_dir())
+  if (is.null(repo)) repo <- dirname(RESCORE_TOOL_DIR)
   if (!dir.exists(repo)) stop("checkout not found: ", repo)
   repo <- normalizePath(repo, winslash = "/")
   script <- file.path(repo, "02_SLEAPanalzyer", spec$script)
@@ -247,6 +308,7 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
     head <- NA_character_
   }
   status <- git_lines(repo, "status", "--porcelain")
+  if (is.null(status)) status <- character()
   tracked <- status[!startsWith(status, "??")]
   untracked <- status[startsWith(status, "??")]
   if (length(tracked) > 0) {
@@ -305,11 +367,25 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
 
   set <- list(batches = batch)
   if (assay == "SocP") set$phases <- phase
-  copy <- rewrite_config_lines(original, set, rescore_path_keys(assay), config_dir)
-  copy_problems <- check_config_copy(original, copy$lines, set, rescore_path_keys(assay), config_dir)
+  path_keys <- rescore_path_keys(assay, repo)
+  copy <- rewrite_config_lines(original, set, path_keys, config_dir)
+  copy_problems <- check_config_copy(original, copy$lines, set, path_keys, config_dir)
   if (length(copy_problems) > 0) {
     problems <- c(problems, paste("the configuration copy does not read as intended:", paste(copy_problems, collapse = "; ")))
   }
+  # A path inside another checkout reads that checkout's files, not this one's.
+  copied <- yaml::yaml.load(paste(copy$lines, collapse = "\n"))
+  warnings <- character()
+  for (k in path_keys) {
+    v <- copied[[k]]
+    if (!is.character(v) || length(v) != 1 || !nzchar(v)) next
+    top <- checkout_of(v)
+    if (!is.null(top) && !same_path(top, repo)) {
+      warnings <- c(warnings, sprintf("%s lies inside another checkout (%s): %s", k, top, v))
+    }
+  }
+  decisions <- copied$qc_decisions_file
+  if (!is.character(decisions) || length(decisions) != 1 || !nzchar(decisions)) decisions <- NULL
 
   input_files <- if (dir.exists(input_dir)) length(list.files(input_dir, pattern = "\\.csv$")) else NA_integer_
   if (is.na(input_files) || input_files == 0) problems <- c(problems, paste("no tracking files in", input_dir))
@@ -333,12 +409,13 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
     assay = assay, batch = batch, phase = phase, socp_phase = socp_phase, label = label, prefix = prefix,
     repo = repo, head = head, tracked = tracked, untracked = untracked, script = script, rscript = rscript,
     config = config, config_lines = original, copy_lines = copy$lines, changes = copy$changes,
+    path_keys = path_keys, decisions = decisions,
     input_dir = input_dir, input_files = input_files, out_dir = out_dir, out_files = length(out_files),
     global_dir = global_dir, writes_manifest = writes_manifest,
     backup_root = backup_root, id = id, backup_dir = at("_before"), backup_md5 = at("_before_md5.csv"),
     global_backup = at("_all_batches_before"), global_md5 = at("_all_batches_before_md5.csv"),
     global_written = at("_all_batches_written"), config_copy = at(".yaml"), log = at("_run.log"),
-    compare_out = at("_compare.csv"), allow = allow, problems = problems
+    compare_out = at("_compare.csv"), allow = allow, warnings = warnings, problems = problems
   )
 }
 
@@ -363,13 +440,20 @@ print_rescore_plan <- function(plan) {
   }
   cat(sprintf("  log       %s\n", plan$log))
   if (plan$writes_manifest) {
-    cat(sprintf("  check     run_manifest.yaml names %s, dirty_working_tree: no, batch %s%s\n", plan$head, plan$batch,
-                if (!is.null(plan$socp_phase)) paste(", phase", plan$socp_phase) else ""))
+    cat(sprintf("  check     run_manifest.yaml names %s, dirty_working_tree: no, batch %s%s,\n", plan$head,
+                plan$batch, if (!is.null(plan$socp_phase)) paste(", phase", plan$socp_phase) else ""))
+    cat(sprintf("            config %s and %s\n", basename(plan$config_copy),
+                if (is.null(plan$decisions)) "no qc_decisions_file" else
+                  sprintf("qc_decisions_file %s (path and md5)", plan$decisions)))
   } else {
     cat("  check     OFT writes no run manifest: the checkout state above goes into the log; a failures.csv fails\n")
   }
   cat(sprintf("  compare   new output against the backup%s; differences to %s\n",
               if (is.null(plan$allow)) "" else paste(" with allowlist", plan$allow), basename(plan$compare_out)))
+  if (length(plan$warnings)) {
+    cat("Warning:\n")
+    cat(paste0("  - ", plan$warnings, "\n"), sep = "")
+  }
   if (length(plan$problems)) {
     cat("Will not run:\n")
     cat(paste0("  - ", plan$problems, "\n"), sep = "")
@@ -408,10 +492,12 @@ backup_folder <- function(src, dst, manifest) {
   invisible(files)
 }
 
-#' Checks of a run manifest: written since `since`, the checkout's HEAD, a clean tree, this batch and phase.
+#' Checks of a run manifest: written since `since`, the checkout's HEAD, a clean tree, this batch and
+#' phase, the configuration copy (`config_copy`) and, where the manifest records its decisions, the
+#' qc_decisions_file the copy names (`decisions`, NULL for none) by path and md5.
 #'
 #' @return data frame of check, ok, detail
-check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL) {
+check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL, config_copy = NULL, decisions = NULL) {
   out <- data.frame(check = character(), ok = logical(), detail = character(), stringsAsFactors = FALSE)
   add <- function(check, ok, detail) out[nrow(out) + 1, ] <<- list(check, isTRUE(ok), paste(detail, collapse = " "))
   if (!file.exists(path)) {
@@ -430,6 +516,27 @@ check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL) {
     got <- if (is.null(m$extra$phase)) "none" else as.character(m$extra$phase)
     add(paste("phase", phase), identical(got, phase), got)
   }
+  if (!is.null(config_copy)) {
+    got <- m$config$.config_path
+    read <- is.character(got) && length(got) == 1
+    add("config is the copy", read && same_path(got, config_copy), if (read) got else "not recorded")
+  }
+  # A file the run read, as the manifest records it under extra$<name>, against the one the copy names.
+  recorded_file <- function(name, key, want) {
+    if (!name %in% names(m$extra)) return(invisible())
+    rec <- m$extra[[name]]
+    if (is.null(want)) {
+      add(sprintf("no %s, as in the copy", key), length(rec) == 0,
+          if (length(rec)) vapply(rec, function(r) format(r$path), "") else "none")
+      return(invisible())
+    }
+    r <- if (length(rec) == 1) rec[[1]] else list()
+    ok <- isTRUE(r$exists) && is.character(r$path) && same_path(r$path, want) &&
+      identical(as.character(r$md5), unname(tools::md5sum(want)))
+    add(sprintf("%s is the copy's (path, md5)", key), ok,
+        if (length(rec) == 1) sprintf("%s, md5 %s", format(r$path), format(r$md5)) else sprintf("%d files", length(rec)))
+  }
+  recorded_file("qc_decisions", "qc_decisions_file", decisions)
   out
 }
 
@@ -450,9 +557,20 @@ run_assay_script <- function(plan) {
 restore_all_batches <- function(plan) {
   g <- plan$global_dir
   if (dir.exists(g)) {
-    if (!file.rename(g, plan$global_written)) {
-      copy_tree(g, plan$global_written)
-      unlink(g, recursive = TRUE)
+    if (!suppressWarnings(file.rename(g, plan$global_written))) {
+      tryCatch({
+        copy_tree(g, plan$global_written)
+        unlink(g, recursive = TRUE)
+      }, error = function(e) NULL)
+    }
+    # A file held open (all_batches_summary.csv in a spreadsheet program) blocks both.
+    if (dir.exists(g)) {
+      stop(sprintf("%s could not be moved aside (is a file in it open?). Close the file, then by hand %s.", g,
+                   if (dir.exists(plan$global_backup)) {
+                     sprintf("replace that folder with the copy made before the run, %s", plan$global_backup)
+                   } else {
+                     "delete that folder; there was none before the run"
+                   }), call. = FALSE)
     }
     cat(sprintf("  kept      the %s-only %s as %s\n", plan$batch, basename(g), plan$global_written))
   }
@@ -460,6 +578,35 @@ restore_all_batches <- function(plan) {
     copy_tree(plan$global_backup, g)
     cat(sprintf("  put back  %s\n", g))
   }
+}
+
+# Files under dir older than the run's start, so not rewritten by it (with the
+# manifest check's 2 s margin for coarse file times).
+not_rewritten <- function(dir, start) {
+  files <- if (dir.exists(dir)) list.files(dir, recursive = TRUE, all.files = TRUE, no.. = TRUE) else character()
+  files[file.mtime(file.path(dir, files)) < start - 2]
+}
+
+# The run log: a header, the assay script's output (already in the log), the checks and,
+# after a successful run, the files of the output folder it did not rewrite (stale).
+write_rescore_log <- function(plan, start, status, checks, stale) {
+  output <- if (file.exists(plan$log)) readLines(plan$log, warn = FALSE) else character()
+  writeLines(c(
+    sprintf("rescore_batch.R %s", format(start, "%Y-%m-%d %H:%M:%S")),
+    sprintf("checkout: %s", plan$repo),
+    sprintf("commit: %s", plan$head),
+    sprintf("uncommitted changes to tracked files: %s", if (length(plan$tracked)) length(plan$tracked) else "none"),
+    sprintf("untracked files: %s", if (length(plan$untracked)) length(plan$untracked) else "none"),
+    sprintf("script: %s", plan$script),
+    sprintf("config: %s (copy of %s)", plan$config_copy, plan$config),
+    if (length(plan$warnings)) paste("warning:", plan$warnings),
+    sprintf("exit status: %d", status),
+    "----",
+    output,
+    if (nrow(checks)) c("----", sprintf("%s %s (%s)", ifelse(checks$ok, "ok", "FAILED"), checks$check, checks$detail)),
+    if (!is.null(stale)) c(sprintf("not rewritten by this run: %s", if (length(stale)) length(stale) else "none"),
+                           if (length(stale)) paste0("  ", stale))
+  ), plan$log)
 }
 
 #' Back up, run, check and compare. Returns 0 when every check passes and no difference is unexpected, else 1.
@@ -476,11 +623,15 @@ run_rescore <- function(plan, tolerance = 1e-9) {
 
   cat(sprintf("  running   %s for %s ...\n", basename(plan$script), gsub("/", " ", sub("^[^/]+/", "", plan$prefix))))
   start <- Sys.time()
+  status <- NA_integer_
+  checks <- data.frame(check = character(), ok = logical(), detail = character(), stringsAsFactors = FALSE)
+  stale <- NULL
+  # The log gets its header however this ends, also when putting OFT's folder back stops it.
+  on.exit(write_rescore_log(plan, start, status, checks, stale), add = TRUE)
   status <- tryCatch(run_assay_script(plan), error = function(e) {
     cat(sprintf("  could not start %s: %s\n", plan$rscript, conditionMessage(e)))
     -1L
   })
-  checks <- data.frame(check = character(), ok = logical(), detail = character(), stringsAsFactors = FALSE)
   if (!is.null(plan$global_dir)) {
     failures <- file.path(plan$global_dir, "failures.csv")
     if (file.exists(failures) && file.mtime(failures) >= start - 2) {
@@ -490,32 +641,29 @@ run_rescore <- function(plan, tolerance = 1e-9) {
     }
     restore_all_batches(plan)
   }
-  log <- if (file.exists(plan$log)) readLines(plan$log, warn = FALSE) else character()
-  header <- c(
-    sprintf("rescore_batch.R %s", format(start, "%Y-%m-%d %H:%M:%S")),
-    sprintf("checkout: %s", plan$repo),
-    sprintf("commit: %s", plan$head),
-    sprintf("uncommitted changes to tracked files: %s", if (length(plan$tracked)) length(plan$tracked) else "none"),
-    sprintf("untracked files: %s", if (length(plan$untracked)) length(plan$untracked) else "none"),
-    sprintf("script: %s", plan$script),
-    sprintf("config: %s (copy of %s)", plan$config_copy, plan$config),
-    sprintf("exit status: %d", status),
-    "----"
-  )
-  writeLines(c(header, log), plan$log)
   if (status != 0) {
+    output <- if (file.exists(plan$log)) readLines(plan$log, warn = FALSE) else character()
     cat(sprintf("  FAILED    %s exited with status %d; last lines of %s:\n", basename(plan$script), status, plan$log))
-    cat(paste0("            ", utils::tail(log, 15), "\n"), sep = "")
+    cat(paste0("            ", utils::tail(output, 15), "\n"), sep = "")
     cat(sprintf("  The output before the run is in %s.\n", plan$backup_dir))
     return(1L)
   }
 
   if (plan$writes_manifest) {
     checks <- rbind(checks, check_run_manifest(file.path(plan$out_dir, "run_manifest.yaml"), plan$head, plan$batch,
-                                               plan$socp_phase, since = start))
+                                               plan$socp_phase, since = start, config_copy = plan$config_copy,
+                                               decisions = plan$decisions))
   }
   for (i in seq_len(nrow(checks))) {
     cat(sprintf("  %-9s %s (%s)\n", if (checks$ok[i]) "ok" else "FAILED", checks$check[i], checks$detail[i]))
+  }
+  # Informational: such a file is in the backup unchanged, so it compares as identical.
+  stale <- not_rewritten(plan$out_dir, start)
+  if (length(stale)) {
+    cat(sprintf("  note      %d %s of the output folder %s not rewritten by this run (older than its start):\n",
+                length(stale), if (length(stale) == 1) "file" else "files", if (length(stale) == 1) "was" else "were"))
+    cat(paste0("            ", utils::head(stale, 10), "\n"), sep = "")
+    if (length(stale) > 10) cat(sprintf("            ... %d more in %s\n", length(stale) - 10, basename(plan$log)))
   }
 
   result <- compare_output_trees(plan$backup_dir, plan$out_dir, prefix = plan$prefix, tolerance = tolerance,
@@ -523,6 +671,10 @@ run_rescore <- function(plan, tolerance = 1e-9) {
   write_comparison(result, plan$compare_out)
   print_comparison(result)
   cat(sprintf("Differences written to %s (%d rows)\n", plan$compare_out, nrow(result$diffs)))
+  if (!is.null(plan$global_dir)) {
+    cat(sprintf("Note: %s/all_batches_*.csv do not include the rescored %s until a full OFT run.\n",
+                plan$global_dir, plan$batch))
+  }
   passed <- all(checks$ok) && result$unexpected == 0
   cat(if (passed) "Rescore done; every check passed.\n" else "Rescore done, but a check FAILED (see above).\n")
   if (passed) 0L else 1L
