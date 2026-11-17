@@ -77,6 +77,22 @@ test_that("CleanTrackingData rejects implausible jumps without interpolating acr
   expect_equal(as.character(cleaned$data$bodycentre$status[10]), "interpolated")
 })
 
+test_that("CleanTrackingData treats no step into a join as a jump and bridges no gap across it", {
+  n <- 50
+  points <- list(bodycentre = cbind(x = as.numeric(1:n), y = rep(0, n)))
+  # frames 10-39 cut from inside the recording: row 11 (frame 40) follows row 10 (frame 9), 31 units on
+  tracking <- CutTrackingData(make_tracking(frames = 0:(n - 1), fps = 10, points = points), remove.frames = 10:39)
+  expect_equal(tracking$joins, 11L)
+  status_11 <- function(t) as.character(CleanTrackingData(t, likelihoodcutoff = 0.5, maxdelta = 5, max.gap.s = 0.3)$data$bodycentre$status[11])
+  expect_equal(status_11(tracking), "observed")
+  unjoined <- tracking
+  unjoined$joins <- NULL
+  expect_equal(status_11(unjoined), "interpolated")      # the same rows as consecutive frames: a jump
+
+  tracking$data$bodycentre$likelihood[10:11] <- 0.1
+  expect_true(all(is.na(CleanTrackingData(tracking, likelihoodcutoff = 0.5, max.gap.s = 0.3)$data$bodycentre$x[10:11])))
+})
+
 test_that("zone membership includes points exactly on the boundary", {
   n <- 5
   zone <- data.frame(x = c(0, 10, 10, 0), y = c(0, 0, 10, 10))

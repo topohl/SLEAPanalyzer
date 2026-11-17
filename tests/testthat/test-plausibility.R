@@ -207,6 +207,11 @@ test_that("hand events become leave-out windows by one rule", {
   expect_equal(cut$tracking$joins, 38L)                  # the interior hand leaves a join, the others none
   late <- hand_event_windows(transform(hand_events()[3, ], first_frame = 150), 30)
   expect_error(apply_leave_out(tracking, late, "synthetic"), "after the recording ends")
+  # windows that leave no frame stop the run: an end hand at frame 0, a start hand past the end
+  at_0 <- hand_event_windows(transform(hand_events()[3, ], first_frame = 0), 30)
+  expect_error(apply_leave_out(tracking, at_0, "synthetic"), "leaves no frame")
+  past <- hand_event_windows(transform(hand_events()[1, ], last_frame = 150), 30)
+  expect_error(apply_leave_out(tracking, past, "synthetic"), "leaves no frame")
 
   path <- tempfile(fileext = ".csv")
   utils::write.csv(hand_events(), path, row.names = FALSE, na = "")
@@ -360,12 +365,15 @@ test_that("a reviewed not_hidden decision clears a hidden stretch and marks it",
   expect_equal(kept$episodes$decision, "hidden")
   expect_error(apply_not_hidden(found, transform(decision, target = "objL"), "synthetic", cups, 30), "unknown target")
 
-  # on the clip's clock after a leave-out at the start
-  lo <- transform(decision, target = "all", start_s = 0, end_s = 0.07, decision = "leave_out")
+  # on the clip's clock after a leave-out at the start, longer than the 0.5 s an edge may move: counted on
+  # the cut rows, the stretch would start 0.73 s before the window and the run would stop
+  lo <- transform(decision, target = "all", start_s = 0, end_s = 0.7, decision = "leave_out")
   cut <- apply_leave_out(tracking, lo, "synthetic")
+  expect_equal(cut$clip_row[1], 23L)
   on_cut <- apply_not_hidden(detect_hidden(cut$tracking), rbind(lo, decision), "synthetic", cups, 30, clip_row = cut$clip_row)
   expect_false(any(on_cut$masks$right))
   expect_equal(on_cut$episodes$decision, "not_hidden")
+  expect_error(apply_not_hidden(detect_hidden(cut$tracking), rbind(lo, decision), "synthetic", cups, 30), "review it again")
 
   # not_hidden leaves the on-cup mask alone, and the on-cup decisions leave the hidden one alone
   expect_identical(apply_qc_decisions(found$masks$right, decision, "synthetic", "socr", 30), found$masks$right)
