@@ -312,6 +312,10 @@ CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL,
   if(!is.null(maxdelta)){
     message("Rejecting displacements above ", maxdelta, " ", t$distance.units, " per frame")
   }
+  # Rows either side of a join (rows cut from inside the recording) are not
+  # consecutive frames: the step into a join is no displacement, and no gap is
+  # bridged across it.
+  joins <- if (is.null(t$joins)) integer() else get_tracking_joins(t)
 
   for(i in 1:length(t$data)){
     reject <- t$data[[i]]$likelihood < likelihoodcutoff
@@ -332,6 +336,7 @@ CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL,
     }
     if(!is.null(maxdelta)){
       displacement <- sqrt(integratevector(t$data[[i]]$x)^2 + integratevector(t$data[[i]]$y)^2)
+      displacement[joins] <- NA_real_
       reject <- reject | (!is.na(displacement) & displacement > maxdelta)
     }
 
@@ -341,8 +346,8 @@ CleanTrackingData <- function(t, likelihoodcutoff = 0.95, existence.pol = NULL,
     } else {
       as.integer(floor(max.gap.s * t$fps))
     }
-    filled.x <- bounded_linear_interpolation(t$data[[i]]$x, observed, max.gap.frames)
-    filled.y <- bounded_linear_interpolation(t$data[[i]]$y, observed, max.gap.frames)
+    filled.x <- bounded_linear_interpolation(t$data[[i]]$x, observed, max.gap.frames, joins)
+    filled.y <- bounded_linear_interpolation(t$data[[i]]$y, observed, max.gap.frames, joins)
     t$data[[i]]$x <- filled.x$values
     t$data[[i]]$y <- filled.y$values
     # The likelihood column records model confidence and must not be

@@ -73,7 +73,10 @@ get_tracking_unit <- function(tracking) {
 #'
 #' CutTrackingData() records them. The row before a join is not the frame
 #' before it, so the step into a join is not a movement (CalculateMovement(),
-#' displacement_qc()) and no interpolation bridges it (interpolate_tracking()).
+#' displacement_qc()) and no interpolation bridges it (interpolate_tracking(),
+#' CleanTrackingData()). Still blind to joins, as the windows inside a
+#' recording are rare and short: the pose decay of repair_landmarks(), the
+#' merge and size windows of detect_on_object(), and jump_episodes().
 #'
 #' @return integer rows, empty when the recording has no join
 get_tracking_joins <- function(tracking) {

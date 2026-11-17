@@ -213,12 +213,13 @@ test_that("the SocP batch script leaves out reviewed hands and clears a reviewed
 
   root <- temp_run_dir("socp_hands")
   dir.create(root, recursive = TRUE, showWarnings = FALSE)
-  # A hand in view at the start until clip frame 2, and a hand that ends the phase at clip frame 270.
+  # A hand in view at the start until clip frame 29, and a hand that ends the phase at clip frame 270.
   hands <- file.path(root, "hands.csv")
   writeLines(c("file,kind,first_frame,last_frame,evidence,reviewer",
-               "B001_socp,start,0,2,hand closing a cup,test",
+               "B001_socp,start,0,29,hand closing a cup,test",
                "B001_socp,end,270,,lid lifted,test"), hands)
-  # The fixture's hidden stretch at the right cup is clip frames 151-210 (5.0 to 7.0 s), reviewed as not hidden.
+  # The fixture's hidden stretch at the right cup is clip frames 151-210 (5.0 to 7.0 s), reviewed as not hidden;
+  # counted on the rows after the start hand it would run 4.0-6.0 s, beyond the 0.5 s an edge may move.
   decisions <- file.path(root, "decisions.csv")
   writeLines(c("file,target,start_s,end_s,decision,reason,reviewer",
                "B001_socp,socr,5,7,not_hidden,mouse in view,test"), decisions)
@@ -229,10 +230,10 @@ test_that("the SocP batch script leaves out reviewed hands and clears a reviewed
                                                paste0("hand_events_file: ", hands), hidden_lines))
   expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config), "SocP script with hands")
   result <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
-  # 3 frames at the start and 30 at the end are gone; contact with the left cup was frames 1-90
-  expect_equal(result$leftOutS, 33 / 30, tolerance = 1e-6)
-  expect_equal(result$totalTime, 267 / 30, tolerance = 1e-6)
-  expect_equal(result$contactLeft, 87 / 30, tolerance = 1e-6)
+  # 30 frames at the start and 30 at the end are gone; contact with the left cup was frames 1-90
+  expect_equal(result$leftOutS, 2, tolerance = 1e-6)
+  expect_equal(result$totalTime, 8, tolerance = 1e-6)
+  expect_equal(result$contactLeft, 2, tolerance = 1e-6)
   # the reviewed stretch is not contact: the right cup keeps its 20 seen frames
   expect_equal(result$hiddenRight, 0)
   expect_equal(result$contactRight, 20 / 30, tolerance = 1e-6)

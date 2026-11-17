@@ -322,8 +322,9 @@ hand_event_windows <- function(events, fps) {
 #' before anything is scored, so every measure, and the time it is a share of,
 #' covers the rest of the recording only. Frame i (1-based) lies at
 #' (i - 1) / fps seconds. A window that starts after the last frame no longer
-#' fits the recording and stops the run. A window inside the recording leaves
-#' a join (get_tracking_joins()): the step across it is not a movement.
+#' fits the recording and stops the run, as do windows that leave no frame. A
+#' window inside the recording leaves a join (get_tracking_joins()): the step
+#' across it is not a movement.
 #'
 #' @return list(tracking, left_out_s, clip_row): clip_row gives each kept row
 #'   its 1-based row in the clip (see episodes_on_clip(), apply_qc_decisions())
@@ -340,6 +341,10 @@ apply_leave_out <- function(tracking, decisions, file) {
                    file, rows$start_s[i], rows$end_s[i], time_s[length(time_s)]))
     }
     drop <- drop | (time_s >= rows$start_s[i] & time_s <= rows$end_s[i])
+  }
+  if (all(drop)) {
+    stop(sprintf("leave-out %s %s leaves no frame of the recording (0-%.2f s)", file,
+                 paste(sprintf("%.2f-%.2f s", rows$start_s, rows$end_s), collapse = ", "), time_s[length(time_s)]))
   }
   list(tracking = CutTrackingData(tracking, remove.frames = frames[drop]), left_out_s = sum(drop) / fps,
        clip_row = which(!drop))
