@@ -384,8 +384,12 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
       warnings <- c(warnings, sprintf("%s lies inside another checkout (%s): %s", k, top, v))
     }
   }
-  decisions <- copied$qc_decisions_file
-  if (!is.character(decisions) || length(decisions) != 1 || !nzchar(decisions)) decisions <- NULL
+  copied_file <- function(key) {
+    v <- copied[[key]]
+    if (is.character(v) && length(v) == 1 && nzchar(v)) v else NULL
+  }
+  decisions <- copied_file("qc_decisions_file")
+  hand_events <- copied_file("hand_events_file")
 
   input_files <- if (dir.exists(input_dir)) length(list.files(input_dir, pattern = "\\.csv$")) else NA_integer_
   if (is.na(input_files) || input_files == 0) problems <- c(problems, paste("no tracking files in", input_dir))
@@ -409,7 +413,7 @@ rescore_plan <- function(assay, batch, phase = NULL, repo = NULL, config = NULL,
     assay = assay, batch = batch, phase = phase, socp_phase = socp_phase, label = label, prefix = prefix,
     repo = repo, head = head, tracked = tracked, untracked = untracked, script = script, rscript = rscript,
     config = config, config_lines = original, copy_lines = copy$lines, changes = copy$changes,
-    path_keys = path_keys, decisions = decisions,
+    path_keys = path_keys, decisions = decisions, hand_events = hand_events,
     input_dir = input_dir, input_files = input_files, out_dir = out_dir, out_files = length(out_files),
     global_dir = global_dir, writes_manifest = writes_manifest,
     backup_root = backup_root, id = id, backup_dir = at("_before"), backup_md5 = at("_before_md5.csv"),
@@ -445,6 +449,7 @@ print_rescore_plan <- function(plan) {
     cat(sprintf("            config %s and %s\n", basename(plan$config_copy),
                 if (is.null(plan$decisions)) "no qc_decisions_file" else
                   sprintf("qc_decisions_file %s (path and md5)", plan$decisions)))
+    if (!is.null(plan$hand_events)) cat(sprintf("            and hand_events_file %s (path and md5)\n", plan$hand_events))
   } else {
     cat("  check     OFT writes no run manifest: the checkout state above goes into the log; a failures.csv fails\n")
   }
@@ -497,7 +502,8 @@ backup_folder <- function(src, dst, manifest) {
 #' qc_decisions_file the copy names (`decisions`, NULL for none) by path and md5.
 #'
 #' @return data frame of check, ok, detail
-check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL, config_copy = NULL, decisions = NULL) {
+check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL, config_copy = NULL, decisions = NULL,
+                               hand_events = NULL) {
   out <- data.frame(check = character(), ok = logical(), detail = character(), stringsAsFactors = FALSE)
   add <- function(check, ok, detail) out[nrow(out) + 1, ] <<- list(check, isTRUE(ok), paste(detail, collapse = " "))
   if (!file.exists(path)) {
@@ -537,6 +543,7 @@ check_run_manifest <- function(path, head, batch, phase = NULL, since = NULL, co
         if (length(rec) == 1) sprintf("%s, md5 %s", format(r$path), format(r$md5)) else sprintf("%d files", length(rec)))
   }
   recorded_file("qc_decisions", "qc_decisions_file", decisions)
+  recorded_file("hand_events", "hand_events_file", hand_events)
   out
 }
 
@@ -652,7 +659,7 @@ run_rescore <- function(plan, tolerance = 1e-9) {
   if (plan$writes_manifest) {
     checks <- rbind(checks, check_run_manifest(file.path(plan$out_dir, "run_manifest.yaml"), plan$head, plan$batch,
                                                plan$socp_phase, since = start, config_copy = plan$config_copy,
-                                               decisions = plan$decisions))
+                                               decisions = plan$decisions, hand_events = plan$hand_events))
   }
   for (i in seq_len(nrow(checks))) {
     cat(sprintf("  %-9s %s (%s)\n", if (checks$ok[i]) "ok" else "FAILED", checks$check[i], checks$detail[i]))
