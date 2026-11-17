@@ -346,6 +346,21 @@ test_that("SocP counts hidden time as contact with that cup only, and as valid t
   expect_error(compute_socp_metrics(tracking, "L", fps = 30, hidden = list(right = hidden$right)), "hidden")
 })
 
+test_that("with hidden_as unobserved, hidden time is neither contact nor valid time", {
+  tracking <- hidden_fixture()                           # the filled nose has coordinates: valid without the rule
+  hidden <- detect_hidden(tracking)$masks
+  as_contact <- compute_socp_metrics(tracking, "L", fps = 30, hidden = hidden)
+  unobserved <- compute_socp_metrics(tracking, "L", fps = 30, hidden = hidden, hidden_as = "unobserved")
+  expect_equal(as_contact$summary$validTime, 4)
+  expect_equal(unobserved$summary$validTime, 2)
+  expect_equal(as_contact$summary$contactRight - unobserved$summary$contactRight, 2)
+  expect_false(any(unlist(unobserved$events[31:90, c("contact_left", "contact_right", "proximity_left",
+                                                     "proximity_right", "valid")])))
+  expect_equal(unobserved$summary$hiddenRight, 2)        # still reported
+  expect_equal(unobserved$events[-(31:90), ], as_contact$events[-(31:90), ])
+  expect_error(compute_socp_metrics(tracking, "L", fps = 30, hidden = hidden, hidden_as = "neither"), "unobserved")
+})
+
 test_that("a reviewed not_hidden decision clears a hidden stretch and marks it", {
   cups <- c(left = "socl", right = "socr")
   tracking <- hidden_fixture()
