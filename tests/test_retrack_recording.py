@@ -941,6 +941,24 @@ class SocpTest(Stubs):
         self.assertNotIn("a phase-1 problem", out)
         self.assertNotIn("a habituation problem", out)
 
+    def test_follow_ups_list_the_hand_rows_of_the_recording(self) -> None:
+        c = self.build()
+        cfg_dir = self.tmp / "cfg"
+        cfg_dir.mkdir()
+        (cfg_dir / "socp_all.yaml").write_text((rr.CONFIG_DIR / "socp_all.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+        (cfg_dir / "hand_events_socp.csv").write_text(
+            "file,kind,first_frame,last_frame,evidence,reviewer\n"
+            "G6K2_S1,end,17000,,a phase-1 hand,video check\n"
+            "G6K2_S2,start,0,51,hand closing a cup,video check\n"
+            "G6K2_S2,end,17302,,hand lifts the lid,video check\n", encoding="utf-8")
+        code, out = run_tool(self.args(c, "--config", str(cfg_dir / "socp_all.yaml")))
+        self.assertEqual(code, 0, out)
+        self.assertIn("hand_events_socp.csv", out)
+        self.assertIn("has 2 hand row(s) for G6K2_S2; their frames refer to the old clip: check them on the new one", out)
+        self.assertIn("line 3: start frames 0-51: hand closing a cup", out)
+        self.assertIn("line 4: end frames 17302-clip end: hand lifts the lid", out)
+        self.assertNotIn("a phase-1 hand", out)
+
 
 class SocpB1Test(Stubs):
     """Batch 1 exports carry the clip, <CODE>_GX<clip>_<PH>; replaced phase files go to formatted/old/<PH>_old/."""

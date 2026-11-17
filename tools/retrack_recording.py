@@ -84,9 +84,10 @@ EPM, OFT and SocP:
     for that run) and compares against that, or ``--scoring-repo`` scores from a checkout at the old commit. Without
     either, ``--apply`` stops before changing anything (``--skip-analysis`` installs the files and does not score).
   * Steps the tool does not do are printed at the end with the exact command: review of the light-check decision
-    rows of this recording (keyed to the staged file's md5), the on-cup decision rows (SocP; their times refer to the
-    old clip), the retrack and leave-out lists, the video clips, a light check of the whole assay and batch (31 looks
-    for the same trial twice only among the recordings it selects), the release and the SISanalyzer ingest.
+    rows of this recording (keyed to the staged file's md5), the reviewed decision and hand rows (SocP; their times
+    and frames refer to the old clip), the retrack and leave-out lists, the video clips, a light check of the whole
+    assay and batch (31 looks for the same trial twice only among the recordings it selects), the release and the
+    SISanalyzer ingest.
   * If the exports in place do not rebuild the files in the chain (an interrupted run), the plan lists what differs;
     ``--apply --rebuild`` carries it out without a new export.
 
@@ -158,10 +159,6 @@ def md5(p: Path) -> str:
 
 def config_value(config: Path, key: str) -> str:
     return text_value(config.read_text(encoding="utf-8"), key, config.name)
-
-
-def config_value_optional(config: Path, key: str) -> str | None:
-    return text_value(config.read_text(encoding="utf-8"), key, config.name, required=False)
 
 
 def text_value(text: str, key: str, label: str = "config", required: bool = True) -> str | None:
@@ -306,19 +303,37 @@ def nor_rivals(folder: Path, keep: str, phase: str, code: str, codes: list[str])
             and resolve_code(p.stem, codes, code) == code]
 
 
-def print_decision_rows(qc_file: Path | None, key: str, indent: str = "    ") -> None:
-    """The scoring's reviewed-decision rows for one recording (file == key): their times refer to the clip the
-    decision was made on, so a re-cut or re-tracked clip needs them checked again."""
-    if qc_file is None or not qc_file.exists():
-        return
-    with open(qc_file, newline="", encoding="utf-8-sig") as fh:
-        hits = [(i, r) for i, r in enumerate(csv.DictReader(fh), start=2) if (r.get("file") or "").strip() == key]
+def config_file(text: str, key: str, config: Path) -> Path | None:
+    """A file setting of a config text, resolved against the config's folder as the R loader does; None if unset."""
+    value = text_value(text, key, config.name, required=False)
+    return (config.parent / value).resolve() if value and value != "~" else None
+
+
+def recording_rows(path: Path | None, key: str) -> list[tuple[int, dict[str, str]]]:
+    """The rows of a reviewed table (decisions, hands) for one recording (file == key), with their line numbers."""
+    if path is None or not path.exists():
+        return []
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        return [(i, r) for i, r in enumerate(csv.DictReader(fh), start=2) if (r.get("file") or "").strip() == key]
+
+
+def print_decision_rows(qc_file: Path | None, key: str, indent: str = "    ", hand_file: Path | None = None) -> None:
+    """The scoring's reviewed-decision and hand rows for one recording (file == key): their times and frames refer
+    to the clip they were reviewed on, so a re-cut or re-tracked clip needs them checked again."""
+    hits = recording_rows(qc_file, key)
     if hits:
         print(f"{indent}{qc_file.name} ({qc_file}) has {len(hits)} row(s) for {key}; their times refer to the "
               "old clip: check them on the new one, then keep, change or drop them (the scoring applies them):")
         for i, r in hits:
             print(f"{indent}  line {i}: {r.get('target')} {r.get('start_s')}-{r.get('end_s')} s -> {r.get('decision')}: "
                   f"{(r.get('reason') or '')[:90]}")
+    hits = recording_rows(hand_file, key)
+    if hits:
+        print(f"{indent}{hand_file.name} ({hand_file}) has {len(hits)} hand row(s) for {key}; their frames refer to "
+              "the old clip: check them on the new one, then keep, change or drop them (the scoring leaves them out):")
+        for i, r in hits:
+            print(f"{indent}  line {i}: {r.get('kind')} frames {r.get('first_frame')}-{r.get('last_frame') or 'clip end'}: "
+                  f"{(r.get('evidence') or '')[:90]}")
 
 
 def run_nor(args: argparse.Namespace) -> int:
@@ -397,9 +412,9 @@ def run_nor(args: argparse.Namespace) -> int:
         staged = stage_dir / f"{args.code}_{args.phase}.csv"
         changed |= install(fmt_new, staged, stage_dir.parent / arch, args.apply, log)
         print("\n".join(log))
-        qc_value = config_value_optional(config, "qc_decisions_file")
-        print_decision_rows((config.parent / qc_value).resolve() if qc_value and qc_value != "~" else None,
-                            f"{args.code}_{args.phase}", indent="  ")
+        cfg_text = config.read_text(encoding="utf-8")
+        print_decision_rows(config_file(cfg_text, "qc_decisions_file", config), f"{args.code}_{args.phase}", indent="  ",
+                            hand_file=config_file(cfg_text, "hand_events_file", config))
         if not changed:
             print("everything is already up to date")
             if args.apply and not args.rerun_analysis:
@@ -1347,7 +1362,7 @@ def row_phase(r: dict) -> str | None:
 
 
 def print_followups(lay: Layout, spec: Spec, args: argparse.Namespace, new_md5: str | None,
-                    qc_file: Path | None = None) -> None:
+                    qc_file: Path | None = None, hand_file: Path | None = None) -> None:
     print("  then, by hand:")
     ph = lay.phase or lay.assay
     cur = md5(lay.staged) if lay.staged.exists() else None
@@ -1374,7 +1389,7 @@ def print_followups(lay: Layout, spec: Spec, args: argparse.Namespace, new_md5: 
         for i, r in related:
             print(f"      line {i}: {r.get('assay')} {r.get('phase')} {r.get('batch')} {r.get('Code')}: {r.get('flags')} -> {r.get('outcome')}")
     if lay.phase:
-        print_decision_rows(qc_file, f"{lay.code}_{lay.phase}")
+        print_decision_rows(qc_file, f"{lay.code}_{lay.phase}", hand_file=hand_file)
     qc = args.qc_root
     for name in ("retrack_list.csv", "leave_out_list.csv"):
         p = qc / name
@@ -1469,8 +1484,8 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
     else:
         stage_default = Path(text_value(cfg_text, "input_dir", config.name)).parent
         output_default = Path(text_value(cfg_text, "output_dir", config.name)).parent
-    qc_value = text_value(cfg_text, "qc_decisions_file", config.name, required=False)
-    qc_file = (config.parent / qc_value).resolve() if qc_value and qc_value != "~" else None
+    qc_file = config_file(cfg_text, "qc_decisions_file", config)
+    hand_file = config_file(cfg_text, "hand_events_file", config)
     stage_root = args.stage_root or stage_default
     lay = Layout(args.assay, args.batch, args.code, phase, args.clip, args.tracking_root, stage_root, load_codes(stage_root),
                  args.records_root)
@@ -1528,7 +1543,7 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
             print_current(lay, ex)
             print_waiting(lay, spec, ex, [k for k in ("geom", "animal") if not have[k]], args)
             print_scoring_plan(lay, spec, sc, status, args, argv, config, scored_text)
-            print_followups(lay, spec, args, None, qc_file)
+            print_followups(lay, spec, args, None, qc_file, hand_file)
             return 0
 
         use = {k: ex.new.get(k) or (ex.inplace(k)[0] if k not in ex.reuse else None) for k in ("geom", "animal")}
@@ -1680,7 +1695,7 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
                       "--apply --rebuild would carry it out")
             if new_kinds or changed:                            # (otherwise print_waiting listed them)
                 print_strays(lay)
-            print_followups(lay, spec, args, new_md5, qc_file)
+            print_followups(lay, spec, args, new_md5, qc_file, hand_file)
             return 0
 
         # ---- apply
@@ -1773,7 +1788,7 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
             install_staged()
             print("  scoring not run" + (" (--skip-analysis)" if args.skip_analysis else "")
                   + ("; the scoring of the installed file is still due" if stage_changed or due else ""))
-            print_followups(lay, spec, args, new_md5, qc_file)
+            print_followups(lay, spec, args, new_md5, qc_file, hand_file)
             return 0
         backup()
         before = snapshot(backups[sc["out_dirs"][0]], spec) if backups[sc["out_dirs"][0]].exists() else {}
@@ -1816,7 +1831,7 @@ def run_assay(args: argparse.Namespace, argv: list[str]) -> int:
         if others:
             print(f"  !! animals other than {lay.code} changed: {sorted(others)} -- check before using this output", file=sys.stderr)
             return 2
-        print_followups(lay, spec, args, new_md5, qc_file)
+        print_followups(lay, spec, args, new_md5, qc_file, hand_file)
         return 0
     finally:
         shutil.rmtree(work, ignore_errors=True)

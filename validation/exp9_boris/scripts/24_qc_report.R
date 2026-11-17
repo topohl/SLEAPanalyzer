@@ -17,8 +17,9 @@
 #   out_dir            written: qc_report.xlsx, tables/*.csv, figures/*.svg|png
 #
 # Also read: results/plausibility_summary.csv (23_plausibility_screen.R), the
-# reviewed decisions (config/qc_decisions_socp.csv), the release animal table
-# for sex and group, and the batch 1 manual scores
+# reviewed decisions and hands (config/qc_decisions_socp.csv and
+# hand_events_socp.csv), the release animal table for sex and group, and the
+# batch 1 manual scores
 # (Analysis/Behavior/Validation/stats/validation_pairs.csv) when present.
 # ============================================================================
 
@@ -42,6 +43,7 @@ cups <- rd_all(ROOT, "on_cup_episodes.csv")
 hand <- fread(file.path(REF, "data", "exp9_sleap_all_animals.tsv"))
 meta <- hand[, .(Code, ID, Sex, Group = Phenotype)]
 dec <- fread(file.path(PROJ, "config", "qc_decisions_socp.csv"))
+hands <- fread(file.path(PROJ, "config", "hand_events_socp.csv"))
 screen_f <- file.path(PROJ, "results", "plausibility_summary.csv"); screen <- if (file.exists(screen_f)) fread(screen_f) else NULL
 stopifnot("every recording also in the reference release" = all(paste(now$batch, now$phase, now$Code) %in% paste(ref$batch, ref$phase, ref$Code)),
           # its before/after columns credit every change to the repair and the cup rule; a run that also restores the head length
@@ -78,8 +80,9 @@ setorder(rec, batch, phase, Code)
 reps <- meta[reps, on = "Code"]; repe <- meta[repe, on = "Code"]; mods <- meta[mods, on = "Code"]; cups <- meta[cups, on = "Code"]
 if (nrow(cups)) {
   cups[, reviewed := ""]
-  for (i in seq_len(nrow(dec))) cups[paste0(Code, "_", phase) == dec$file[i] & object == dec$target[i] & start_s <= dec$end_s[i] & start_s + duration_s >= dec$start_s[i],
-                                     reviewed := paste0(dec$decision[i], ": ", dec$reason[i])]
+  d <- dec[decision %in% c("on_object", "not_on_object")]       # the other kinds are not about a cup episode
+  for (i in seq_len(nrow(d))) cups[paste0(Code, "_", phase) == d$file[i] & object == d$target[i] & start_s <= d$end_s[i] & start_s + duration_s >= d$start_s[i],
+                                   reviewed := paste0(d$decision[i], ": ", d$reason[i])]
 }
 
 # ---------------------------------------------------------------- manual check (batch 1)
@@ -105,7 +108,8 @@ TAB <- list(
   `Repair episodes` = repe[, intersect(c("ID", "Code", "Sex", "Group", "batch", "phase", "check", "target", "start_s", "duration_s", "reconstructed_share", "start_frame", "end_frame"), names(repe)), with = FALSE],
   `On-cup episodes` = if (nrow(cups)) cups[, intersect(c("ID", "Code", "Sex", "Group", "batch", "phase", "object", "start_s", "duration_s", "decision", "reviewed", "median_apparent_size", "min_distance", "max_beyond", "start_frame", "end_frame"), names(cups)), with = FALSE] else data.table(),
   `Anchor models` = mods[, intersect(c("ID", "Code", "batch", "phase", "target", "rank", "anchor_a", "anchor_b", "frames", "error_median", "error_p95"), names(mods)), with = FALSE],
-  `Reviewed decisions` = dec)
+  `Reviewed decisions` = dec,
+  `Hand events` = hands)
 if (!is.null(man)) { TAB$`Manual check` <- man; TAB$`Manual agreement` <- agree }
 if (!is.null(screen)) TAB$`Screen, all tests` <- screen
 for (nm in names(TAB)) fwrite(r3(TAB[[nm]]), file.path(OUT, "tables", paste0(gsub("[^A-Za-z0-9]+", "_", tolower(nm)), ".csv")))
@@ -119,6 +123,7 @@ readme <- c(
   "- On top of a cup: body centre where a floor-level mouse cannot be and the mouse imaged larger; that time is neither contact nor proximity.",
   "- Landmark repair: a body landmark more than 15 cm outside the arena, or one that disagrees with most of the skeleton (distance to the others far above the recording's typical distance), is removed; when about half the skeleton sits elsewhere, the frame keeps the consistent majority (skeleton split); nose and body centre are rebuilt from two rigid neighbours of the same frame (their typical relative position); frames without a consistent majority (the mouse hidden, hands in the arena) stay untracked (skeleton collapse).",
   "- Reviewed decisions override the automatic rule (sheet Reviewed decisions).",
+  "- Hands in the arena are left out of the recording by one rule (sheet Hand events).",
   "",
   sprintf("Recordings: %d. With a rebuilt nose or body centre: %d. With skeleton collapse: %d. With time on top of a cup: %d.", nrow(rec), n_rep, n_col, n_cup),
   sprintf("Rebuilt nose in total %.0f s, body centre %.0f s; skeleton collapse %.0f s; on top of a cup %.0f s (contact removed %.0f s).",
