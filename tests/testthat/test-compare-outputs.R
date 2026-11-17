@@ -182,3 +182,77 @@ test_that("the command line writes the differences and sets the exit status", {
   expect_equal(attr(output, "status"), 1L)
   expect_true(any(grepl("UNEXPECTED a.csv cell B2 x 1 -> 3", output, fixed = TRUE)))
 })
+
+test_that("an empty table written by write.csv(data.frame()) compares row by row", {
+  root <- temp_run_dir("compare-empty")
+  old <- file.path(root, "old")
+  new <- file.path(root, "new")
+  dir.create(file.path(old, "SocP", "B1", "S1"), recursive = TRUE)
+  utils::write.csv(data.frame(), file.path(old, "SocP", "B1", "S1", "hidden_episodes.csv"))
+  write_bytes(file.path(new, "SocP", "B1", "S1", "hidden_episodes.csv"), paste0(
+    "\"file\",\"Code\",\"target\",\"start_frame\",\"duration_s\"\n",
+    "\"A1L9_S1\",\"A1L9\",\"socl\",10,0.5\n\"K4T2_S1\",\"K4T2\",\"socr\",20,0.3\n"))
+  allow <- write_bytes(file.path(root, "allow.csv"), "file,key,column\nSocP/B1/*,A1L9;K4T2,\n")
+
+  result <- compare_output_trees(old, new, allow = allow)
+  expect_equal(result$files$status, "changed")
+  expect_equal(result$diffs$change, c("row_added", "row_added"))
+  expect_equal(result$diffs$key, c("A1L9_S1 | socl | 10", "K4T2_S1 | socr | 20"))
+  expect_true(all(result$diffs$expected))
+  back <- compare_output_trees(new, old, allow = allow)
+  expect_equal(back$diffs$change, c("row_removed", "row_removed"))
+  expect_equal(back$unexpected, 0L)
+
+  printed <- capture.output(status <- compare_outputs_main(c(old, new, "--allow", allow)))
+  expect_equal(status, 0L)
+  expect_false(any(grepl("UNREADABLE", printed, fixed = TRUE)))
+  expect_true("    A1L9_S1 | socl | 10: row added" %in% printed)
+})
+
+test_that("one inserted episode is one added row", {
+  root <- temp_run_dir("compare-episodes")
+  header <- "file,Code,object,start_frame,end_frame,duration_s\n"
+  rows <- c("A1_S1,A1,socl,10,20,0.33\n", "A1_S1,A1,socl,100,130,1\n", "A1_S1,A1,socr,50,60,0.33\n", "B2_S1,B2,socl,5,9,0.13\n")
+  write_bytes(file.path(root, "old", "on_cup_episodes.csv"), paste0(header, paste(rows, collapse = "")))
+  write_bytes(file.path(root, "new", "on_cup_episodes.csv"),
+              paste0(header, paste(append(rows, "A1_S1,A1,socl,40,45,0.17\n", after = 1), collapse = "")))
+
+  result <- compare_output_trees(file.path(root, "old"), file.path(root, "new"))
+  f <- result$files
+  expect_equal(f$key, "file+object+start_frame")
+  expect_equal(c(f$rows_added, f$rows_removed, f$rows_changed, f$cells_changed), c(1L, 0L, 0L, 0L))
+  expect_equal(unlist(result$diffs[, c("change", "key")], use.names = FALSE), c("row_added", "A1_S1 | socl | 40"))
+})
+
+test_that("a repeated Code gives way to a file column that is unique", {
+  root <- temp_run_dir("compare-repeated-code")
+  write_bytes(file.path(root, "old", "combined_output.csv"), "file,Code,v\nA1_a,A1,1\nA1_b,A1,2\nC3_a,C3,3\n")
+  write_bytes(file.path(root, "new", "combined_output.csv"), "file,Code,v\nA1_b,A1,2\nC3_a,C3,3\n")
+
+  result <- compare_output_trees(file.path(root, "old"), file.path(root, "new"))
+  expect_equal(result$files$key, "file")
+  expect_equal(unlist(result$diffs[, c("change", "key")], use.names = FALSE), c("row_removed", "A1_a"))
+  printed <- capture.output(print_comparison(result))
+  expect_true("    A1_a: row removed" %in% printed)
+})
+
+test_that("release mode lists a live file on the build's list that the release lacks", {
+  root <- temp_run_dir("compare-release-lacks")
+  summaries <- file.path(root, "release", "assay_summaries")
+  output_root <- file.path(root, "sleap_output_all")
+  stage_root <- file.path(root, "staging")
+  write_bytes(file.path(summaries, "SocP", "B1", "S1", "combined_output.csv"), "Code,x\nA1,1\n")
+  write_bytes(file.path(output_root, "SocP", "B1", "S1", "combined_output.csv"), "Code,x\nA1,1\n")
+  # On the build's list but not in the release ...
+  write_bytes(file.path(output_root, "SocP", "B1", "S2", "on_cup_episodes.csv"), "file,object,start_frame\nA1_S2,socl,5\n")
+  write_bytes(file.path(stage_root, "OFT", "B3", "output_v1.2.0", "combined_qc.csv"), "file,stage,point\nX,a,b\n")
+  # ... and live files the build does not copy.
+  write_bytes(file.path(output_root, "SocP", "B1", "S2", "hidden_episodes.csv"), "\"\"\n")
+  write_bytes(file.path(output_root, "NOR_HAB", "B1", "combined_output.csv"), "Code,x\nA1,1\n")
+
+  pairs <- release_pairs(summaries, output_root, stage_root)
+  expect_equal(pairs$file, c("OFT/B3/combined_qc.csv", "SocP/B1/S1/combined_output.csv", "SocP/B1/S2/on_cup_episodes.csv"))
+  expect_equal(is.na(pairs$old), c(TRUE, FALSE, TRUE))
+  result <- compare_release(summaries, output_root, stage_root)
+  expect_equal(result$files$status, c("only_new", "identical", "only_new"))
+})

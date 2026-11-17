@@ -9,6 +9,8 @@
 #            the release build copies them from (tools/build_exp9_behavior_bundle.ps1):
 #            EPM, NOR, NOR_HAB and SocP from the assay output root, OFT from
 #            <stage root>/OFT/<B>/output_v1.2.0. Old is the release, new the live file.
+#            A live file on the build's list (release_build_files()) that the
+#            release lacks is listed as only in new.
 #
 # Usage:
 #   Rscript tools/compare_outputs.R OLD NEW [--out diffs.csv] [--allow allow.csv]
@@ -22,10 +24,13 @@
 #   Or source() this file and call compare_output_trees() or compare_release().
 #
 # Rows are matched by key: the columns named for that file (--key, or the keys of
-# the multi-row tables in compare_default_keys()), else Code, else file, else the
-# first column. Where a key repeats in a table, every row also gets its occurrence
-# number ("A1L9 #2"). Two cells are equal when their text is equal, or when both
-# are numbers within the tolerance relative to the larger of 1 and their size.
+# the multi-row tables in compare_default_keys()), else the first of Code and file
+# that is unique in both tables, else Code or file, else the first column. Where a
+# key repeats in a table, every row also gets its occurrence number ("A1L9 #2").
+# An empty table (write.csv(data.frame()) writes one line, "") has no columns; its
+# rows count as removed or added under the other table's key. Two cells are equal
+# when their text is equal, or when both are numbers within the tolerance relative
+# to the larger of 1 and their size.
 #
 # Each file is reported as identical, bytes differ but every cell is equal,
 # changed (columns added or removed, rows added or removed, changed cells), or
@@ -50,7 +55,28 @@ compare_default_keys <- function() {
     "combined_first_last_epoch_metrics.csv" = c("Code", "epoch"),
     "combined_qc.csv" = c("file", "stage", "point"),
     "landmark_repairs.csv" = c("file", "landmark"),
-    "landmark_repair_models.csv" = c("file", "target", "rank")
+    "landmark_repair_models.csv" = c("file", "target", "rank"),
+    "on_cup_episodes.csv" = c("file", "object", "start_frame"),
+    "landmark_repair_episodes.csv" = c("file", "check", "target", "start_frame"),
+    "hidden_episodes.csv" = c("file", "target", "start_frame")
+  )
+}
+
+# The CSV files the release build copies, by assay: its batches, its phase folders
+# and the file names. Keep in step with tools/build_exp9_behavior_bundle.ps1
+# (lines 155-186), which also copies each run_manifest.yaml.
+release_build_files <- function() {
+  batches <- paste0("B", 1:6)
+  list(
+    EPM = list(batches = batches, files = c("Report.csv", "tracking_qc.csv")),
+    NOR = list(batches = batches, files = c("combined_output.csv", "tracking_qc.csv")),
+    # Batch 1's habituation trials were never tracked.
+    NOR_HAB = list(batches = batches[-1], files = c("combined_output.csv", "tracking_qc.csv")),
+    SocP = list(batches = batches, phases = c("HAB", "S1", "S2"),
+                files = c("combined_output.csv", "tracking_qc.csv", "on_cup_episodes.csv", "landmark_repairs.csv",
+                          "landmark_repair_episodes.csv", "landmark_repair_models.csv")),
+    OFT = list(batches = batches, files = c("combined_summary.csv", "combined_qc.csv", "combined_bins.csv",
+                                            "combined_enhanced_metrics.csv", "combined_first_last_epoch_metrics.csv"))
   )
 }
 
@@ -88,28 +114,43 @@ tree_pairs <- function(old_dir, new_dir, prefix = "") {
   )
 }
 
-# The release's CSV files and the live files the release build copies them from.
+# Every path the release build writes under assay_summaries/ (CSV files only).
+release_build_paths <- function() {
+  spec <- release_build_files()
+  unlist(lapply(names(spec), function(assay) {
+    s <- spec[[assay]]
+    folders <- if (is.null(s$phases)) s$batches else as.vector(t(outer(s$batches, s$phases, paste, sep = "/")))
+    as.vector(t(outer(paste(assay, folders, sep = "/"), s$files, paste, sep = "/")))
+  }), use.names = FALSE)
+}
+
+# The live file a release file is copied from.
+release_live_path <- function(rel, output_root, stage_root) {
+  p <- strsplit(rel, "/", fixed = TRUE)[[1]]
+  if (p[1] == "OFT") {
+    do.call(file.path, as.list(c(stage_root, "OFT", p[2], "output_v1.2.0", p[-(1:2)])))
+  } else {
+    file.path(output_root, rel)
+  }
+}
+
+# The release's CSV files and the live files the release build copies them from,
+# plus each live file on the build's list that the release lacks.
 release_pairs <- function(release, output_root, stage_root) {
   summaries <- if (basename(sub("[/\\\\]+$", "", release)) == "assay_summaries") release else
     file.path(release, "assay_summaries")
   if (!dir.exists(summaries)) stop("no assay_summaries folder: ", summaries)
   rel <- list_csv(summaries)
   if (length(rel) == 0) stop("no CSV files in ", summaries)
-  parts <- strsplit(rel, "/", fixed = TRUE)
-  assay <- vapply(parts, `[`, "", 1)
-  unknown <- setdiff(unique(assay), c("EPM", "NOR", "NOR_HAB", "SocP", "OFT"))
+  unknown <- setdiff(unique(sub("/.*$", "", rel)), names(release_build_files()))
   if (length(unknown) > 0) {
     stop("the release holds folder(s) the release build does not write: ", paste(unknown, collapse = ", "))
   }
-  live <- vapply(seq_along(rel), function(i) {
-    p <- parts[[i]]
-    if (p[1] == "OFT") {
-      do.call(file.path, as.list(c(stage_root, "OFT", p[2], "output_v1.2.0", p[-(1:2)])))
-    } else {
-      file.path(output_root, rel[i])
-    }
-  }, "")
-  data.frame(file = rel, old = file.path(summaries, rel),
+  live_of <- function(files) vapply(files, release_live_path, "", output_root, stage_root, USE.NAMES = FALSE)
+  lacking <- setdiff(release_build_paths(), rel)
+  files <- sort(c(rel, lacking[file.exists(live_of(lacking))]))
+  live <- live_of(files)
+  data.frame(file = files, old = ifelse(files %in% rel, file.path(summaries, files), NA_character_),
              new = ifelse(file.exists(live), live, NA_character_), stringsAsFactors = FALSE)
 }
 
@@ -117,28 +158,36 @@ release_pairs <- function(release, output_root, stage_root) {
 # One pair of tables
 # ---------------------------------------------------------------------------
 
-# A CSV file with every cell as text, exactly as written ("NA" stays "NA").
+# A CSV file with every cell as text, exactly as written ("NA" stays "NA"). A file
+# whose lines are all blank or "" (write.csv(data.frame())) is an empty table.
 read_csv_cells <- function(path) {
-  if (file.size(path) == 0) return(data.frame())
+  txt <- gsub("^\ufeff|[ \t\r]", "", readLines(path, warn = FALSE, encoding = "UTF-8"), useBytes = TRUE)
+  if (all(txt %in% c("", "\"\""))) return(data.frame())
   x <- utils::read.csv(path, colClasses = "character", check.names = FALSE, na.strings = character(),
                        strip.white = FALSE, comment.char = "", row.names = NULL, fileEncoding = "UTF-8-BOM")
   names(x) <- make.unique(names(x))
   x
 }
 
-# The key columns for one file: a given key, else Code, else file, else the first column.
+# The key columns for one file: a given key, else the first of Code and file that is
+# unique in both tables, else Code or file, else the first column. When one table
+# has no columns (an empty table), the other table's columns are the candidates.
 choose_key <- function(file, old, new, keys) {
+  cols <- if (!ncol(old)) names(new) else if (!ncol(new)) names(old) else intersect(names(old), names(new))
   for (pattern in names(keys)) {
     target <- if (grepl("/", pattern, fixed = TRUE)) file else basename(file)
     k <- keys[[pattern]]
-    if (grepl(utils::glob2rx(pattern), target) && all(k %in% names(old)) && all(k %in% names(new))) return(k)
+    if (grepl(utils::glob2rx(pattern), target) && all(k %in% cols)) return(k)
   }
-  for (k in c("Code", "file")) if (k %in% names(old) && k %in% names(new)) return(k)
-  first <- intersect(names(old), names(new))
-  if (length(first) == 0) character() else first[1]
+  candidates <- intersect(c("Code", "file"), cols)
+  unique_in <- function(df, k) !k %in% names(df) || !anyDuplicated(df[[k]])
+  for (k in candidates) if (unique_in(old, k) && unique_in(new, k)) return(k)
+  if (length(candidates)) return(candidates[1])
+  if (length(cols) == 0) character() else cols[1]
 }
 
 row_keys <- function(df, key) {
+  if (nrow(df) == 0) return(character())
   if (length(key) == 0) return(as.character(seq_len(nrow(df))))
   if (length(key) == 1) return(df[[key]])
   do.call(paste, c(unname(as.list(df[key])), sep = " | "))
@@ -227,8 +276,10 @@ compare_csv_pair <- function(file, old_path, new_path, tolerance = 1e-9, keys = 
   }
   key_label <- if (length(key)) paste(key, collapse = "+") else "row number"
 
-  added_cols <- setdiff(names(new), names(old))
-  removed_cols <- setdiff(names(old), names(new))
+  # An empty table has no columns to add or remove; its rows are what changes.
+  shaped <- ncol(old) > 0 && ncol(new) > 0
+  added_cols <- if (shaped) setdiff(names(new), names(old)) else character()
+  removed_cols <- if (shaped) setdiff(names(old), names(new)) else character()
   added_rows <- kn[!kn %in% ko]
   removed_rows <- ko[!ko %in% kn]
   common <- kn[kn %in% ko]
