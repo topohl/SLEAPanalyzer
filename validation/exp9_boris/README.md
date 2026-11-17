@@ -196,6 +196,12 @@ and every one a review cleared (`not_hidden`), as lists for `tools/qc_review.py`
 staged tracking file and clip of each from the `32` manifest (renders nothing).
 `Rscript 34_hidden_review.R <socp_output_root> <work_dir>`; the script prints the
 `qc_review.py` command. See "Time hidden under a cup box is contact" in `docs/assay_definitions.md`.
+Open for the still review: I4O9 phase 2 (S2), socl 3.67-4.0 s (a hand row if it is a hand, else a
+`not_hidden` row).
+
+**`35` — hidden sensitivity.** A SocP output tree scored with hidden time as contact against one
+scored with `hidden_as: unobserved`, recording by recording and, with `--groups`, by group medians
+(descriptive). `Rscript 35_hidden_sensitivity.R <contact_root> <unobserved_root> <out_dir> [--groups groups.csv]`.
 
 **Running the checks.** `tools/run_exp9_qc.ps1` runs `32`, the video checks, `23` when its
 summary is older than the tracking, and `31`, draws a review sheet
@@ -209,7 +215,7 @@ it out; a failure is noted in `qc/light_checks/QC_FAILED.txt` and does not stop 
 ## Layout
 
 ```
-scripts/    34 R scripts, as described above, and exp9_paths.R (where the Exp9 tracking and records are)
+scripts/    36 R scripts, as described above, and exp9_paths.R (where the Exp9 tracking and records are)
 config/     assay YAMLs used for the Exp9 runs (EPM, NOR, SocP, OFT) and the QC review decisions
 metadata/   animal metadata, identifier crosswalks, conflict log
 enriched/   assembled wide/long tables, including sleap_all_batches_wide.tsv

@@ -516,14 +516,17 @@ Every body-fill stretch of at least `hidden_min_s` and its decision (`hidden`,
 still seen, the distance rule scores the stretch as before. A reviewed
 `not_hidden` decision (`qc_decisions_file`, target the cup) clears the
 stretch it was reviewed on, with the 0.5 s edge rule of `not_on_object`, and
-the table marks it `not_hidden`.
+the table marks it `not_hidden`. The sensitivity, `hidden_as: unobserved`,
+counts hidden time as neither contact nor valid time;
+`validation/exp9_boris/scripts/35_hidden_sensitivity.R` compares the two.
 
 Exp9 values (0.2 s as the on-cup minimum, 10 cm as the on-cup and proximity
 limit, nose 10 cm off the body, half of the frames). Over the staged
 recordings the rule finds 148 s in 96 stretches in 43 recordings: 130 s in
 batch 4, 116 s of it in the four recordings reviewed in the 2026-11 light
 checks (B7C9 habituation and phase 2, C1U2 phases 1 and 2), each reviewed
-stretch included; elsewhere no stretch is longer than 1.2 s.
+stretch included; elsewhere no stretch is longer than 1.2 s, except in B4Y7's
+habituation (4.3 s, cleared by review).
 
 ### A head hidden under the cup lid
 
