@@ -60,6 +60,8 @@ hidden_min_s: 0.2
 hidden_max_distance_cm: 10
 hidden_nose_off_body_cm: 10
 hidden_min_nose_lost_share: 0.5
+# Frame review of hidden stretches; same table as socp_all.yaml.
+hidden_review_file: hidden_review_socp.csv
 
 # Landmark repair: same settings as socp_all.yaml.
 landmark_repair: true
