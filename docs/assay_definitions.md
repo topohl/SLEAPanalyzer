@@ -464,7 +464,7 @@ manual scoring of 10 batch 1 animals (20 sessions), none of the on-cup time was
 scored as interaction or rearing, and where the scorer coded climbing (50.0 s,
 one session) the rule finds 41.2 s.
 
-### Time hidden under a cup box is contact
+### Time hidden under a cup box
 
 In batch 4 a mouse can creep under the box over a cup, between the cup and the
 corner, and disappear: the pose model loses every landmark, the export fills
@@ -487,6 +487,18 @@ still seen, the distance rule scores the stretch as before. A reviewed
 `not_hidden` decision (`qc_decisions_file`, target the cup) clears the
 stretch it was reviewed on, with the 0.5 s edge rule of `not_on_object`, and
 the table marks it `not_hidden`.
+
+A frame review refines a hidden stretch (`hidden_review_file`, decided
+2026-11-21): one row per segment, with the cup, first and last 0-based clip
+frame and a class. `contact`: what is seen meets the contact definition (the
+nose in the zone, or the head pushed into the gap at the box edge on the cup's
+side with the neck at the cup); it stays contact. `no_contact`: the visible
+head, orientation or position shows the mouse is not at the cup; valid time
+without contact. `unobserved`: too little is seen to tell; neither contact nor
+valid time. Neither of the last two is proximity or on the cup, and `hidden_as`
+leaves them as reviewed. Hidden frames no segment covers keep the rule.
+`hiddenNoContact` and `hiddenUnobserved` report the reviewed time;
+`hidden_episodes.csv` gives each stretch's seconds per class and `unreviewed_s`.
 
 Exp9 values (0.2 s as the on-cup minimum, 10 cm as the on-cup and proximity
 limit, nose 10 cm off the body, half of the frames). Over the staged

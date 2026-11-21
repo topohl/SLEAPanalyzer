@@ -222,6 +222,47 @@ test_that("the SocP batch script leaves out reviewed windows and counts hidden t
   expect_true(any(grepl("hidden_as needs hidden_contact", output)))
 })
 
+test_that("the SocP batch script applies the reviewed class of hidden frames", {
+  testthat::skip_if_not_installed("yaml")
+  testthat::skip_if_not_installed("sp")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if_not_installed("stringr")
+
+  root <- temp_run_dir("socp_hidden_review")
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  hidden_lines <- c("hidden_contact: true", "hidden_min_s: 0.2", "hidden_max_distance_cm: 10",
+                    "hidden_nose_off_body_cm: 10", "hidden_min_nose_lost_share: 0.5")
+  # The fixture's hidden stretch at the right cup is rows 151-210, clip frames 150-209.
+  review <- file.path(root, "review.csv")
+  writeLines(c("file,target,first_frame,last_frame,class,evidence,reviewer",
+               "B001_socp,socr,150,179,no_contact,head out of the zone,test",
+               "B001_socp,socr,180,209,unobserved,tail only,test"), review)
+  rule <- make_socp_fixture(file.path(root, "rule"), hidden_frames = 60, extra_lines = hidden_lines)
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", rule$config), "SocP script, hidden rule")
+  r <- utils::read.csv(file.path(rule$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  fixture <- make_socp_fixture(file.path(root, "reviewed"), hidden_frames = 60,
+                               extra_lines = c(hidden_lines, paste0("hidden_review_file: ", review)))
+  expect_script_succeeded(run_assay_script("DLCA_SocP v.1.1.0.R", fixture$config), "SocP script, reviewed")
+  x <- utils::read.csv(file.path(fixture$output, "combined_output.csv"), stringsAsFactors = FALSE)
+  expect_equal(r$contactRight - x$contactRight, 2, tolerance = 1e-6)
+  expect_equal(x$hiddenRight, 0)
+  expect_equal(c(x$hiddenNoContact, x$hiddenUnobserved), c(1, 1), tolerance = 1e-6)
+  expect_equal(x$validTime, r$validTime - 1, tolerance = 1e-6)
+  expect_equal(x$contactLeft, r$contactLeft)
+  episodes <- utils::read.csv(file.path(fixture$output, "hidden_episodes.csv"), stringsAsFactors = FALSE)
+  expect_equal(episodes$decision, "hidden")
+  expect_equal(unname(unlist(episodes[, c("review_contact_s", "review_no_contact_s", "review_unobserved_s",
+                                          "unreviewed_s")])), c(0, 1, 1, 0), tolerance = 1e-6)
+  manifest <- yaml::yaml.load_file(file.path(fixture$output, "run_manifest.yaml"))
+  expect_equal(manifest$extra$hidden_review[[1]]$md5, unname(tools::md5sum(review)))
+
+  # it needs the hidden rule
+  bare <- make_socp_fixture(file.path(root, "bare"), extra_lines = paste0("hidden_review_file: ", review))
+  output <- run_assay_script("DLCA_SocP v.1.1.0.R", bare$config)
+  expect_true(!is.null(attr(output, "status")) && attr(output, "status") != 0)
+  expect_true(any(grepl("hidden_review_file needs hidden_contact", output)))
+})
+
 test_that("the SocP batch script leaves out reviewed hands and clears a reviewed not-hidden stretch", {
   testthat::skip_if_not_installed("yaml")
   testthat::skip_if_not_installed("sp")

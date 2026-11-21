@@ -401,3 +401,60 @@ test_that("a reviewed not_hidden decision clears a hidden stretch and marks it",
   utils::write.csv(transform(decision, target = "all"), path, row.names = FALSE)
   expect_error(read_qc_decisions(path), "target 'all'")
 })
+
+test_that("reviewed hidden frames are contact, valid time without contact, or unobserved", {
+  cups <- c(left = "socl", right = "socr")
+  tracking <- hidden_fixture()
+  found <- detect_hidden(tracking)                       # rows 31-90 = clip frames 30-89, at the right cup
+  review <- data.frame(file = "synthetic", target = "socr", first_frame = c(30, 50, 70), last_frame = c(49, 69, 89),
+                       class = c("contact", "no_contact", "unobserved"), evidence = "", reviewer = "",
+                       stringsAsFactors = FALSE)
+  rv <- apply_hidden_review(found, review, "synthetic", cups, 30)
+  expect_equal(which(rv$masks$right), 31:50)
+  expect_equal(which(rv$review$no_contact), 51:70)
+  expect_equal(which(rv$review$unobserved), 71:90)
+  expect_equal(unlist(rv$episodes[, c("review_contact_s", "review_no_contact_s", "review_unobserved_s", "unreviewed_s")]),
+               c(review_contact_s = 20, review_no_contact_s = 20, review_unobserved_s = 20, unreviewed_s = 0) / 30)
+  # frames no segment covers keep the rule
+  part <- apply_hidden_review(found, review[2, ], "synthetic", cups, 30)
+  expect_equal(which(part$masks$right), c(31:50, 71:90))
+  expect_equal(part$episodes$unreviewed_s, 40 / 30)
+  other <- apply_hidden_review(found, review, "other", cups, 30)
+  expect_identical(other$masks, found$masks)
+  expect_false(any(unlist(other$review)))
+  # a segment at the other cup meets no hidden frame; one reaching before the stretch has frames no longer hidden
+  expect_warning(apply_hidden_review(found, transform(review[1, ], target = "socl"), "synthetic", cups, 30),
+                 "meets no hidden frame")
+  expect_warning(apply_hidden_review(found, transform(review[1, ], first_frame = 20), "synthetic", cups, 30),
+                 "10 of its 30 frames are no longer hidden")
+  expect_error(apply_hidden_review(found, transform(review[1, ], target = "objL"), "synthetic", cups, 30),
+               "unknown target")
+
+  # contact frames stay contact and valid time; no-contact frames are valid time only; unobserved frames neither
+  rule <- compute_socp_metrics(tracking, "L", fps = 30, hidden = found$masks)
+  m <- compute_socp_metrics(tracking, "L", fps = 30, hidden = rv$masks, hidden_review = rv$review)
+  expect_equal(rule$summary$contactRight - m$summary$contactRight, 40 / 30)
+  expect_equal(m$summary$validTime, rule$summary$validTime - 20 / 30)
+  expect_equal(c(m$summary$hiddenRight, m$summary$hiddenNoContact, m$summary$hiddenUnobserved), c(20, 20, 20) / 30)
+  expect_false(any(unlist(m$events[51:90, c("contact_left", "contact_right", "proximity_left", "proximity_right")])))
+  expect_true(all(m$events$valid[51:70]))
+  expect_false(any(m$events$valid[71:90]))
+  # hidden_as unobserved questions only the frames still counted as contact
+  u <- compute_socp_metrics(tracking, "L", fps = 30, hidden = rv$masks, hidden_review = rv$review,
+                            hidden_as = "unobserved")
+  expect_false(any(u$events$valid[c(31:50, 71:90)]))
+  expect_true(all(u$events$valid[51:70]))
+  expect_error(compute_socp_metrics(tracking, "L", fps = 30, hidden = found$masks, hidden_review = rv$review),
+               "overlap")
+
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(review, path, row.names = FALSE)
+  expect_equal(read_hidden_review(path)$class, review$class)
+  utils::write.csv(transform(review, class = c("contact", "neither", "unobserved")), path, row.names = FALSE)
+  expect_error(read_hidden_review(path), "Unknown hidden review class")
+  utils::write.csv(transform(review, first_frame = c(30, 49, 70)), path, row.names = FALSE)
+  expect_error(read_hidden_review(path), "overlap")
+  utils::write.csv(transform(review, last_frame = c(49, 69, 89.5)), path, row.names = FALSE)
+  expect_error(read_hidden_review(path), "whole frame")
+  expect_equal(nrow(read_hidden_review(file.path(tempdir(), "absent.csv"))), 0)
+})

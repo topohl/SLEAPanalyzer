@@ -161,7 +161,9 @@ assay_schema <- function(assay) {
       hidden_min_nose_lost_share = config_field("number", positive = TRUE, required = FALSE),
       # "contact" unless set; "unobserved" makes hidden time neither contact
       # nor valid time (compute_socp_metrics()), a sensitivity.
-      hidden_as = config_field("string", choices = c("contact", "unobserved"), required = FALSE)
+      hidden_as = config_field("string", choices = c("contact", "unobserved"), required = FALSE),
+      # Reviewed class of hidden frames (read_hidden_review(), plausibility.R).
+      hidden_review_file = config_field("path", required = FALSE)
     ),
     stop("Unknown assay: ", assay)
   )
@@ -179,7 +181,7 @@ load_assay_config <- function(path, assay) {
     schema = assay_schema(assay),
     path_fields = c(
       "input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file",
-      "qc_decisions_file", "hand_events_file"
+      "qc_decisions_file", "hand_events_file", "hidden_review_file"
     )
   )
 }
