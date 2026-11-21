@@ -495,6 +495,97 @@ apply_not_hidden <- function(found, decisions, file, objects, fps, clip_row = NU
   found
 }
 
+#' Read the reviewed class of hidden frames.
+#'
+#' One row per reviewed segment of a hidden stretch: `file` (the recording
+#' name without extension), `target` (the cup landmark of the stretch),
+#' `first_frame` and `last_frame` (0-based frames of the clip video, as in the
+#' hand events), `class`, and `evidence` and `reviewer` for the record. Class
+#' "contact": what is seen meets the contact definition (the nose inside the
+#' contact zone, or the head pushed into the gap at the box edge on the cup's
+#' side with the neck at the cup); "no_contact": the visible head, orientation
+#' or position shows the mouse is not at the cup; "unobserved": too little is
+#' seen to tell. Segments of a recording may not overlap. An absent file means
+#' no review.
+read_hidden_review <- function(path) {
+  columns <- c("file", "target", "first_frame", "last_frame", "class", "evidence", "reviewer")
+  empty <- data.frame(file = character(), target = character(), first_frame = numeric(), last_frame = numeric(),
+                      class = character(), evidence = character(), reviewer = character(), stringsAsFactors = FALSE)
+  if (is.null(path) || !file.exists(path)) return(empty)
+  review <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE, colClasses = "character")
+  missing <- setdiff(columns, names(review))
+  if (length(missing) > 0) stop("Hidden review lacks column(s): ", paste(missing, collapse = ", "))
+  if (nrow(review) == 0) return(empty)
+  if (any(is.na(review$file) | !nzchar(review$file))) stop("Hidden review needs a file in every row")
+  bad <- setdiff(unique(review$class), c("contact", "no_contact", "unobserved"))
+  if (length(bad) > 0) stop("Unknown hidden review class(es): ", paste(bad, collapse = ", "))
+  for (column in c("first_frame", "last_frame")) {
+    x <- suppressWarnings(as.numeric(review[[column]]))
+    if (any(is.na(x) | x < 0 | x != round(x))) stop("Hidden review: ", column, " must be a whole frame number from 0")
+    review[[column]] <- x
+  }
+  if (any(review$first_frame > review$last_frame)) stop("Hidden review needs first_frame <= last_frame")
+  for (f in unique(review$file)) {
+    r <- review[review$file == f, , drop = FALSE]
+    r <- r[order(r$first_frame), , drop = FALSE]
+    if (nrow(r) > 1 && any(r$first_frame[-1] <= r$last_frame[-nrow(r)])) stop("Hidden review ", f, ": segments overlap")
+  }
+  review[, columns]
+}
+
+#' Apply the reviewed class of hidden frames.
+#'
+#' Run after apply_not_hidden(). Only frames the rule still finds hidden at
+#' the segment's cup change: "no_contact" and "unobserved" frames leave the
+#' hidden mask and come back as their own masks for compute_socp_metrics();
+#' "contact" frames stay hidden. Hidden frames that no segment covers keep the
+#' rule (contact). A segment that meets no hidden frame at its cup, or only
+#' part of its frames, warns: the tracking has changed since the review.
+#'
+#' @param found the result of detect_hidden_at_objects() and apply_not_hidden()
+#' @param review read_hidden_review()
+#' @param objects the named object landmarks given to detect_hidden_at_objects()
+#' @param clip_row from apply_leave_out(); NULL when nothing was left out
+#' @return `found` with `review = list(no_contact, unobserved)`, one value per
+#'   row, and the episode columns review_contact_s, review_no_contact_s,
+#'   review_unobserved_s and unreviewed_s
+apply_hidden_review <- function(found, review, file, objects, fps, clip_row = NULL) {
+  validate_fps(fps)
+  n <- length(found$masks[[1]])
+  if (is.null(clip_row)) clip_row <- seq_len(n)
+  if (length(clip_row) != n) stop("clip_row is not aligned with the hidden masks")
+  frame <- clip_row - 1L
+  no_contact <- unobserved <- reviewed <- rep(FALSE, n)
+  rows <- review[review$file == file, , drop = FALSE]
+  for (i in seq_len(nrow(rows))) {
+    name <- names(objects)[match(rows$target[i], objects)]
+    if (is.na(name)) stop("Hidden review ", file, ": unknown target ", rows$target[i])
+    span <- frame >= rows$first_frame[i] & frame <= rows$last_frame[i]
+    hit <- found$masks[[name]] & span
+    label <- sprintf("Hidden review %s %s frames %d-%d", file, rows$target[i], rows$first_frame[i], rows$last_frame[i])
+    if (!any(hit)) {
+      warning(label, " meets no hidden frame at that cup; review it again")
+      next
+    }
+    if (sum(hit) < sum(span)) warning(sprintf("%s: %d of its %d frames are no longer hidden there; review it again",
+                                              label, sum(span) - sum(hit), sum(span)))
+    reviewed[hit] <- TRUE
+    if (rows$class[i] == "no_contact") no_contact[hit] <- TRUE
+    if (rows$class[i] == "unobserved") unobserved[hit] <- TRUE
+    if (rows$class[i] != "contact") found$masks[[name]][hit] <- FALSE
+  }
+  ep <- found$episodes
+  per_episode <- function(x) vapply(seq_len(nrow(ep)), function(k) sum(x[ep$start_frame[k]:ep$end_frame[k]]) / fps, 0)
+  still <- Reduce(`|`, found$masks)
+  ep$review_contact_s <- per_episode(still & reviewed)
+  ep$review_no_contact_s <- per_episode(no_contact)
+  ep$review_unobserved_s <- per_episode(unobserved)
+  ep$unreviewed_s <- per_episode(still & !reviewed)
+  found$episodes <- ep
+  found$review <- list(no_contact = no_contact, unobserved = unobserved)
+  found
+}
+
 #' Apply reviewed decisions to an on-object mask.
 #'
 #' Frame i (1-based) lies at (i - 1) / fps seconds, the convention of every

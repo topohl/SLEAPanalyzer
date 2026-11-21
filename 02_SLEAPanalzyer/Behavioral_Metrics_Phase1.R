@@ -287,6 +287,11 @@ compute_nor_metrics <- function(tracking, novel_location, fps,
 #' @param hidden_as "contact" (the default, as above) or "unobserved": hidden
 #'   frames are then neither contact nor proximity nor valid observation time
 #'   (a sensitivity); `hidden*` reports them either way.
+#' @param hidden_review optional list with logical vectors `no_contact` and
+#'   `unobserved` (apply_hidden_review()): hidden frames reviewed as not at the
+#'   cup are valid time without contact, frames too little is seen of are
+#'   neither contact nor valid time, and neither is ever proximity or on the
+#'   cup. `hidden_as` does not change them.
 compute_socp_metrics <- function(tracking, novel_location, fps,
                                  contact_distance = 6,
                                  body_exclusion_distance = 1,
@@ -299,7 +304,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
                                  max_gap_s = 0,
                                  on_cup = NULL,
                                  hidden = NULL,
-                                 hidden_as = c("contact", "unobserved")) {
+                                 hidden_as = c("contact", "unobserved"),
+                                 hidden_review = NULL) {
   hidden_as <- match.arg(hidden_as)
   required <- c("nose", "bodycentre", "socl", "socr")
   validate_tracking_data(tracking, required_landmarks = required)
@@ -344,22 +350,34 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
   hidden_left <- normalize_validity_mask(hidden$left, n)
   hidden_right <- normalize_validity_mask(hidden$right, n)
   hidden_any <- hidden_left | hidden_right
-  on_left <- normalize_validity_mask(on_cup$left, n) & !hidden_any
-  on_right <- normalize_validity_mask(on_cup$right, n) & !hidden_any
+  if (is.null(hidden_review)) hidden_review <- list(no_contact = rep(FALSE, n), unobserved = rep(FALSE, n))
+  if (!is.list(hidden_review) || !all(c("no_contact", "unobserved") %in% names(hidden_review))) {
+    stop("hidden_review must be a list with logical vectors 'no_contact' and 'unobserved'")
+  }
+  no_contact <- normalize_validity_mask(hidden_review$no_contact, n)
+  unobserved <- normalize_validity_mask(hidden_review$unobserved, n)
+  if (any(no_contact & unobserved) || any((no_contact | unobserved) & hidden_any)) {
+    stop("hidden_review frames must not overlap each other or the hidden masks")
+  }
+  # every frame the hidden rule found, whatever the review made of it
+  ruled <- hidden_any | no_contact | unobserved
+  on_left <- normalize_validity_mask(on_cup$left, n) & !ruled
+  on_right <- normalize_validity_mask(on_cup$right, n) & !ruled
   # Counted before the mask is applied, so the summary says what was removed.
   removed_left <- sum(contact_left & on_left & valid, na.rm = TRUE) / fps
   removed_right <- sum(contact_right & on_right & valid, na.rm = TRUE) / fps
   if (hidden_as == "contact") {
-    contact_left <- (contact_left & !on_left & !hidden_right) | hidden_left
-    contact_right <- (contact_right & !on_right & !hidden_left) | hidden_right
+    contact_left <- (contact_left & !on_left & !hidden_right & !no_contact & !unobserved) | hidden_left
+    contact_right <- (contact_right & !on_right & !hidden_left & !no_contact & !unobserved) | hidden_right
     valid <- valid | hidden_any
   } else {
-    contact_left <- contact_left & !on_left & !hidden_any
-    contact_right <- contact_right & !on_right & !hidden_any
+    contact_left <- contact_left & !on_left & !ruled
+    contact_right <- contact_right & !on_right & !ruled
     valid <- valid & !hidden_any
   }
-  proximity_left <- proximity_left & !on_left & !hidden_any
-  proximity_right <- proximity_right & !on_right & !hidden_any
+  valid <- (valid | no_contact) & !unobserved
+  proximity_left <- proximity_left & !on_left & !ruled
+  proximity_right <- proximity_right & !on_right & !ruled
 
   segment <- function(event) {
     segment_events(event, fps, valid = valid, min_bout_s = min_bout_s, max_gap_s = max_gap_s)
@@ -418,6 +436,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       hiddenRight = hidden_right_s,
       hiddenNovel = unname(hidden_mapped["novel"]),
       hiddenFamiliar = unname(hidden_mapped["familiar"]),
+      hiddenNoContact = sum(no_contact) / fps,
+      hiddenUnobserved = sum(unobserved) / fps,
       stringsAsFactors = FALSE
     ),
     events = data.frame(
@@ -429,6 +449,8 @@ compute_socp_metrics <- function(tracking, novel_location, fps,
       on_cup_right = on_right,
       hidden_left = hidden_left,
       hidden_right = hidden_right,
+      hidden_no_contact = no_contact,
+      hidden_unobserved = unobserved,
       valid = valid
     ),
     segmentation = list(left = left, right = right)

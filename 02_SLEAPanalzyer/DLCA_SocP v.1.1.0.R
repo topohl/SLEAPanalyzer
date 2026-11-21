@@ -82,6 +82,11 @@ if (!is.null(config$qc_decisions_file) && !file.exists(config$qc_decisions_file)
 if (!is.null(config$hand_events_file) && !file.exists(config$hand_events_file)) {
   stop("hand_events_file not found: ", config$hand_events_file)
 }
+if (!is.null(config$hidden_review_file)) {
+  if (!isTRUE(config$hidden_contact)) stop("hidden_review_file needs hidden_contact: true")
+  if (!file.exists(config$hidden_review_file)) stop("hidden_review_file not found: ", config$hidden_review_file)
+}
+hiddenReview <- if (is.null(config$hidden_review_file)) NULL else read_hidden_review(config$hidden_review_file)
 # Each reviewed hand becomes a leave-out window by one rule (hand_event_windows()).
 qcDecisions <- rbind(read_qc_decisions(config$qc_decisions_file),
                      hand_event_windows(read_hand_events(config$hand_events_file), config$fps))
@@ -131,6 +136,7 @@ for (batch in batches) {
 
       # Before the repair, while the filled rows are still exact straight lines.
       hidden <- NULL
+      hiddenReviewed <- NULL
       if (isTRUE(config$hidden_contact)) {
         found <- detect_hidden_at_objects(
           tracking, c(left = "socl", right = "socr"),
@@ -142,7 +148,13 @@ for (batch in batches) {
         # Reviewed stretches that are not hidden (decision not_hidden) are cleared and marked.
         found <- apply_not_hidden(found, qcDecisions, inputFileName, c(left = "socl", right = "socr"),
                                   config$fps, clip_row = cut$clip_row)
+        # Reviewed frames of a hidden stretch: contact, no contact (valid time) or unobserved.
+        if (!is.null(hiddenReview)) {
+          found <- apply_hidden_review(found, hiddenReview, inputFileName, c(left = "socl", right = "socr"),
+                                       config$fps, clip_row = cut$clip_row)
+        }
         hidden <- found$masks
+        hiddenReviewed <- found$review
         if (nrow(found$episodes) > 0) {
           hiddenList[[length(hiddenList) + 1L]] <- cbind(tag, episodes_on_clip(found$episodes, cut$clip_row, config$fps))
         }
@@ -279,7 +291,8 @@ for (batch in batches) {
         max_gap_s = config$max_gap_s,
         on_cup = onCup,
         hidden = hidden,
-        hidden_as = hiddenAs
+        hidden_as = hiddenAs,
+        hidden_review = hiddenReviewed
       )
 
       df <- cbind(
@@ -368,7 +381,8 @@ for (batch in batches) {
         extra = list(assay = "SocP", batch = batch, phase = socpPhase,
                      files = length(fileList),
                      qc_decisions = input_file_records(config$qc_decisions_file),
-                     hand_events = input_file_records(config$hand_events_file))
+                     hand_events = input_file_records(config$hand_events_file),
+                     hidden_review = input_file_records(config$hidden_review_file))
       )
       assert_reproducible_run(manifest)
       write_run_manifest(manifest, file.path(outputDir, "run_manifest.yaml"))
