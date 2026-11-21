@@ -225,7 +225,7 @@ test_that("the configuration copy sets batches and phases and makes relative pat
 test_that("the path keys are the ones the checkout's loader code resolves", {
   expect_equal(rescore_path_keys("NOR", repo_root),
                c("input_dir", "output_dir", "metadata_dir", "animal_id_code_file", "zone_file", "qc_decisions_file",
-                 "hand_events_file"))
+                 "hand_events_file", "hidden_review_file"))
   expect_equal(rescore_path_keys("OFT", repo_root), c("behavior_root", "animal_id_code_file"))
 
   # A path field added to a checkout's loader, or to its OFT overlay call, is picked up.
@@ -233,7 +233,8 @@ test_that("the path keys are the ones the checkout's loader code resolves", {
     loader_files("added_file"),
     list("02_SLEAPanalzyer/DLCA_OFT v1.2.0.R" = stub_oft_script(c("behavior_root", "animal_id_code_file", "added_root")))
   ))
-  expect_equal(utils::tail(rescore_path_keys("SocP", repo), 3), c("qc_decisions_file", "added_file", "hand_events_file"))
+  expect_equal(utils::tail(rescore_path_keys("SocP", repo), 4),
+               c("qc_decisions_file", "added_file", "hand_events_file", "hidden_review_file"))
   expect_true("added_file" %in% rescore_path_keys("EPM", repo))
   expect_equal(rescore_path_keys("OFT", repo), c("behavior_root", "animal_id_code_file", "added_root"))
   expect_error(rescore_path_keys("NOR", dirname(repo)), "the checkout has no")
@@ -324,6 +325,24 @@ test_that("the run manifest check wants the configuration copy and the decisions
   write_hands(md5_sum = "0123456789abcdef0123456789abcdef")
   expect_false(check_run_manifest(path, "abc123", "B1", config_copy = copy, decisions = decisions, hand_events = hands)$ok[6])
   write_hands()
+  expect_false(check_run_manifest(path, "abc123", "B1", config_copy = copy, decisions = decisions)$ok[6])
+
+  # And its frame review of hidden stretches.
+  review <- write_text(file.path(root, "hidden_review_socp.csv"), "file,target,first_frame,last_frame,class,evidence,reviewer")
+  write_review <- function(md5_sum = md5(review)) {
+    write_text(path, yaml::as.yaml(list(
+      code = list(commit = "abc123", dirty_working_tree = FALSE), config = list(.config_path = copy),
+      extra = list(batch = "B1", qc_decisions = list(list(path = decisions, exists = TRUE, md5 = md5(decisions))),
+                   hidden_review = list(list(path = review, exists = TRUE, md5 = md5_sum))))))
+  }
+  write_review()
+  ok <- check_run_manifest(path, "abc123", "B1", config_copy = copy, decisions = decisions, hidden_review = review)
+  expect_equal(ok$check[6], "hidden_review_file is the copy's (path, md5)")
+  expect_true(all(ok$ok))
+  write_review(md5_sum = "0123456789abcdef0123456789abcdef")
+  expect_false(check_run_manifest(path, "abc123", "B1", config_copy = copy, decisions = decisions,
+                                  hidden_review = review)$ok[6])
+  write_review()
   expect_false(check_run_manifest(path, "abc123", "B1", config_copy = copy, decisions = decisions)$ok[6])
 })
 
