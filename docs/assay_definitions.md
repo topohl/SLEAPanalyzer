@@ -538,7 +538,10 @@ recordings the rule finds 148 s in 96 stretches in 43 recordings: 130 s in
 batch 4, 116 s of it in the four recordings reviewed in the 2026-11 light
 checks (B7C9 habituation and phase 2, C1U2 phases 1 and 2), each reviewed
 stretch included; elsewhere no stretch is longer than 1.2 s, except in B4Y7's
-habituation (4.3 s, cleared by review).
+habituation (4.3 s, cleared by review). With the 2026-11 hand table and
+decisions the rule finds 141.7 s in 91 stretches, and `hidden_review_socp.csv`
+classes every frame of them: 3.1 s contact, 11.5 s no contact, 127.0 s
+unobserved.
 
 ### A head hidden under the cup lid
 
